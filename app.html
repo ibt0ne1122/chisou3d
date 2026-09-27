@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>大地のつくり 3D土地模型</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="viewport"></div>
+
+<header id="titlebar">
+  <div>
+    <h1 id="siteTitle">大地のつくり 3D土地模型</h1>
+    <div id="siteSub"></div>
+  </div>
+  <span id="sampleBadge" class="badge warn hidden" title="仮データについて">⚠ 仮のボーリングデータを表示中</span>
+</header>
+
+<!-- 左：操作パネル -->
+<aside id="controls" class="panel">
+  <button id="controlsToggle" class="panel-toggle" aria-label="パネルを開く/閉じる">☰</button>
+  <div class="panel-body">
+    <section>
+      <h2>地図</h2>
+      <select id="mapSelect"></select>
+    </section>
+    <section>
+      <h2>範囲（中心からの半径）</h2>
+      <select id="radiusSelect"></select>
+      <p class="hint">変えると地形を読み込み直します。広くするほど読み込みに時間がかかります。</p>
+    </section>
+    <section>
+      <h2>凹凸の見せ方</h2>
+      <select id="reliefSelect"></select>
+      <p class="hint">高さを強調しすぎずに、色や等高線でデコボコをつかめます。</p>
+    </section>
+    <section>
+      <h2>防災の情報を重ねる</h2>
+      <select id="hazardSelect"></select>
+      <p id="hazardNote" class="hint hidden"></p>
+    </section>
+    <section>
+      <h2>高さを強調 <b id="veValue">×3</b></h2>
+      <input type="range" id="veRange" min="1" max="8" step="0.5" value="3">
+      <p class="hint">本当の高さは ×1。デコボコを見やすくするために高さだけ大きくしています。</p>
+    </section>
+    <section>
+      <h2>地面をすきとおらせる</h2>
+      <input type="range" id="opacityRange" min="0.1" max="1" step="0.05" value="1">
+    </section>
+    <section>
+      <h2>地層をはがす</h2>
+      <input type="range" id="peelRange" class="hidden" min="0" max="0" step="1" value="0">
+      <div id="peelChecks"></div>
+      <p id="peelLabel" class="hint strong">地面（地図）</p>
+    </section>
+    <section class="checks">
+      <label><input type="checkbox" id="chkBores" checked> ボーリングの柱</label>
+      <label><input type="checkbox" id="chkLift"> 柱を地上に引き出す</label>
+      <label><input type="checkbox" id="chkRiver"> 川を強調する</label>
+      <label><input type="checkbox" id="chkYato"> 谷戸（やと）を表示</label>
+      <label><input type="checkbox" id="chkLabels" checked> 名前・目印</label>
+      <label><input type="checkbox" id="chkAutoMarks" checked> まわりの目印（駅・学校・公園・公共施設）</label>
+      <label><input type="checkbox" id="chkNotes" checked> 気づきメモ</label>
+      <label><input type="checkbox" id="chkRing" checked> 半径の円</label>
+    </section>
+    <section>
+      <h2>見る向き</h2>
+      <div class="btnrow">
+        <button data-view="top">真上から</button>
+        <button data-view="tilt">ななめ</button>
+        <button data-view="side">横から</button>
+      </div>
+    </section>
+    <section>
+      <h2>ボーリングの柱の色分け</h2>
+      <select id="colorBySelect">
+        <option value="layer">地層の種類で（ローム層・ねんど・泥岩…）</option>
+        <option value="grain">つぶの大きさで（れき・砂・どろ・火山灰）</option>
+      </select>
+      <ul id="grainLegend" class="hidden"></ul>
+    </section>
+    <section>
+      <h2>地層の色（凡例）</h2>
+      <ul id="legend"></ul>
+    </section>
+    <section>
+      <h2>その他</h2>
+      <div class="btnrow">
+        <button id="btnShot">📷 画面を保存</button>
+        <button id="btnNotesList">📝 メモ一覧</button>
+      </div>
+      <label class="teacher-switch"><input type="checkbox" id="chkTeacher"> 先生モード</label>
+      <div id="teacherTools" class="hidden">
+        <label><input type="checkbox" id="chkSample"> 仮データを表示</label>
+        <div class="btnrow">
+          <button id="btnExport">データを書き出す</button>
+          <button id="btnImport">データを読み込む</button>
+        </div>
+        <div class="btnrow">
+          <button id="btnXml" class="primary">📄 柱状図XMLを読み込む</button>
+        </div>
+        <div class="btnrow">
+          <button id="btnShare" type="button" class="primary">🔗 子ども用リンク・送り先</button>
+        </div>
+        <select id="siteSelect"></select>
+        <button id="btnNewSite" type="button">＋ 新しい場所の模型をつくる</button>
+      </div>
+    </section>
+  </div>
+</aside>
+
+<!-- 下：モード切りかえ -->
+<nav id="modebar">
+  <button data-mode="view" class="active">👆 見る</button>
+  <button data-mode="section">✂️ 断面を切る</button>
+  <button data-mode="cut" class="cutbtn">🔪 模型を切る</button>
+  <button data-mode="pick">📍 柱をえらぶ</button>
+  <button data-mode="note">📝 気づきメモ</button>
+  <button data-mode="edit" class="teacher-only hidden">➕ ボーリング追加</button>
+  <span class="sep"></span>
+  <button id="qLift" class="quick" type="button">⬆️ 柱を地上に</button>
+  <button id="qRiver" class="quick" type="button">🌊 川を強調</button>
+  <button id="qYato" class="quick hidden" type="button">〰 谷戸</button>
+</nav>
+<div id="hint" class="hidden"></div>
+<div id="cutBar" class="floatbar hidden">
+  <span>🔪 模型の切り口</span>
+  <label class="toggle"><input type="checkbox" id="cutNoData"> 資料のない深さを灰色に</label>
+  <label class="toggle"><input type="checkbox" id="cutReal"> 本物の柱と「推定」の表示</label>
+  <button id="cutFlip" type="button">🔄 反対側を残す</button>
+  <button id="cutSheet" type="button">📊 断面図も開く</button>
+  <button id="cutRedo" type="button">✂️ 切り直す</button>
+  <button id="cutEnd" type="button">✕ やめる</button>
+</div>
+<div id="pickBar" class="floatbar hidden">
+  <span id="pickInfo">📍 断面に使う柱の旗を、順番にタップ</span>
+  <button id="pickOk" type="button" class="primary">✅ この柱で断面図をつくる</button>
+  <button id="pickUndo" type="button">↶ 1つもどす</button>
+  <button id="pickClear" type="button">やり直す</button>
+</div>
+
+<div id="topright">
+  <div id="compass"><div class="needle">▲</div><div class="n">北</div></div>
+  <button id="btnHelp" class="round-btn">？<small>使い方</small></button>
+  <button id="btnSources" class="round-btn">📚<small>根拠</small></button>
+</div>
+
+<!-- 右：詳しい情報（ボーリング資料など） -->
+<aside id="detail" class="panel hidden">
+  <button class="close" data-close="detail" aria-label="閉じる">✕</button>
+  <div id="detailBody"></div>
+</aside>
+
+<!-- 下：断面図 -->
+<section id="sectionSheet" class="hidden">
+  <div id="sheetGrip" title="上下にドラッグして大きさを変える"><span></span></div>
+  <div class="sheet-head">
+    <strong>断面図 <span id="secInfo"></span></strong>
+    <span class="size-btns">
+      <button id="secSmaller" type="button">⬇ 小さく</button>
+      <button id="secBigger" type="button">⬆ 大きく</button>
+      <button id="secFull" type="button">⛶ 全画面</button>
+      <span id="secExtentBox" class="seg">範囲
+        <button type="button" data-ext="ab">A〜Bだけ</button><button type="button" data-ext="full">模型のはしまで</button>
+      </span>
+      <span id="secVeBox" class="seg">たての強調
+        <button type="button" data-ve="1">×1 本当の形</button><button type="button" data-ve="2">×2</button><button type="button" data-ve="5">×5</button><button type="button" data-ve="10">×10</button><button type="button" data-ve="auto">自動</button>
+      </span>
+      <span id="secZoomBox" class="seg">横に拡大
+        <button type="button" data-z="1">なし</button><button type="button" data-z="2">×2</button><button type="button" data-z="4">×4</button><button type="button" data-z="5m" title="たての5mの間が、はっきり見える大きさまで拡大します">🔍 5mが見える</button>
+        <input type="range" id="secPan" min="0" max="1000" value="500" class="hidden" title="左右に動かして、見る場所を変えます">
+      </span>
+    </span>
+    <div class="sheet-tools">
+      <span class="tool-label">予想をかく：</span>
+      <span id="penBox"></span>
+      <button id="secUndo">↶ 線を1つ消す</button>
+      <button id="secClear">線を全部消す</button>
+      <label class="toggle"><input type="checkbox" id="secConnect"> 柱と柱をつなぐ</label>
+      <label class="toggle"><input type="checkbox" id="secShowModel"> 模型の地層を見る（答え合わせ）</label>
+      <button id="secFlip">反対側から見る</button>
+      <span class="stagebox">
+        <button id="secStage" type="button">🎬 大地のでき方</button>
+        <button id="secStagePrev" type="button" class="hidden">◀</button>
+        <button id="secStageNext" type="button" class="hidden">▶</button>
+      </span>
+      <button id="secMemoBtn" type="button">📝 考えメモ</button>
+      <button id="secSave">📷 保存</button>
+      <button class="close" data-close="section" aria-label="閉じる">✕</button>
+    </div>
+  </div>
+  <div class="sheet-bores">
+    <label class="toggle strong"><input type="checkbox" id="secShowBores" checked> わかっているボーリングを表示</label>
+    <label class="toggle"><input type="checkbox" id="secNames" checked> 柱の名前</label>
+    <span id="secBores"></span>
+    <button id="secRedo" type="button">✂️ 線を引き直す</button>
+  </div>
+  <div id="secLegend"></div>
+  <div class="sec-body">
+    <canvas id="secCanvas"></canvas>
+    <div id="secMemo" class="hidden">
+      <label>名前・班<input id="memoName" type="text"></label>
+      <label>① 予想とその理由（どの柱のどの層を手がかりにした？）<textarea id="memoPredict" rows="3" placeholder="例：㋐と㋒の両方で、砂の層が同じ高さにあるから、㋑の下にも砂の層がつながっていると思う。"></textarea></label>
+      <label>② 答え合わせで分かったこと（予想と同じ所・ちがった所）<textarea id="memoResult" rows="3"></textarea></label>
+      <p class="hint">「📷 保存」で、断面図と一緒にこのメモも画像になります。</p>
+      <button id="secSend" type="button" class="primary">📮 先生に送る</button>
+    </div>
+  </div>
+</section>
+
+<div id="reliefLegend" class="hidden"></div>
+<div id="navpad">
+  <div class="np-drag">
+    <button data-drag="move" type="button">✋ 移動</button>
+    <button data-drag="rotate" type="button">🔄 回転</button>
+  </div>
+  <div class="np-grid">
+    <button data-rot="0.26" type="button" title="左に回す">⟲</button>
+    <button data-pan="0,1" type="button" title="奥へ">▲</button>
+    <button data-rot="-0.26" type="button" title="右に回す">⟳</button>
+    <button data-pan="-1,0" type="button" title="左へ">◀</button>
+    <button id="navHome" type="button" title="はじめの見え方にもどす">🏠</button>
+    <button data-pan="1,0" type="button" title="右へ">▶</button>
+    <button data-tilt="-0.15" type="button" title="上から見る">⤒</button>
+    <button data-pan="0,-1" type="button" title="手前へ">▼</button>
+    <button data-tilt="0.15" type="button" title="横から見る">⤓</button>
+  </div>
+  <div class="np-zoom">
+    <button data-zoom="0.75" type="button" title="近づく">＋</button>
+    <button data-zoom="1.33" type="button" title="はなれる">－</button>
+  </div>
+</div>
+<div id="elevTip" class="hidden"></div>
+
+<div id="loading"><div class="box"><div class="spinner"></div><p id="loadingText">読み込み中…</p></div></div>
+
+<!-- メモ入力 -->
+<dialog id="noteDialog">
+  <form method="dialog">
+    <h3>📝 気づきメモ</h3>
+    <label>気づいたこと・考えたこと<textarea id="noteText" rows="4" placeholder="例：向こうの丘にも同じ砂の層がある！"></textarea></label>
+    <label>名前・班（なくてもよい）<input id="noteAuthor" type="text"></label>
+    <div class="colors" id="noteColors"></div>
+    <div class="btnrow end">
+      <button value="cancel">やめる</button>
+      <button value="ok" class="primary">置く</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ボーリング入力（先生用） -->
+<dialog id="boreDialog">
+  <form method="dialog" id="boreForm">
+    <h3>ボーリング資料の入力</h3>
+    <div class="grid2">
+      <label>名前<input id="bName" required></label>
+      <label>孔口標高(m)<input id="bElev" type="number" step="0.01" placeholder="空欄＝地図から"></label>
+      <label>緯度<input id="bLat" type="number" step="0.000001"></label>
+      <label>経度<input id="bLon" type="number" step="0.000001"></label>
+      <label class="span2">出典<input id="bSource" placeholder="例：横浜市 地盤View（〇〇工事）"></label>
+      <label class="span2">資料のURL<input id="bUrl" type="url"></label>
+      <label class="span2">柱状図の画像（ファイル名またはURL）<input id="bImage"></label>
+    </div>
+    <table id="bLogs">
+      <thead><tr><th>下の面の深さ(m)</th><th>層</th><th>土の名前（資料のまま）</th><th>N値</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <button type="button" id="bAddRow">＋ 行を追加</button>
+    <div class="btnrow end">
+      <button type="button" id="bDelete" class="danger">このボーリングを消す</button>
+      <button value="cancel">やめる</button>
+      <button value="ok" class="primary">保存</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- 書き出し・読み込み -->
+<dialog id="ioDialog">
+  <form method="dialog">
+    <h3 id="ioTitle">データ</h3>
+    <p id="ioHelp" class="hint"></p>
+    <textarea id="ioText" rows="14" spellcheck="false"></textarea>
+    <div class="btnrow end">
+      <button type="button" id="ioDownload">ファイルに保存</button>
+      <button type="button" id="ioLoad" class="primary">読み込む</button>
+      <button value="cancel">閉じる</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- 子ども用リンク・送り先 -->
+<dialog id="shareDialog" class="wide">
+  <form method="dialog">
+    <h3>🔗 子ども用リンク（いまの画面を配る）</h3>
+    <p class="hint">いまの見え方（カメラの向き・断面の線・「？」にした柱・お気に入りの色・はがした層・川や谷戸の表示）を、そのままリンクにします。ロイロノートやClassroomで配ると、子どもはこの画面から始められます。</p>
+    <label class="toggle"><input type="checkbox" id="shareLock"> 答え合わせ（模型の地層を見る・大地のでき方）を使えないようにする</label>
+    <label class="toggle"><input type="checkbox" id="shareStrokes"> 先生がかいた予想の線もいっしょに配る</label>
+    <p class="hint">子どもの画面では「先生モード」は出ません。</p>
+    <div class="btnrow"><button type="button" id="shareMake" class="primary">リンクをつくる</button><button type="button" id="shareCopy">📋 コピー</button></div>
+    <textarea id="shareOut" rows="3" readonly spellcheck="false"></textarea>
+    <p id="shareFileNote" class="hint warnbox hidden">⚠ いまはパソコンの中のファイルを開いているので、リンクもこのパソコンの中の場所になります。インターネットに公開したアドレスで開いてから作ると、子どもの端末でも開けるリンクになります。</p>
+    <hr>
+    <h3>📮 子どもの予想の送り先（Googleフォーム）</h3>
+    <p class="hint">子どもが断面図の「📝 考えメモ」→「📮 先生に送る」をおすと、このフォームに 名前・予想・分かったこと・<b>その子の断面図を開くリンク</b> が入って送られます。回答はフォームのスプレッドシートにたまり、リンクをおすと その子の予想の線つきの断面図が開きます。</p>
+    <details><summary>フォームの作り方（はじめの1回だけ）</summary>
+      <ol class="hint">
+        <li>学校のGoogleアカウントで Googleフォームを新しく作る（例：「大地のつくり 予想の提出」）</li>
+        <li>質問を4つ作る：「名前・班」（記述式）、「予想とその理由」（段落）、「分かったこと」（段落）、「断面図のリンク」（段落）</li>
+        <li>右上の「︙」→「事前入力したURLを取得」をおす</li>
+        <li>4つの答えに、それぞれ <b>NAME</b>、<b>PREDICT</b>、<b>RESULT</b>、<b>LINK</b> と入れて「リンクを取得」→「リンクをコピー」</li>
+        <li>コピーしたURLを、下にはりつけて「決める」</li>
+      </ol>
+      <p class="hint">送り先を決めてから「子ども用リンク」を作ると、子どもの画面にも送り先が入ります。</p>
+    </details>
+    <div class="btnrow"><input id="shareFormUrl" type="text" placeholder="https://docs.google.com/forms/d/e/…/viewform?usp=pp_url&entry.…=NAME…" style="flex:1"><button type="button" id="shareFormSave">決める</button></div>
+    <p id="shareFormState" class="hint"></p>
+    <div class="btnrow end"><button value="cancel">閉じる</button></div>
+  </form>
+</dialog>
+
+<!-- 新しい場所をつくる -->
+<dialog id="newSiteDialog">
+  <form method="dialog">
+    <h3>＋ 新しい場所の模型をつくる</h3>
+    <p class="hint">地形・地図・川・目印は自動で入ります。ボーリング資料は、あとで「柱状図XMLを読み込む」で入れます。</p>
+    <label>学校名など（模型の中心の名前）
+      <span class="row"><input id="nsName" placeholder="例：篠原西小学校"><button type="button" id="nsSearch">🔍 場所をさがす</button></span>
+    </label>
+    <label>緯度・経度をまとめて貼り付け（地理院地図で場所を右クリック → 出てくる数字をコピー）
+      <input id="nsLatLon" placeholder="例：35.530280, 139.490678">
+    </label>
+    <div class="grid2">
+      <label>緯度<input id="nsLat" type="number" step="0.000001"></label>
+      <label>経度<input id="nsLon" type="number" step="0.000001"></label>
+    </div>
+    <label>範囲（半径）
+      <select id="nsRadius"><option value="500">0.5km</option><option value="1000" selected>1km</option><option value="1500">1.5km</option><option value="2000">2km</option><option value="3000">3km</option></select>
+    </label>
+    <p id="nsMsg" class="hint strong"></p>
+    <p class="hint"><a href="https://maps.gsi.go.jp/" target="_blank" rel="noopener">地理院地図を開く ↗</a>　作った場所は、この端末のブラウザに保存されます。</p>
+    <div class="btnrow end">
+      <button value="cancel">やめる</button>
+      <button type="button" id="nsCreate" class="primary">この場所でつくる</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- 使い方 -->
+<dialog id="helpDialog" class="wide">
+  <form method="dialog">
+    <h3>？ 使い方</h3>
+    <div class="tabs"></div>
+    <div class="tab-body"></div>
+    <div class="btnrow end"><button value="close" class="primary">はじめる</button></div>
+  </form>
+</dialog>
+
+<!-- 根拠・出典 -->
+<dialog id="sourcesDialog" class="wide">
+  <form method="dialog">
+    <h3>📚 この模型の根拠（出典）</h3>
+    <div id="sourcesBody" class="tab-body"></div>
+    <div class="btnrow end"><button value="close">閉じる</button></div>
+  </form>
+</dialog>
+
+<footer id="attribution">出典：<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">国土地理院（地理院タイル・標高タイル）</a> ／ 目印：<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap</a> ／ 地下の地層はボーリング資料からの推定です（<a href="#" id="attrMore">くわしく</a>）</footer>
+
+<script src="lib/three.min.js"></script>
+<script src="lib/OrbitControls.js"></script>
+<script>window.CHISOU = { sites: {}, registerSite: function (s) { this.sites[s.id] = s; } };</script>
+<script src="js/geo.js"></script>
+<script src="js/geology.js"></script>
+<script src="sites/sites.js"></script>
+<script src="js/section.js"></script>
+<script src="js/boringxml.js"></script>
+<script src="js/mvt.js"></script>
+<script src="js/yato_yokohama.js"></script>
+<script src="js/ngic_bookmarklet.js"></script>
+<script src="js/help.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
