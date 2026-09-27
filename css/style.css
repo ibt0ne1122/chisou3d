@@ -372,3 +372,14 @@ body:has(.floatbar:not(.hidden)) #hint { bottom: 168px; }
 
 #volcanoBox .vb-head { display: flex; align-items: center; gap: 6px; }
 #volcanoBox .vb-close { margin-left: auto; min-height: 0; padding: 0 8px; font-size: 14px; border-radius: 999px; }
+
+#secYear { float: right; font-size: 26px; font-weight: bold; color: #9a5b00; background: #fff; border: 2px solid #d4a017; border-radius: 10px; padding: 0 12px; line-height: 1.4; margin-left: 10px; }
+
+#secStageText { margin-top: 6px; background: #fffdf2; border: 1px solid #e6d18a; border-radius: 8px; padding: 6px 10px; }
+#secStageText .st-age { font-weight: bold; color: #9a5b00; font-size: 14px; }
+#secStageText .st-text { font-weight: bold; font-size: 16px; }
+#secStageText .st-note { font-size: 11px; color: var(--sub); }
+
+.sheet-bores .sec-offnote { flex-basis: 100%; margin: 2px 0 0; font-size: 12px; }
+
+.sec-offnote { margin: 0; padding: 2px 14px; font-size: 12px; background: #f7fafb; }

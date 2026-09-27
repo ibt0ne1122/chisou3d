@@ -62,7 +62,7 @@
       <label><input type="checkbox" id="chkLift"> 柱を地上に引き出す</label>
       <label><input type="checkbox" id="chkRiver"> 川を強調する</label>
       <label><input type="checkbox" id="chkYato"> 谷戸（やと）を表示</label>
-      <label><input type="checkbox" id="chkLabels" checked> 名前・目印</label>
+      <label><input type="checkbox" id="chkLabels" checked> 名前・目印（外すと、学校名・まわりの目印を全部かくす）</label>
       <label><input type="checkbox" id="chkAutoMarks" checked> まわりの目印（種類をえらべます）</label>
       <div id="markCats"></div>
       <label><input type="checkbox" id="chkNotes" checked> 気づきメモ</label>
@@ -197,15 +197,18 @@
   <div class="sheet-bores">
     <label class="toggle strong"><input type="checkbox" id="secShowBores" checked> わかっているボーリングを表示</label>
     <label class="toggle"><input type="checkbox" id="secNames" checked> 柱の名前</label>
+    <label class="toggle hidden" id="secOnlyChosenBox"><input type="checkbox" id="secOnlyChosen"> 選んだ柱状図以外も表示</label>
     <span id="secBores"></span>
     <button id="secRedo" type="button">✂️ 線を引き直す</button>
   </div>
+  <p class="hint sec-offnote">※ 柱の名前の下の「線から○m」は、切った断面の線からの距離です。はなれているほど、断面の場所の地層とはちがうことがあります（正確さが下がります）。</p>
   <div id="secLegend"></div>
   <div id="secTimeline" class="hidden">
-    <div class="tl-head">⏳ 時間の流れ <button type="button" id="secStagePlay">▶ はじめから通して見る</button> <small>つまみを右へ動かすと、少しずつ時代が進みます（左ほど大昔・右ほど今）</small></div>
+    <div class="tl-head"><span id="secYear"></span>⏳ 時間の流れ <button type="button" id="secStagePlay">▶ はじめから通して見る</button> <small>つまみを右へ動かすと、少しずつ時代が進みます（左ほど大昔・右ほど今）</small></div>
     <input type="range" id="secStageRange" min="0" max="0" step="1" value="0">
     <div id="secStageTicks"></div>
     <div class="tl-real"><span class="tl-lab">本当の時間の長さ</span><div id="secStageBar"></div></div>
+    <div id="secStageText" class="hidden"></div>
   </div>
   <div class="sec-body">
     <canvas id="secCanvas"></canvas>

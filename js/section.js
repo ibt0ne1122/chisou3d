@@ -137,10 +137,13 @@
         if (H - m.b - yb > 20) ctx.fillText("ここから下は、ボーリングの資料がありません", m.l + 130, yb + 16);
       }
 
+      if (this.stage === 0) {
+        if (this._volShown !== false && this.opts.onVolcano) this.opts.onVolcano(null);
+        if (this.opts.onStageText) this.opts.onStageText(null);
+        this._volShown = false;
+      }
       if (this.stage > 0) {
         this._drawStage(ctx, L, P, font);
-      } else if (this.opts.onVolcano && this._volShown !== false) {
-        this.opts.onVolcano(null); this._volShown = false;
       } else if (this.showModel) {
         d.layers.forEach((layer, li) => {
           ctx.beginPath();
@@ -698,13 +701,7 @@
       if (stNow && stNow.from != null) {
         const yrs = stNow.from + (stNow.to - stNow.from) * t;
         const txt = yrs >= 10000 ? "約" + (Math.round(yrs / 1000) / 10).toFixed(yrs >= 1000000 ? 0 : 1).replace(/\.0$/, "") + "万年前" : yrs >= 1 ? "約" + Math.round(yrs) + "年前" : "今";
-        ctx.save(); ctx.textAlign = "right"; ctx.font = "bold 30px " + font;
-        const x = L.W - L.m.r - 12, y = L.m.t + 40;
-        const w = ctx.measureText("⏳ " + txt).width + 20;
-        ctx.fillStyle = "rgba(255,251,239,0.92)"; ctx.fillRect(x - w + 10, y - 32, w, 42);
-        ctx.strokeStyle = "#d4a017"; ctx.strokeRect(x - w + 10, y - 32, w, 42);
-        ctx.fillStyle = "#9a5b00"; ctx.fillText("⏳ " + txt, x, y);
-        ctx.restore();
+        if (this.opts.onYear) this.opts.onYear(txt); // 断面図の外（時間の流れの帯）に大きく出す
       }
       if (this.opts.onVolcano) { const v = this.cv.offsetParent ? this._volcano || null : null; this.opts.onVolcano(v); this._volShown = !!v; }
       this._volcano = null;
@@ -712,23 +709,8 @@
       if (!this._raf && this.cv.offsetParent) this._raf = requestAnimationFrame(() => { this._raf = 0; if (this.stage > 0 && this.cv.offsetParent) { this.clock = performance.now() / 1000; this.draw(); } });
       // 説明
       const st = this.stages().find((x) => x.n === n);
-      if (st) {
-        // 説明は断面図の下のほう（「上ほど新しい」などと重ならない所）に
-        ctx.font = "bold 15px " + font; ctx.textAlign = "left";
-        const x0 = L.m.l + 120, maxW = L.W - L.m.r - x0 - 10;
-        const ageT = st.age ? "⏳ " + st.age : "";
-        ctx.font = "bold 14px " + font; const wa = ctx.measureText(ageT).width;
-        ctx.font = "bold 15px " + font;
-        const w = Math.min(maxW, Math.max(ctx.measureText(st.text).width, wa) + 20);
-        const bh = ageT ? 66 : 46, y0 = L.H - L.m.b - bh - 12;
-        ctx.fillStyle = "rgba(255,253,235,0.96)"; ctx.strokeStyle = "#d4a017";
-        ctx.fillRect(x0, y0, w, bh); ctx.strokeRect(x0, y0, w, bh);
-        let ty = y0 + 20;
-        if (ageT) { ctx.font = "bold 14px " + font; ctx.fillStyle = "#9a5b00"; ctx.fillText(ageT, x0 + 10, ty, w - 20); ty += 20; ctx.font = "bold 15px " + font; }
-        ctx.fillStyle = "#1f2a33"; ctx.fillText(st.text, x0 + 10, ty, w - 20);
-        ctx.font = "11px " + font; ctx.fillStyle = "#5a6873";
-        ctx.fillText("※ボーリング資料から推定した、おおまかな順番です。年代は横浜のあたりの目安", x0 + 10, ty + 18, w - 20);
-      }
+      // 説明は断面図の外（時間の流れの帯の下）に出す
+      if (this.opts.onStageText) this.opts.onStageText(st || null);
     }
 
     _bind() {

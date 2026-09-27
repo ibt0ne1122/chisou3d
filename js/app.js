@@ -747,13 +747,13 @@
   }
   /** 公園・公共施設を OpenStreetMap からおぎなう（1か月おぼえておく） */
   async function loadOsmExtra() {
-    const k = key("osmx:" + S.site.half);
+    const k = key("osmx2:" + S.site.half);
     const cached = store.get(k, null);
     if (cached && Date.now() - cached.t < 30 * 86400000) return cached.list;
     const h = S.site.half;
     const sw = S.frame.toLatLon(-h, h), ne = S.frame.toLatLon(h, -h);
     const bb = [sw.lat, sw.lon, ne.lat, ne.lon].map((v) => v.toFixed(5)).join(",");
-    const q = '[out:json][timeout:25];(nwr["leisure"="park"]["name"](' + bb + ');nwr["amenity"~"^(townhall|library|community_centre)$"]["name"](' + bb + ');nwr["leisure"="sports_centre"]["name"](' + bb + '););out tags center bb;';
+    const q = '[out:json][timeout:25];(nwr["leisure"~"^(park|garden|nature_reserve)$"]["name"](' + bb + ');nwr["amenity"~"^(townhall|library|community_centre|hospital)$"]["name"](' + bb + ');nwr["leisure"="sports_centre"]["name"](' + bb + '););out tags center bb;';
     for (const ep of ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter"]) {
       try {
         const r = await fetch(ep, { method: "POST", body: "data=" + encodeURIComponent(q), headers: { "Content-Type": "application/x-www-form-urlencoded" } });
@@ -766,7 +766,8 @@
           let area = 0;
           if (e.bounds) area = (e.bounds.maxlat - e.bounds.minlat) * 111000 * (e.bounds.maxlon - e.bounds.minlon) * 91000;
           let icon, pri;
-          if (t.leisure === "park") { if (area < 2500) continue; icon = "🌳"; pri = 2; }
+          if (t.leisure) { if (e.bounds && area < 800) continue; icon = "🌳"; pri = 2; } // 点だけの公園も入れる。とても小さい広場は省く
+          else if (t.amenity === "hospital") { icon = "🏥"; pri = 3; }
           else if (t.amenity === "townhall") { icon = "🏛️"; pri = 2; }
           else if (t.amenity === "library") { icon = "📚"; pri = 3; }
           else if (t.amenity === "community_centre") { icon = "🏠"; pri = 3; }
@@ -811,6 +812,8 @@
       const ids = [...box.querySelectorAll("input")].filter((x) => x.checked).map((x) => x.dataset.cat);
       store.set("chisou3d:markCats", ids);
       if (ids.length && !S.autoMarksOn) { $("chkAutoMarks").checked = true; S.autoMarksOn = true; store.set("chisou3d:autoMarks", true); }
+      // 「名前・目印」が外れていると何も出ないので、いっしょにオンにする
+      if (ids.length && !S.labels) { $("chkLabels").checked = true; $("chkLabels").dispatchEvent(new Event("change")); flashHint("「名前・目印」もオンにしました"); }
       buildMarkCats();
       buildLabels();
     }));
@@ -821,7 +824,8 @@
     const onIcons = markCatOn();
     const nCats = MARK_CATS.filter((c) => c.icons.some((i) => onIcons.has(i))).length;
     // えらんだ種類が少ないときは、近くても多めに出す
-    const minD = Math.max(80, S.site.half * (nCats <= 1 ? 0.05 : nCats <= 2 ? 0.09 : 0.14));
+    // 近すぎる目印は省く（えらんだ種類が少ないほど、近くても出す）
+    const minD = Math.max(60, S.site.half * (nCats <= 1 ? 0.025 : nCats <= 2 ? 0.045 : 0.07));
     const placed = (S.site.landmarks || []).map((l) => Object.assign({ name: l.name }, S.frame.toLocal(l.lat, l.lon)));
     const out = [];
     const list = S.autoMarks.filter((m) => m.icon !== "🌊" && onIcons.has(m.icon)).sort((a, b) => a.pri - b.pri || (b.area || 0) - (a.area || 0));
@@ -831,7 +835,7 @@
       if (placed.some((q) => q.name === m.name || Math.hypot(q.x - p.x, q.z - p.z) < minD)) continue;
       const mk = { name: m.name, icon: m.icon, x: p.x, z: p.z };
       placed.push(mk); out.push(mk);
-      if (out.length >= (nCats <= 2 ? 80 : 45)) break;
+      if (out.length >= (nCats <= 2 ? 100 : 70)) break;
     }
     return out;
   }
@@ -1833,11 +1837,18 @@
     const gap = Math.max(40, sec.length / 30);
     const picked = [];
     // 点数：線に近いほど・深く掘っているほど良い（かくしている柱は必ず残す）
-    const score = (b) => (S.hiddenBores.has(b.id) ? -1e9 : 0) + (b.mark ? -1e8 : 0) + b.off / near - b.depth / 30;
+    // えらんで断面を作った柱（A・B・C…）は、かならず入れる
+    const chosen = new Set((S.section.pts || []).map((p) => p.boreId).filter(Boolean));
+    const onlyChosen = chosen.size >= 2 && !S.secShowOthers; // はじめは、えらんだ柱状図だけ
+    const score = (b) => (chosen.has(b.id) ? -1e10 : 0) + (S.hiddenBores.has(b.id) ? -1e9 : 0) + (b.mark ? -1e8 : 0) + b.off / near - b.depth / 30;
     for (const b of bores.slice().sort((a, b) => score(a) - score(b))) {
+      if (onlyChosen && !chosen.has(b.id)) continue;
+      if (chosen.has(b.id)) { picked.push(Object.assign(b, { chosen: true })); continue; }
       if (picked.length >= 12) break;
       if (!picked.some((p) => Math.abs(p.d - b.d) < gap)) picked.push(b);
     }
+    $("secOnlyChosenBox").classList.toggle("hidden", chosen.size < 2);
+    $("secOnlyChosen").checked = !!S.secShowOthers;
     bores.length = 0;
     bores.push(...picked.sort((a, b) => a.d - b.d));
     S.sectionBores = bores;
@@ -1875,6 +1886,14 @@
         site: S.site,
         onBore: (id) => showBore(id), // 断面図の柱をさわると、くわしい柱状図
         onVolcano: (v) => volcanoBox(v),
+        onStageText: (st) => {
+          const el = $("secStageText");
+          if (!st) { el.classList.add("hidden"); return; }
+          const html = (st.age ? '<div class="st-age">⏳ ' + esc(st.age) + "</div>" : "") + '<div class="st-text">' + esc(st.text) + '</div><div class="st-note">※ボーリング資料から推定した、おおまかな順番です。年代は横浜のあたりの目安</div>';
+          if (el.dataset.k !== st.text) { el.innerHTML = html; el.dataset.k = st.text; }
+          el.classList.remove("hidden");
+        },
+        onYear: (txt) => { const el = $("secYear"); if (el && el.textContent !== "⏳ " + txt) el.textContent = "⏳ " + txt; },
         onChange: (strokes) => {
           const all = store.get(key("sections"), {});
           all[sectionKey()] = strokes;
@@ -2858,6 +2877,8 @@
     $("secShowModel").parentElement.addEventListener("click", () => {
       if (S.hideStrata) flashHint("⚠ 「地下の地層をかくす」がオンの間は答え合わせできません。左のパネルのチェックを外してください");
     });
+    S.secShowOthers = false; // 開くたびに「えらんだ柱状図だけ」から始める
+    $("secOnlyChosen").onchange = () => { S.secShowOthers = $("secOnlyChosen").checked; openSectionSheet(); };
     $("secNames").onchange = () => { if (secView) { secView.showNames = $("secNames").checked; secView.draw(); } };
     $("secConnect").onchange = () => { if (secView) { secView.connect = $("secConnect").checked; secView.draw(); } };
     $("secShowModel").onchange = () => { if (secView) { secView.showModel = $("secShowModel").checked; secView.draw(); } };
