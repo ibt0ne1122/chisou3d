@@ -350,9 +350,9 @@
   /** ある地点で、はがした後にいちばん上に出てくる層の番号（tops/bots はその地点の各層の上・下の高さ） */
   function startAt(tops, bots) {
     if (!S.peel) return 0;
-    let st = 0;
-    for (let li = 0; li < tops.length; li++) if (S.peeled.has(li) && tops[li] - bots[li] > 0.05) st = li + 1;
-    return st;
+    // その場所で、はがしていない層のうち いちばん上にある層（のこした層は、下の層をはがしても その高さのまま残す）
+    for (let li = 0; li < tops.length; li++) if (!S.peeled.has(li) && tops[li] - bots[li] > 0.05) return li;
+    return tops.length;
   }
   const gridStart = (k) => startAt(S.model.tops.map((t) => t[k]), S.model.bots.map((b) => b[k]));
   function peelLayer() { return 0; } // （古いしくみの名残り）
@@ -397,7 +397,7 @@
       pos.array[k * 3 + 1] = (terr ? terraceOf(h[k]) : h[k]) * ve;
       if (S.peel > 0) {
         let li = gridStart(k);
-        while (li < m.tops.length && m.tops[li][k] - m.bots[li][k] < 0.05) li++;
+        while (li < m.tops.length && (m.tops[li][k] - m.bots[li][k] < 0.05 || S.peeled.has(li))) li++;
         c.set(li < m.tops.length ? strataColor(li) : "#555555");
         col.array[k * 3] = c.r; col.array[k * 3 + 1] = c.g; col.array[k * 3 + 2] = c.b;
       }
@@ -435,8 +435,8 @@
       const sa = startAt(a.tops, a.bots), sb = startAt(b.tops, b.bots);
       for (let li = 0; li < L; li++) {
         let ta = a.tops[li], ba = a.bots[li], tb = b.tops[li], bb = b.bots[li];
-        if (li < sa) ta = ba; // この地点では、はがした
-        if (li < sb) tb = bb;
+        if (li < sa || S.peeled.has(li)) ta = ba; // はがした層は かかない（のこした層の下は すき間になる）
+        if (li < sb || S.peeled.has(li)) tb = bb;
         if (terr) { // 段々模型：段の高さより上は切る
           const A = terraceOf(a.g), B = terraceOf(b.g);
           ta = Math.min(ta, A); ba = Math.min(ba, A); tb = Math.min(tb, B); bb = Math.min(bb, B);
@@ -745,20 +745,93 @@
     }
     return null;
   }
+  /** 公園・公共施設を OpenStreetMap からおぎなう（1か月おぼえておく） */
+  async function loadOsmExtra() {
+    const k = key("osmx:" + S.site.half);
+    const cached = store.get(k, null);
+    if (cached && Date.now() - cached.t < 30 * 86400000) return cached.list;
+    const h = S.site.half;
+    const sw = S.frame.toLatLon(-h, h), ne = S.frame.toLatLon(h, -h);
+    const bb = [sw.lat, sw.lon, ne.lat, ne.lon].map((v) => v.toFixed(5)).join(",");
+    const q = '[out:json][timeout:25];(nwr["leisure"="park"]["name"](' + bb + ');nwr["amenity"~"^(townhall|library|community_centre)$"]["name"](' + bb + ');nwr["leisure"="sports_centre"]["name"](' + bb + '););out tags center bb;';
+    for (const ep of ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter"]) {
+      try {
+        const r = await fetch(ep, { method: "POST", body: "data=" + encodeURIComponent(q), headers: { "Content-Type": "application/x-www-form-urlencoded" } });
+        if (!r.ok) continue;
+        const js = await r.json(), list = [];
+        for (const e of js.elements || []) {
+          const t = e.tags || {};
+          const lat = e.lat != null ? e.lat : e.center && e.center.lat, lon = e.lon != null ? e.lon : e.center && e.center.lon;
+          if (lat == null || !t.name) continue;
+          let area = 0;
+          if (e.bounds) area = (e.bounds.maxlat - e.bounds.minlat) * 111000 * (e.bounds.maxlon - e.bounds.minlon) * 91000;
+          let icon, pri;
+          if (t.leisure === "park") { if (area < 2500) continue; icon = "🌳"; pri = 2; }
+          else if (t.amenity === "townhall") { icon = "🏛️"; pri = 2; }
+          else if (t.amenity === "library") { icon = "📚"; pri = 3; }
+          else if (t.amenity === "community_centre") { icon = "🏠"; pri = 3; }
+          else { icon = "🏟️"; pri = 3; }
+          list.push({ name: t.name, icon, pri, lat, lon, area });
+        }
+        store.set(k, { t: Date.now(), list });
+        return list;
+      } catch (e) { /* 次のサーバー */ }
+    }
+    return null;
+  }
+  // 目印の種類
+  const MARK_CATS = [
+    { id: "station", name: "🚉 駅", icons: ["🚉"], on: true },
+    { id: "school", name: "🏫 学校", icons: ["🏫", "🎓"], on: true },
+    { id: "park", name: "🌳 公園・緑地", icons: ["🌳", "🌲"], on: true },
+    { id: "public", name: "🏛️ 公共施設", icons: ["🏛️", "📚", "🏠", "🏟️"], on: true },
+    { id: "safety", name: "🚒 消防・警察", icons: ["🚒", "🚓"], on: false },
+    { id: "hospital", name: "🏥 病院", icons: ["🏥"], on: false },
+    { id: "post", name: "📮 郵便局", icons: ["📮"], on: false },
+    { id: "history", name: "⛩️ 寺・神社・史跡", icons: ["🛕", "⛩️", "🏺"], on: false },
+  ];
+  function markCatOn() {
+    const saved = store.get("chisou3d:markCats", null);
+    const on = new Set();
+    for (const c of MARK_CATS) if (saved ? saved.includes(c.id) : c.on) c.icons.forEach((i) => on.add(i));
+    return on;
+  }
+  function buildMarkCats() {
+    const box = $("markCats");
+    if (!box) return;
+    const saved = store.get("chisou3d:markCats", null);
+    const counts = {};
+    for (const m of S.autoMarks || []) counts[m.icon] = (counts[m.icon] || 0) + 1;
+    box.innerHTML = MARK_CATS.map((c) => {
+      const n = c.icons.reduce((a, i) => a + (counts[i] || 0), 0);
+      const on = saved ? saved.includes(c.id) : c.on;
+      return '<label class="chip' + (on ? "" : " off") + '"><input type="checkbox" data-cat="' + c.id + '"' + (on ? " checked" : "") + "> " + c.name + (S.autoMarks ? "<small>" + n + "</small>" : "") + "</label>";
+    }).join("");
+    box.querySelectorAll("input").forEach((el) => (el.onchange = () => {
+      const ids = [...box.querySelectorAll("input")].filter((x) => x.checked).map((x) => x.dataset.cat);
+      store.set("chisou3d:markCats", ids);
+      if (ids.length && !S.autoMarksOn) { $("chkAutoMarks").checked = true; S.autoMarksOn = true; store.set("chisou3d:autoMarks", true); }
+      buildMarkCats();
+      buildLabels();
+    }));
+  }
   /** 重なって読めなくならないよう、近すぎる目印は大事な方だけ残す */
   function visibleAutoMarks() {
     if (!S.autoMarks) return [];
-    const minD = Math.max(150, S.site.half * 0.17);
+    const onIcons = markCatOn();
+    const nCats = MARK_CATS.filter((c) => c.icons.some((i) => onIcons.has(i))).length;
+    // えらんだ種類が少ないときは、近くても多めに出す
+    const minD = Math.max(80, S.site.half * (nCats <= 1 ? 0.05 : nCats <= 2 ? 0.09 : 0.14));
     const placed = (S.site.landmarks || []).map((l) => Object.assign({ name: l.name }, S.frame.toLocal(l.lat, l.lon)));
     const out = [];
-    const list = S.autoMarks.filter((m) => m.icon !== "🌊").sort((a, b) => a.pri - b.pri || b.area - a.area);
+    const list = S.autoMarks.filter((m) => m.icon !== "🌊" && onIcons.has(m.icon)).sort((a, b) => a.pri - b.pri || (b.area || 0) - (a.area || 0));
     for (const m of list) {
       const p = S.frame.toLocal(m.lat, m.lon);
       if (Math.abs(p.x) > S.site.half || Math.abs(p.z) > S.site.half) continue;
       if (placed.some((q) => q.name === m.name || Math.hypot(q.x - p.x, q.z - p.z) < minD)) continue;
       const mk = { name: m.name, icon: m.icon, x: p.x, z: p.z };
       placed.push(mk); out.push(mk);
-      if (out.length >= 28) break;
+      if (out.length >= (nCats <= 2 ? 80 : 45)) break;
     }
     return out;
   }
@@ -836,7 +909,7 @@
   }
   async function buildRivers() {
     disposeGroup(groups.rivers);
-    if (!S.showRivers) return;
+    if (!S.showRivers) { if (S.texRiv) { S.texRiv = false; applyTexture(); } return; }
     if (!S.rivers) {
       flashHint("🌊 川のデータを読み込み中…");
       await loadRivers();
@@ -844,8 +917,9 @@
       disposeGroup(groups.rivers);
       if (S.riverSource === "flow") flashHint("🌊 地理院の川のデータが読めなかったので、地形から計算した「水の通り道」を表示しています");
     }
-    // 川は太く・白いふちどりつきで、地面から少しうかせて、色分けや高さの強調を変えても見えるように
-    const w = Math.max(16, S.site.half * 0.02), ve = S.ve, lift = 2 + ve * 1.2;
+    if (!S.texRiv) { S.texRiv = true; applyTexture(); } // ふだんは地図の画像にかく
+    // 地層をはがしている間は地図の画像が出ないので、帯（ポリゴン）でかく
+    const w = Math.max(16, S.site.half * 0.02), ve = S.ve, lift = 2 + ve * 1.2, ribbons = S.peel > 0;
     const pos = [], posOut = [];
     const named = {};
     for (const l0 of S.rivers) {
@@ -857,6 +931,16 @@
       }
       pts.push(l0.pts[l0.pts.length - 1]);
       const l = { name: l0.name, major: l0.major, pts };
+      if (ribbons) {
+        const ww = l.major ? w : w * 0.45;
+        let run = [];
+        const flush = () => { stripInto(posOut, run, ww * 0.85, -0.3); stripInto(pos, run, ww / 2, 0); run = []; };
+        for (const p of pts) {
+          if (Math.abs(p.x) > S.site.half || Math.abs(p.z) > S.site.half) { flush(); continue; }
+          run.push({ x: p.x, y: surfaceAt(p.x, p.z) * ve + lift, z: p.z });
+        }
+        flush();
+      }
       for (let i = 0; i < l.pts.length - 1; i++) {
         const p = l.pts[i], q = l.pts[i + 1];
         if (Math.abs(p.x) > S.site.half || Math.abs(p.z) > S.site.half || Math.abs(q.x) > S.site.half || Math.abs(q.z) > S.site.half) continue;
@@ -870,19 +954,18 @@
           for (const t of [0, 1, 2, 0, 2, 3]) arr.push(...v[t]);
         };
         const ww = l.major ? w : w * 0.45; // 小さな水路は細く
-        quad(posOut, ww * 0.85, -0.3, ww * 0.35); // 白いふちどり
-        quad(pos, ww / 2, 0, ww * 0.25);           // 青い川
+        void quad; void ww;
         if (l.name) (named[l.name] = named[l.name] || []).push({ x: (p.x + q.x) / 2, z: (p.z + q.z) / 2, len });
       }
     }
     const mk = (arr, color, order) => {
       const geo = new THREE.BufferGeometry();
       geo.setAttribute("position", new THREE.Float32BufferAttribute(arr, 3));
-      const mesh = new THREE.Mesh(geo, clipMat(new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -6, polygonOffsetUnits: -6 })));
+      const mesh = new THREE.Mesh(geo, clipMat(new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: order === 4 ? -12 : -4, polygonOffsetUnits: order === 4 ? -12 : -4, depthWrite: order === 4 })));
       mesh.renderOrder = order;
       return mesh;
     };
-    groups.rivers.add(mk(posOut, 0xffffff, 3), mk(pos, 0x0050ff, 4));
+    if (ribbons) groups.rivers.add(mk(posOut, 0xffffff, 3), mk(pos, 0x0050ff, 4));
     // 川の名前：地図の文字（注記）に川の名前があれば、その場所に出す
     for (const m of S.site.mapMarks || []) {
       if (m.icon !== "🌊") continue;
@@ -917,7 +1000,9 @@
   }
   function buildYato() {
     disposeGroup(groups.yato);
+    if (S.texYato !== !!S.showYato) { S.texYato = !!S.showYato; if (S.mapCanvas) applyTexture(); }
     if (!S.showYato) return;
+    const ribbons = S.peel > 0;
     const half = S.site.half, ve = S.ve, lift = 1.5 + ve * 1.0, w = Math.max(12, half * 0.014);
     const pos = [], posOut = [];
     const inside = (p) => Math.abs(p.x) <= half && Math.abs(p.z) <= half;
@@ -930,6 +1015,12 @@
           for (let j = 0; j < k; j++) pts.push({ x: a.x + ((b.x - a.x) * j) / k, z: a.z + ((b.z - a.z) * j) / k });
         }
         pts.push(l0[l0.length - 1]);
+        if (ribbons) {
+          let run = [];
+          const flush = () => { stripInto(posOut, run, w * 0.8, -0.3); stripInto(pos, run, w / 2, 0); run = []; };
+          for (const p of pts) { if (!inside(p)) { flush(); continue; } run.push({ x: p.x, y: surfaceAt(p.x, p.z) * ve + lift, z: p.z }); }
+          flush();
+        }
         let len = 0;
         for (let i = 0; i < pts.length - 1; i++) {
           const p = pts[i], q = pts[i + 1];
@@ -944,8 +1035,7 @@
             const v = [[p.x - ex + nx, yp + dy, p.z - ez + nz], [q.x + ex + nx, yq + dy, q.z + ez + nz], [q.x + ex - nx, yq + dy, q.z + ez - nz], [p.x - ex - nx, yp + dy, p.z - ez - nz]];
             for (const t of [0, 1, 2, 0, 2, 3]) arr.push(...v[t]);
           };
-          quad(posOut, w * 0.8, -0.3, w * 0.3);
-          quad(pos, w / 2, 0, w * 0.2);
+          void quad;
         }
         if (len > bestLen) {
           bestLen = len;
@@ -963,11 +1053,11 @@
     const mk = (arr, color, order) => {
       const geo = new THREE.BufferGeometry();
       geo.setAttribute("position", new THREE.Float32BufferAttribute(arr, 3));
-      const mesh = new THREE.Mesh(geo, clipMat(new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -5, polygonOffsetUnits: -5 })));
+      const mesh = new THREE.Mesh(geo, clipMat(new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: order === 4 ? -12 : -4, polygonOffsetUnits: order === 4 ? -12 : -4, depthWrite: order === 4 })));
       mesh.renderOrder = order;
       return mesh;
     };
-    groups.yato.add(mk(posOut, 0xffffff, 3), mk(pos, 0x14b8a6, 4));
+    if (ribbons) groups.yato.add(mk(posOut, 0xffffff, 3), mk(pos, 0x14b8a6, 4));
   }
   function showYato(id) {
     const y = yatoList().find((v) => v.id === id);
@@ -979,7 +1069,7 @@
       row("江戸時代の村", esc(y.mura || "") + (y.koaza ? "（" + esc(y.koaza) + "）" : "")) +
       row("水が流れていく川", esc((y.r || []).slice().reverse().join(" → "))) +
       row("昔の本", y.s ? '<a href="' + esc(y.s) + '" target="_blank" rel="noopener">新編武蔵風土記稿（国立国会図書館）</a>' : "") + "</table>" +
-      '<p class="hint">✂️ この谷戸を横切るように断面を切ると、谷の底に どんな地層があるか 確かめられます。</p>' +
+      '<p class="hint">✂️ この谷戸を横切るように断面図を作成すると、谷の底に どんな地層があるか 確かめられます。</p>' +
       '<div class="meta">出典：<a href="https://yato.midoriit.com/" target="_blank" rel="noopener">谷戸のヨコハマ</a>（小池 隆・パブリックドメイン）</div>');
   }
   /** 断面の線と谷戸が交わる所 */
@@ -1200,10 +1290,12 @@
     }
   }
   function applyTexture() {
+    if (!S.mapCanvas || !S.mapCanvas[S.mapType]) return;
     const base = S.mapCanvas[S.mapType];
     let canvas = base;
     const hz = S.hazard && S.hazard !== "none" && S.hazardCanvas && S.hazardCanvas[S.hazard];
-    if (["color", "contour", "terrace"].includes(S.relief) || hz) {
+    const lines = S.showRivers && S.rivers || S.showYato && yatoList().length;
+    if (["color", "contour", "terrace"].includes(S.relief) || hz || lines) {
       canvas = document.createElement("canvas");
       canvas.width = base.width; canvas.height = base.height;
       const ctx = canvas.getContext("2d");
@@ -1211,6 +1303,7 @@
       ctx.imageSmoothingEnabled = true;
       if (["color", "contour", "terrace"].includes(S.relief)) ctx.drawImage(reliefOverlay(S.relief), 0, 0, canvas.width, canvas.height);
       if (hz) { ctx.globalAlpha = 0.75; ctx.drawImage(hz, 0, 0, canvas.width, canvas.height); ctx.globalAlpha = 1; }
+      if (lines) drawLinesOnMap(ctx, canvas.width, canvas.height);
     }
     if (S.curTex) S.curTex.dispose();
     const tex = new THREE.CanvasTexture(canvas);
@@ -1218,6 +1311,39 @@
     S.curTex = tex;
     texMat.map = tex;
     texMat.needsUpdate = true;
+  }
+  /** 折れ線を、切れ目のない1本の帯（三角形のならび）にする。pts:[{x,y,z}] */
+  function stripInto(arr, pts, hw, dy) {
+    const n = pts.length;
+    if (n < 2) return;
+    const L = [], R = [];
+    for (let i = 0; i < n; i++) {
+      const a = pts[Math.max(0, i - 1)], b = pts[Math.min(n - 1, i + 1)];
+      let dx = b.x - a.x, dz = b.z - a.z; const len = Math.hypot(dx, dz) || 1; dx /= len; dz /= len;
+      const p = pts[i];
+      L.push([p.x - dz * hw, p.y + dy, p.z + dx * hw]); R.push([p.x + dz * hw, p.y + dy, p.z - dx * hw]);
+    }
+    for (let i = 0; i < n - 1; i++) for (const v of [L[i], L[i + 1], R[i + 1], L[i], R[i + 1], R[i]]) arr.push(...v);
+  }
+  /** 川・谷戸を、地図の画像に直接かく（地形にぴったり沿った、切れ目のない1本の線になる） */
+  function drawLinesOnMap(ctx, W, H) {
+    const half = S.site.half, sx = W / (2 * half), sy = H / (2 * half);
+    const path = (pts) => {
+      ctx.beginPath();
+      pts.forEach((p, i) => { const x = (p.x + half) * sx, y = (p.z + half) * sy; i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+    };
+    ctx.lineJoin = "round"; ctx.lineCap = "round";
+    const px = (m) => Math.max(2, m * sx); // m（メートル）→ 画像の点の数
+    const wR = Math.max(10, half * 0.012), wY = Math.max(8, half * 0.009);
+    const strokeAll = (list, w, color) => {
+      // まず白いふちを全部、そのあと色の線を全部（つなぎ目に白が出ないように）
+      ctx.strokeStyle = "rgba(255,255,255,0.95)";
+      for (const l of list) { ctx.lineWidth = px(w * (l.major === false ? 0.5 : 1)) + px(w * 0.5); path(l.pts); ctx.stroke(); }
+      ctx.strokeStyle = color;
+      for (const l of list) { ctx.lineWidth = px(w * (l.major === false ? 0.5 : 1)); path(l.pts); ctx.stroke(); }
+    };
+    if (S.showYato) strokeAll([].concat(...yatoList().map((y) => y.lines.map((pts) => ({ pts })))), wY, "#14b8a6");
+    if (S.showRivers && S.rivers) strokeAll(S.rivers, wR, "#1565ff");
   }
   function setRelief(mode) {
     S.relief = mode;
@@ -1746,6 +1872,7 @@
     $("sectionSheet").classList.remove("hidden");
     if (!secView) {
       secView = new C.SectionView($("secCanvas"), {
+        site: S.site,
         onBore: (id) => showBore(id), // 断面図の柱をさわると、くわしい柱状図
         onChange: (strokes) => {
           const all = store.get(key("sections"), {});
@@ -2260,7 +2387,7 @@
   function setHint(t) { $("hint").textContent = t; $("hint").classList.toggle("hidden", !t); }
   function flashHint(t) { setHint(t); clearTimeout(hintTimer); hintTimer = setTimeout(() => setHint(modeHint()), 3500); }
   function modeHint() {
-    return { view: "", section: "✂️ 断面を切る：地図の上で2か所以上をタップ（ボーリングの旗をタップすると、その柱を通ります）",
+    return { view: "", section: "✂️ 断面図を作成：地図の上で2か所以上をタップ（ボーリングの旗をタップすると、その柱を通ります）",
       cut: "🔪 模型を切る：切りたい線の はし を2か所タップ（ケーキを切るように、模型の切り口が見えます）",
       pick: "📍 断面に使うボーリングの旗を、つなぎたい順にタップ（2本以上）→「✅ この柱で断面図をつくる」", note: "📝 メモを置きたい場所をタップ", edit: "➕ ボーリングの場所をタップ（柱をタップすると編集）" }[S.mode];
   }
@@ -2341,7 +2468,7 @@
     hp.className = "hint";
     hp.textContent = mode === "age"
       ? "⏪ 外した層と、それより新しい層（一覧で上の層）を まとめて はがします。時代をさかのぼるように見られます"
-      : "チェックを外した層だけを はがします（その層の上にのっている層は、その場所だけ いっしょに はがれます）";
+      : "チェックを外した層だけを はがします。のこした層は、下の層をはがしても もとの高さのまま（宙にういて）見えます";
     box.appendChild(hp);
     if (inSec) {
       const p = document.createElement("p");
@@ -2356,6 +2483,21 @@
       lab.className = "peelrow" + (off ? " off" : "") + (inSec && !inSec.has(li) ? " notinsec" : "") + (inSec && inSec.has(li) ? " insec" : "");
       lab.innerHTML = '<input type="checkbox"' + (off ? "" : " checked") + (last ? " disabled" : "") + '><i style="background:' + l.color + '"></i>' + (originTag(l) || "") + esc(l.short || l.name) +
         (last ? "<small>（いちばん下の土台）</small>" : inSec && !inSec.has(li) ? "<small>（この断面にはない）</small>" : "");
+      if (!last) {
+        // 「この層だけ」：ほかの層をはがして、この層がどこに広がっているかを見る（いちばん下の土台は残す）
+        const solo = document.createElement("button");
+        solo.type = "button"; solo.className = "solo"; solo.textContent = "👁 だけ";
+        solo.dataset.tip = (l.short || l.name) + "だけを残して、どこに広がっているかを見ます";
+        solo.onclick = (e) => {
+          e.preventDefault(); e.stopPropagation();
+          if (S.hideStrata) return flashHint("⚠ いまは「地下の地層をかくす」がオンなので、地層をはがせません");
+          S.peelMode = "one"; store.set("chisou3d:peelMode", "one");
+          setPeeled(new Set(S.visLayers.filter((x, kk) => x !== li && kk !== S.visLayers.length - 1)));
+          updatePeelLabel(); buildAll();
+          flashHint("👁 " + (l.short || l.name) + "だけを残しました（下の灰色は土台の泥岩）");
+        };
+        lab.appendChild(solo);
+      }
       lab.querySelector("input").onchange = (e) => {
         if (S.hideStrata) { e.target.checked = true; flashHint("⚠ いまは「地下の地層をかくす」がオンなので、地層をはがせません。左のパネルのチェックを外してください"); return; }
         let set;
@@ -2469,10 +2611,23 @@
     const gsiAttr = () => ($("attribution").innerHTML = $("attribution").innerHTML.replace(/目印：<a[^>]*>[^<]*<\/a>/, '目印：<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">国土地理院（地図情報）</a>'));
     if (S.site.mapMarks) $("attribution").innerHTML = $("attribution").innerHTML.replace(/目印：<a[^>]*>[^<]*<\/a>/, '目印：<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">国土地理院（地図情報）</a>');
     marksReady.then((list) => {
-      if (!list) { S.autoMarksFailed = true; return; }
+      if (!list) { S.autoMarksFailed = true; list = []; }
       S.autoMarks = list;
+      buildMarkCats();
       buildLabels();
+      // 公園・公共施設は地理院の地図の文字には少ないので、OpenStreetMapからおぎなう（つながらなければ、そのまま）
+      loadOsmExtra().then((ex) => {
+        if (!ex || !ex.length) return;
+        const names = new Set(S.autoMarks.map((m) => m.name));
+        S.autoMarks = S.autoMarks.concat(ex.filter((m) => !names.has(m.name)));
+        S.osmExtra = true;
+        buildMarkCats();
+        if (!/OpenStreetMap/.test($("attribution").innerHTML)) $("attribution").insertAdjacentHTML("beforeend", ' ／ 公園など：<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap contributors</a>');
+        buildLabels();
+      }).catch(() => {});
     });
+    // 目印の種類ごとの表示
+    buildMarkCats();
     $("btnXml").onclick = () => xmlInput.click();
     const xmlInput = document.createElement("input");
     xmlInput.type = "file"; xmlInput.accept = ".xml,.XML,.json"; xmlInput.multiple = true;
@@ -2554,7 +2709,7 @@
       camera.position.set(t.x, camera.position.y, t.z + r);
     };
     $("attrMore").onclick = (e) => { e.preventDefault(); C.Help.openSources(); };
-    $("sampleBadge").onclick = () => (!S.bores.length ? C.Help.openHelp(4) : alert(S.site.sample.note + "\n\n先生モードで「仮データを表示」を外すと消えます。"));
+    $("sampleBadge").onclick = () => (!S.bores.length ? C.Help.openHelp(5) : alert(S.site.sample.note + "\n\n先生モードで「仮データを表示」を外すと消えます。"));
 
     // 断面図
     $("secUndo").onclick = () => secView && secView.undo();
@@ -2594,20 +2749,63 @@
       $("secStage").classList.toggle("on", !!on);
       $("secStagePrev").classList.toggle("hidden", !on);
       $("secStageNext").classList.toggle("hidden", !on);
+      const tl = $("secTimeline"), was = !tl.classList.contains("hidden");
+      tl.classList.toggle("hidden", !on);
+      if (on) {
+        const list = secView.stages(), i = list.findIndex((x) => x.n === secView.stage);
+        const r = $("secStageRange");
+        r.max = list.length * 100; r.min = 0;
+        if (!S.stageAnim) r.value = Math.round((i + (secView.stageT == null ? 1 : secView.stageT)) * 100);
+        $("secStageTicks").innerHTML = list.map((x, k) => '<button type="button" data-k="' + k + '" class="' + (k === i ? "on" : "") + '"><b>' + x.text.slice(0, 1) + "</b>" + esc((x.age || "").replace(/（.*$/, "").replace("ごろ", "")) + "</button>").join("");
+        $("secStageTicks").querySelectorAll("button").forEach((b) => (b.onclick = () => playStage(+b.dataset.k, +b.dataset.k + 1)));
+        // 本当の時間の長さ（まっすぐな時間の物さし）：大昔がとても長く、今に近い出来事はほんの少し
+        const T = Math.max(...list.map((x) => x.from || 0)) || 1;
+        $("secStageBar").innerHTML = list.map((x, k) => {
+          if (x.from == null) return "";
+          const left = (1 - x.from / T) * 100, width = Math.max(0.4, ((x.from - x.to) / T) * 100);
+          return '<i class="' + (k === i ? "on" : "") + '" style="left:' + left + "%;width:" + width + '%" title="' + esc(x.age) + '"></i>';
+        }).join("") + '<span class="tl-now">今 ▶</span><span class="tl-old">◀ ' + (T >= 10000 ? Math.round(T / 10000) + "万" : T) + "年前</span>";
+      }
+      if (on !== was && secView) secView.resize();
+    };
+    // つまみの位置 v（0〜段階の数×100）→ どの出来事の、どこまで進んだか
+    const setStageV = (v) => {
+      const list = secView.stages();
+      v = Math.max(1, Math.min(list.length * 100, v));
+      const idx = Math.min(list.length - 1, Math.floor((v - 0.001) / 100));
+      secView.stage = list[idx].n;
+      secView.stageT = (v - idx * 100) / 100;
+      secView.draw(); stageUI();
+    };
+    /** from→to（段階の番号）へ、なめらかに時間を進める */
+    const playStage = (fromIdx, toIdx) => {
+      if (S.stageAnim) cancelAnimationFrame(S.stageAnim);
+      const v0 = fromIdx * 100, v1 = toIdx * 100, dur = Math.max(1, Math.abs(toIdx - fromIdx)) * 2200, t0 = performance.now();
+      const step = () => {
+        const k = Math.min(1, (performance.now() - t0) / dur);
+        S.stageAnim = k < 1 ? requestAnimationFrame(step) : 0;
+        const v = v0 + (v1 - v0) * k;
+        $("secStageRange").value = v;
+        setStageV(v);
+      };
+      S.stageAnim = requestAnimationFrame(step);
     };
     const stageStep = (dir) => {
       const list = secView.stages().map((x) => x.n);
-      let i = list.indexOf(secView.stage) + dir;
-      if (i < 0) i = 0;
-      if (i >= list.length) i = list.length - 1;
-      secView.stage = list[i]; secView.draw(); stageUI();
+      let i = list.indexOf(secView.stage);
+      const done = (secView.stageT == null ? 1 : secView.stageT) >= 0.999;
+      if (dir > 0) { const from = done ? i + 1 : i; if (from < list.length) playStage(from, from + 1); }
+      else { const to = Math.max(0, done ? i - 1 : i - 1); setStageV((to + 1) * 100); }
     };
     $("secStage").onclick = () => {
       if (!secView) return;
       if (S.hideStrata) return flashHint("⚠ 「地下の地層をかくす」がオンの間は見られません。左のパネルのチェックを外してください");
-      secView.stage = secView.stage > 0 ? 0 : secView.stages()[0].n;
-      secView.draw(); stageUI();
+      if (S.stageAnim) { cancelAnimationFrame(S.stageAnim); S.stageAnim = 0; }
+      if (secView.stage > 0) { secView.stage = 0; secView.stageT = 1; secView.draw(); stageUI(); }
+      else { secView.stage = secView.stages()[0].n; secView.stageT = 0; stageUI(); playStage(0, 1); }
     };
+    $("secStageRange").oninput = () => { if (S.stageAnim) { cancelAnimationFrame(S.stageAnim); S.stageAnim = 0; } setStageV(+$("secStageRange").value); };
+    $("secStagePlay").onclick = () => { const n = secView.stages().length; playStage(0, n); };
     $("secStagePrev").onclick = () => stageStep(-1);
     $("secStageNext").onclick = () => stageStep(1);
     // 考えメモ

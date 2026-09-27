@@ -328,3 +328,32 @@ body:has(.floatbar:not(.hidden)) #hint { bottom: 168px; }
   #modebar .sep { display: none; }
   #modebar button { padding: 6px 9px; font-size: 14px; min-height: 42px; }
 }
+
+#secTimeline { padding: 4px 14px 6px; border-top: 1px solid var(--line); background: #fffbef; }
+#secTimeline .tl-head { font-weight: bold; font-size: 14px; }
+#secTimeline .tl-head small { font-weight: normal; color: var(--sub); margin-left: 8px; }
+#secStageRange { width: 100%; accent-color: #d4a017; margin: 2px 0; }
+#secStageTicks { display: flex; justify-content: space-between; gap: 4px; }
+#secStageTicks button { flex: 1; min-height: 0; padding: 2px 4px; font-size: 12px; background: #fff; border: 1px solid #e6d9b0; border-radius: 6px; line-height: 1.3; }
+#secStageTicks button b { display: block; font-size: 15px; }
+#secStageTicks button.on { background: #d4a017; color: #fff; border-color: #d4a017; }
+.tl-real { display: flex; align-items: center; gap: 8px; margin-top: 4px; font-size: 12px; color: var(--sub); }
+.tl-real .tl-lab { white-space: nowrap; }
+#secStageBar { position: relative; flex: 1; height: 14px; background: #efe6c8; border-radius: 7px; margin: 0 40px 0 60px; }
+#secStageBar i { position: absolute; top: 2px; height: 10px; background: #c9a64b; border-radius: 5px; opacity: 0.55; }
+#secStageBar i.on { background: #d4460f; opacity: 1; box-shadow: 0 0 0 2px #fff; }
+#secStageBar .tl-now { position: absolute; right: -40px; top: -1px; font-weight: bold; color: #d4460f; }
+#secStageBar .tl-old { position: absolute; left: -60px; top: -1px; }
+
+#secStagePlay { min-height: 0; padding: 2px 10px; font-size: 13px; margin-left: 6px; background: #d4a017; color: #fff; border-color: #d4a017; }
+#secStageBar { margin: 0 44px 0 78px; }
+#secStageBar .tl-old { left: -76px; }
+
+#markCats { display: flex; flex-wrap: wrap; gap: 4px; margin: 2px 0 8px 24px; }
+#markCats .chip { font-size: 13px; padding: 2px 8px; border: 1px solid var(--line); border-radius: 999px; background: #fff; cursor: pointer; }
+#markCats .chip.off { color: #9aa5ad; background: #f3f5f7; }
+#markCats .chip small { margin-left: 3px; color: var(--sub); font-size: 11px; }
+#markCats input { width: 14px; height: 14px; vertical-align: -2px; }
+
+.peelrow .solo { margin-left: auto; min-height: 0; padding: 1px 8px; font-size: 12px; border-radius: 999px; background: #eef6f8; border: 1px solid #cfe3e8; }
+.peelrow .solo:hover { background: var(--accent); color: #fff; }

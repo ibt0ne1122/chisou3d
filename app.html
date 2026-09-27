@@ -63,7 +63,8 @@
       <label><input type="checkbox" id="chkRiver"> 川を強調する</label>
       <label><input type="checkbox" id="chkYato"> 谷戸（やと）を表示</label>
       <label><input type="checkbox" id="chkLabels" checked> 名前・目印</label>
-      <label><input type="checkbox" id="chkAutoMarks" checked> まわりの目印（駅・学校・公園・公共施設）</label>
+      <label><input type="checkbox" id="chkAutoMarks" checked> まわりの目印（種類をえらべます）</label>
+      <div id="markCats"></div>
       <label><input type="checkbox" id="chkNotes" checked> 気づきメモ</label>
       <label><input type="checkbox" id="chkRing" checked> 半径の円</label>
     </section>
@@ -116,9 +117,9 @@
 <!-- 下：モード切りかえ -->
 <nav id="modebar">
   <button data-mode="view" class="active">👆 見る</button>
-  <button data-mode="section">✂️ 断面を切る</button>
+  <button data-mode="section">✂️ 断面図を作成</button>
   <button data-mode="cut" class="cutbtn">🔪 模型を切る</button>
-  <button data-mode="pick">📍 柱をえらぶ</button>
+  <button data-mode="pick">📍 柱状図を選択して断面図を作成</button>
   <button data-mode="note">📝 気づきメモ</button>
   <button data-mode="edit" class="teacher-only hidden">➕ ボーリング追加</button>
   <span class="sep"></span>
@@ -200,6 +201,12 @@
     <button id="secRedo" type="button">✂️ 線を引き直す</button>
   </div>
   <div id="secLegend"></div>
+  <div id="secTimeline" class="hidden">
+    <div class="tl-head">⏳ 時間の流れ <button type="button" id="secStagePlay">▶ はじめから通して見る</button> <small>つまみを右へ動かすと、少しずつ時代が進みます（左ほど大昔・右ほど今）</small></div>
+    <input type="range" id="secStageRange" min="0" max="0" step="1" value="0">
+    <div id="secStageTicks"></div>
+    <div class="tl-real"><span class="tl-lab">本当の時間の長さ</span><div id="secStageBar"></div></div>
+  </div>
   <div class="sec-body">
     <canvas id="secCanvas"></canvas>
     <div id="secMemo" class="hidden">
