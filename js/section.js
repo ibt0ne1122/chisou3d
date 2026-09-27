@@ -139,6 +139,8 @@
 
       if (this.stage > 0) {
         this._drawStage(ctx, L, P, font);
+      } else if (this.opts.onVolcano && this._volShown !== false) {
+        this.opts.onVolcano(null); this._volShown = false;
       } else if (this.showModel) {
         d.layers.forEach((layer, li) => {
           ctx.beginPath();
@@ -482,12 +484,14 @@
       if (!d || !d.surfIdx) return [];
       const has = (pred) => d.layers.some((l, i) => pred(l) && d.samples.some((s) => s.tops[i] - s.bots[i] > 0.3));
       const out = [];
-      out.push({ n: 1, text: "① 大昔、海や湖の底に どろ がたまり、長い時間をかけて固まった（泥岩）。" });
-      out.push({ n: 2, text: "② 流れる水のはたらきで運ばれた れき・砂・ねんど が、何度も積み重なった。下の層ほど古い。" });
-      if (has((l) => l.origin === "volcano")) out.push({ n: 3, text: "③ 火山からふき出された 火山灰 が、風に運ばれて降りつもった（関東ローム層）。" });
-      out.push({ n: 4, text: "④ 川が長い時間をかけて大地をけずり、谷ができた。点線は、けずられる前の地面。" });
-      if (has((l) => l.mode === "valley")) out.push({ n: 5, text: "⑤ 川が運んできた やわらかい土砂 が、谷の底にたまった（沖積層）。" });
-      if (has((l) => l.origin === "human")) out.push({ n: 6, text: "⑥ 人が土を盛って、家や道路をつくった。これが今の大地。" });
+      out.push({ n: 1, text: "大昔、海の底に どろ が少しずつしずんでたまり、長い時間をかけて固まった（泥岩）。" });
+      out.push({ n: 2, text: "流れる水のはたらきで運ばれた れき・砂・ねんど が、海や川の底に何度も積み重なった。下の層ほど古い。" });
+      if (has((l) => l.origin === "volcano")) out.push({ n: 3, text: "遠くの火山の火山灰が積もる → 川が右へ左へ動きながらけずる → また積もる…をくり返して、広い谷と関東ローム層ができた。" });
+      else out.push({ n: 3, text: "川が長い時間をかけて大地をけずり、谷ができた。点線は、けずられる前の地面。" });
+      if (has((l) => l.mode === "valley")) out.push({ n: 5, text: "あたたかくなって海面が上がり、川が運んできた やわらかい土砂 が、谷の底にたまった（沖積層）。" });
+      if (has((l) => l.origin === "human")) out.push({ n: 6, text: "人が土を盛って、家や道路をつくった。これが今の大地。" });
+      const circ = "①②③④⑤⑥";
+      out.forEach((o, k) => (o.text = circ[k] + " " + o.text));
       // おおよその年代（横浜のあたりの目安。場所の設定 stageAges で変えられる）
       const ages = Object.assign({}, SectionView.AGES, (this.opts.site && this.opts.site.stageAges) || {});
       for (const o of out) Object.assign(o, ages[o.n] || {});
@@ -511,10 +515,12 @@
       let T = 0;
       if (loamI >= 0) { const th = S.map((s) => s.tops[loamI] - s.bots[loamI]).filter((t) => t > 0.5).sort((a, b) => a - b); T = th.length ? th[Math.floor(th.length / 2)] : 0; }
       const t = Math.max(0, Math.min(1, this.stageT == null ? 1 : this.stageT)); // その出来事が どこまで進んだか（0〜1）
+      const clock = this.clock || 0; // 水や火山灰を動かすための時計（秒）
       const preTop = (si, s) => (si === 0 ? H0 : Math.min(H0, s.rawB[si]));
       const preBot = (si, s) => (si === last ? L.zmin : Math.min(H0, s.rawB[si + 1]));
       const clip = (top, bot, D) => Math.max(bot, Math.min(top, D));
-      const band = (topF, botF, color, alpha) => { // 色の帯（水・空など）
+      const lineAt = (f) => (dd) => { const k = Math.max(0, Math.min(S.length - 1, Math.round((dd / d.length) * (S.length - 1)))); return f(S[k]); };
+      const band = (topF, botF, color, alpha) => {
         ctx.beginPath();
         S.forEach((s, i) => { const p = P(s.d, topF(s)); i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y); });
         for (let i = S.length - 1; i >= 0; i--) { const p = P(S[i].d, botF(S[i])); ctx.lineTo(p.x, p.y); }
@@ -523,96 +529,187 @@
       const tag = (x, y, text, color) => {
         ctx.font = "bold 14px " + font; ctx.textAlign = "center";
         const w = ctx.measureText(text).width + 12;
+        x = Math.max(L.m.l + w / 2 + 2, Math.min(L.W - L.m.r - w / 2 - 2, x)); // 枠からはみ出さない
         ctx.fillStyle = "rgba(255,255,255,0.9)"; ctx.fillRect(x - w / 2, y - 15, w, 20);
         ctx.fillStyle = color; ctx.fillText(text, x, y);
       };
-      const midD = S[Math.floor(S.length / 2)].d;
-      const drawPre = (upto, tLast) => {
-        // けずられる前の大地（upto 番目の層まで）。tLast：いちばん上の層が どこまで積もったか
-        let mudTop = -Infinity; for (const s of S) mudTop = Math.max(mudTop, preTop(last, s));
-        for (let si = last; si >= upto; si--) {
-          let D = Infinity;
-          if (si === upto && tLast < 1) D = (upto === last ? L.zmin + (mudTop - L.zmin) * tLast : mudTop + (H0 - mudTop) * tLast);
-          poly(surf[si], (s) => clip(preTop(si, s), preBot(si, s), D), (s) => preBot(si, s));
+      const skyTop = L.zmax + 50;
+      /** 水の流れ（動く波の線と、流れの向きの矢じるし） */
+      const water = (topF, botF, dir) => {
+        band(topF, botF, "#5aa9e6", 0.35);
+        ctx.save(); ctx.strokeStyle = "rgba(255,255,255,0.85)"; ctx.lineWidth = 1.6;
+        const span = L.win || d.length, x0 = L.d0 || 0;
+        for (let row = 0; row < 3; row++) {
+          ctx.beginPath(); let started = false;
+          for (let k = 0; k <= 120; k++) {
+            const dd = x0 + (k / 120) * span, top = lineAt(topF)(dd), bot = lineAt(botF)(dd);
+            if (top - bot < 0.3) { started = false; continue; }
+            const e = bot + (top - bot) * (0.25 + row * 0.25) + Math.sin((k / 6) - clock * 2.2 * dir + row) * Math.min(0.6, (top - bot) * 0.08);
+            const p = P(dd, e);
+            started ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y); started = true;
+          }
+          ctx.stroke();
         }
-        if (upto === 0 && tLast < 1 && surf.length > 1) {} // （②の途中は、上のDで表す）
+        // 流れの矢じるし
+        ctx.fillStyle = "rgba(20,90,170,0.8)"; ctx.font = "bold 16px " + font; ctx.textAlign = "center";
+        for (let k = 0; k < 5; k++) {
+          const f = ((k / 5 + clock * 0.08 * dir) % 1 + 1) % 1, dd = x0 + f * span, top = lineAt(topF)(dd), bot = lineAt(botF)(dd);
+          if (top - bot < 1) continue;
+          const p = P(dd, (top + bot) / 2); ctx.fillText(dir > 0 ? "➜" : "⬅", p.x, p.y + 5);
+        }
+        ctx.restore();
       };
-      const Htop = H0 + T;
+      /** しずんでいく つぶ（水の中）・降ってくる火山灰（空の中） */
+      const particles = (count, color, r, topF, botF, speed, drift) => {
+        ctx.fillStyle = color;
+        const span = L.win || d.length, x0 = L.d0 || 0;
+        for (let k = 0; k < count; k++) {
+          const f0 = ((k * 0.618) % 1), ph = ((k * 0.377 + clock * speed) % 1);
+          const dd = x0 + (((f0 + ph * drift) % 1) + 1) % 1 * span;
+          const top = lineAt(topF)(dd), bot = lineAt(botF)(dd);
+          if (top <= bot) continue;
+          const p = P(dd, top - ph * (top - bot)); ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2); ctx.fill();
+        }
+      };
+      /** 遠くでふん火する火山（左上）。けむりは ふくらみながら右へ流れる */
+      const volcano = (groundF) => {
+        // 地面より上の空に、小さく遠くの景色としてかく
+        const bx = L.m.l + 150;
+        let gy = Infinity; for (let dd = (L.d0 || 0); dd < (L.d0 || 0) + (L.win || d.length) * 0.3; dd += (L.win || d.length) / 60) gy = Math.min(gy, P(dd, lineAt(groundF)(dd)).y);
+        const room = gy - L.m.t - 30, k = Math.max(0.4, Math.min(1, room / 90)), by = Math.max(L.m.t + 70 * k, gy - 12);
+        ctx.save();
+        ctx.translate(bx, by); ctx.scale(k, k); ctx.translate(-bx, -by);
+        ctx.globalAlpha = 0.85; ctx.fillStyle = "#8d6e63";
+        ctx.beginPath(); ctx.moveTo(bx - 55, by); ctx.lineTo(bx - 10, by - 55); ctx.lineTo(bx + 10, by - 55); ctx.lineTo(bx + 55, by); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = "#e65100"; ctx.beginPath(); ctx.moveTo(bx - 10, by - 55); ctx.lineTo(bx, by - 62 - 4 * Math.sin(clock * 6)); ctx.lineTo(bx + 10, by - 55); ctx.fill();
+        for (let k = 0; k < 9; k++) {
+          const ph = ((k / 9 + clock * 0.12) % 1), rr = 6 + ph * 22;
+          ctx.globalAlpha = 0.55 * (1 - ph); ctx.fillStyle = "#6d6d6d";
+          ctx.beginPath(); ctx.arc(bx + ph * 160, by - 62 - ph * 45 - Math.sin(k) * 6, rr, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.globalAlpha = 1; ctx.font = "bold 12px " + font; ctx.textAlign = "center"; ctx.fillStyle = "#6b3a1a";
+        ctx.fillText("🌋 遠くの火山（富士山・箱根など）", bx + 20, by + 16);
+        ctx.restore();
+      };
+      const midD = (L.d0 || 0) + (L.win || d.length) / 2;
+      let mudTop = -Infinity; for (const s of S) mudTop = Math.max(mudTop, preTop(last, s));
+      const lvl1 = L.zmin + (mudTop - L.zmin) * (n === 1 ? t : 1);
+      const D2 = n === 2 ? mudTop + (H0 - mudTop) * t : Infinity;
+      const oldTopPre = (s, D) => { let top = clip(preTop(last, s), preBot(last, s), n === 1 ? lvl1 : Infinity); if (n >= 2) for (let si = last - 1; si >= 0; si--) top = Math.max(top, clip(preTop(si, s), preBot(si, s), D)); return top; };
       if (n === 1 || n === 2) {
-        // ①② 海や湖の底に、つぶが少しずつ積もっていく
-        const lvl = n === 1 ? L.zmin + (Math.max(...S.map((s) => preTop(last, s))) - L.zmin) * t : null;
-        if (n === 1) drawPre(last, t);
-        else {
-          drawPre(last, 1);
-          let mudTop = -Infinity; for (const s of S) mudTop = Math.max(mudTop, preTop(last, s));
-          const D = mudTop + (H0 - mudTop) * t;
-          for (let si = last - 1; si >= 0; si--) poly(surf[si], (s) => clip(preTop(si, s), preBot(si, s), D), (s) => preBot(si, s));
-        }
-        // 水（海・湖）：積もった所の上に
-        let mudTop2 = -Infinity; for (const q of S) mudTop2 = Math.max(mudTop2, preTop(last, q));
-        const D2 = mudTop2 + (H0 - mudTop2) * t;
-        const surfNow = (s) => {
-          if (n === 1) return clip(preTop(last, s), preBot(last, s), lvl);
-          let top = preTop(last, s);
-          for (let si = last - 1; si >= 0; si--) top = Math.max(top, clip(preTop(si, s), preBot(si, s), D2));
-          return top;
-        };
-        band(() => Htop + 12, surfNow, "#5aa9e6", 0.35);
-        // しずんでいく つぶ
-        ctx.fillStyle = "rgba(90,70,40,0.55)";
-        for (let k = 0; k < 40; k++) {
-          const dd = ((k * 97) % 100) / 100 * d.length, ph = (k * 37 % 100) / 100;
-          const top = Htop + 10, bottom = surfNow(S[Math.min(S.length - 1, Math.floor(dd / d.length * (S.length - 1)))]);
-          const e = top - ((ph + t * 3) % 1) * (top - bottom);
-          const p = P(dd, e); ctx.beginPath(); ctx.arc(p.x, p.y, 1.8, 0, Math.PI * 2); ctx.fill();
-        }
-        const p = P(midD, Htop + 8); tag(p.x, p.y, n === 1 ? "🌊 海の底に、どろが少しずつ しずんで積もる" : "🌊 流れる水が運んだ れき・砂・どろ が、少しずつ積み重なる", "#1d5f99");
+        // ①② 海や湖の底に、つぶが少しずつ積もっていく（水は横に流れている）
+        poly(surf[last], (s) => clip(preTop(last, s), preBot(last, s), lvl1), (s) => preBot(last, s));
+        if (n === 2) for (let si = last - 1; si >= 0; si--) poly(surf[si], (s) => clip(preTop(si, s), preBot(si, s), D2), (s) => preBot(si, s));
+        const top = () => H0 + 14, bot = (s) => oldTopPre(s, D2);
+        water(top, bot, 1);
+        particles(50, "rgba(90,70,40,0.6)", 1.8, top, bot, 0.25, 0.15);
+        const p = P(midD, H0 + 11); tag(p.x, p.y, n === 1 ? "🌊 海の底に、どろが少しずつ しずんで積もる" : "🌊 流れる水が運んだ れき・砂・どろ が、少しずつ積み重なる", "#1d5f99");
       } else if (n === 3) {
-        // ③ 火山灰が少しずつ降り積もる
-        drawPre(0, 1);
-        if (loamI >= 0 && T > 0) poly(loamI, () => H0 + T * t, () => H0);
-        ctx.fillStyle = "rgba(120,60,30,0.6)";
-        for (let k = 0; k < 60; k++) {
-          const dd = ((k * 61) % 100) / 100 * d.length, ph = (k * 29 % 100) / 100;
-          const e = Htop + 14 - ((ph + t * 4) % 1) * (14 - T * t + T);
-          const p = P(dd, e); ctx.beginPath(); ctx.arc(p.x, p.y, 1.6, 0, Math.PI * 2); ctx.fill();
-        }
-        const p = P(d.length * 0.12, Htop + 10); tag(p.x + 60, p.y, "🌋 遠くの火山がふん火 → 火山灰が風で運ばれて降り積もる", "#8a3b12");
-      } else if (n === 4 && t < 0.999) {
-        // ④ 川が少しずつ大地をけずって、谷が深くなる
-        drawPre(0, 1);
-        if (loamI >= 0 && T > 0) poly(loamI, () => H0 + T, () => H0);
-        const shown = (l) => l.mode === "surface" || l.origin === "volcano";
-        const g4 = (s) => { let g = -Infinity; d.layers.forEach((l, li) => { if (shown(l) && s.tops[li] - s.bots[li] > 0.05) g = Math.max(g, s.tops[li]); }); return isFinite(g) ? g : s.g; };
-        const cut = (s) => Math.min(Htop, Math.max(g4(s), Htop - t * (Htop - g4(s))));
-        band(() => L.zmax + 50, cut, "#eef6fb", 1); // けずられた所は空に
-        ctx.beginPath(); S.forEach((s, i) => { const p = P(s.d, cut(s)); i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y); });
+        // ③ 火山灰が降り続く中で、川が大地をけずる（2つが同時に進む）
+        const oldShown = (l) => l.mode === "surface";
+        const gS = (s) => { let g = -Infinity; d.layers.forEach((l, li) => { if (oldShown(l) && s.tops[li] - s.bots[li] > 0.05) g = Math.max(g, s.tops[li]); }); return isFinite(g) ? g : s.g; };
+        // 積もる（A）とけずる（C）を、A C A C A C A C A と交互にくり返す
+        const segs = 9, sx9 = Math.min(segs - 1e-6, t * segs), si9 = Math.floor(sx9), f9 = sx9 - si9, ashSeg = si9 % 2 === 0;
+        const ashDone = Math.floor((si9 + 1) / 2) + (ashSeg ? f9 : 0), cutDone = Math.floor(si9 / 2) + (ashSeg ? 0 : f9);
+        const ashP = t >= 1 ? 1 : ashDone / 5, cutP = t >= 1 ? 1 : cutDone / 4;
+        let maxDeep = 0.01; for (const q of S) maxDeep = Math.max(maxDeep, H0 - gS(q));
+        const act = (s) => Math.min(1, (H0 - gS(s)) / (maxDeep * 0.35)); // 深くけずられる所ほど、火山灰もけずられる
+        const keep = (s) => (t >= 1 ? 1 : ashSeg ? (si9 === 0 ? 1 : 1 - act(s) * (1 - f9)) : 1 - act(s) * f9);
+        const cut = (s) => Math.min(H0, H0 - cutP * (H0 - gS(s)));
+        for (let si = last; si >= 0; si--) poly(surf[si], (s) => Math.min(clip(preTop(si, s), preBot(si, s), Infinity), cut(s)), (s) => Math.min(preBot(si, s), cut(s)));
+        const lt = (s) => (loamI >= 0 ? Math.max(0, s.tops[loamI] - s.bots[loamI]) : 0);
+        const ground = (s) => cut(s) + lt(s) * ashP * keep(s);
+        if (loamI >= 0) poly(loamI, ground, cut);
+        // 空（けずられた所・まだ積もっていない所）
+        band(() => skyTop, ground, "#eef6fb", 1);
+        ctx.beginPath(); S.forEach((s, i) => { const p = P(s.d, ground(s)); i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y); });
         ctx.strokeStyle = "#3b2a1a"; ctx.lineWidth = 2; ctx.stroke(); ctx.lineWidth = 1;
-        // 川（谷のいちばん低い所）
-        const rivers = (d.rivers && d.rivers.length ? d.rivers.map((r) => r.d) : [S.reduce((a, b) => (g4(b) < g4(a) ? b : a)).d]);
+        // 川（谷のいちばん低い所）：水が流れ、けずる
+        const rivers = d.rivers && d.rivers.length ? d.rivers.map((r) => r.d) : [S.reduce((a, b) => (gS(b) < gS(a) ? b : a)).d];
         for (const rd of rivers) {
-          const s = S.reduce((a, b) => (Math.abs(b.d - rd) < Math.abs(a.d - rd) ? b : a));
-          const p = P(s.d, cut(s));
-          ctx.fillStyle = "#1565ff"; ctx.beginPath(); ctx.ellipse(p.x, p.y - 3, 14, 5, 0, 0, Math.PI * 2); ctx.fill();
-          tag(p.x, p.y - 14, "💧川がけずる↓", "#1565ff");
+          // 谷底のはば（今の谷底の低い所）を調べ、川はその中を右へ左へ動きながら けずる
+          const k0 = S.reduce((a, b, k) => (Math.abs(b.d - rd) < Math.abs(S[a].d - rd) ? k : a), 0);
+          let lo = k0, hi = k0, gmin = gS(S[k0]);
+          for (let k = Math.max(0, k0 - 40); k <= Math.min(S.length - 1, k0 + 40); k++) if (gS(S[k]) < gmin) { gmin = gS(S[k]); }
+          const floorLim = gmin + Math.max(2, (H0 - gmin) * 0.12);
+          while (lo > 0 && gS(S[lo - 1]) <= floorLim) lo--;
+          while (hi < S.length - 1 && gS(S[hi + 1]) <= floorLim) hi++;
+          const dL = S[lo].d, dR = S[hi].d, half = Math.max(4, (dR - dL) / 2), mid = (dL + dR) / 2;
+          // 時間（つまみ）とともに、川の流れる場所が ゆっくり左右に動く
+          const rdNow = mid + half * 0.9 * Math.sin(t * Math.PI * 7 + 0.4 * Math.sin(clock * 0.8));
+          const sR = S.reduce((a, b) => (Math.abs(b.d - rdNow) < Math.abs(a.d - rdNow) ? b : a));
+          const p = P(sR.d, ground(sR));
+          if (ashSeg && t < 1) { ctx.fillStyle = "#1565ff"; ctx.beginPath(); ctx.ellipse(p.x, p.y - 3, 12, 4, 0, 0, Math.PI * 2); ctx.fill(); continue; }
+          // 川が通ってきた あと（谷底の はば）
+          const pl = P(dL, gmin), pr = P(dR, gmin);
+          ctx.save(); ctx.setLineDash([4, 4]); ctx.strokeStyle = "rgba(21,101,255,0.55)"; ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.moveTo(pl.x, pl.y + 6); ctx.lineTo(pr.x, pr.y + 6); ctx.stroke(); ctx.restore();
+          const w = 16 + 4 * Math.sin(clock * 3);
+          ctx.fillStyle = "#1565ff"; ctx.beginPath(); ctx.ellipse(p.x, p.y - 3, w, 5, 0, 0, Math.PI * 2); ctx.fill();
+          ctx.strokeStyle = "rgba(255,255,255,0.9)"; ctx.beginPath(); ctx.moveTo(p.x - w + 4 + ((clock * 20) % 10), p.y - 3); ctx.lineTo(p.x - w + 12 + ((clock * 20) % 10), p.y - 3); ctx.stroke();
+          ctx.fillStyle = "#1565ff"; ctx.font = "bold 16px " + font; ctx.textAlign = "center";
+          const goingRight = Math.cos(t * Math.PI * 7) > 0;
+          ctx.fillText(goingRight ? "↘" : "↙", p.x + (goingRight ? 18 : -18), p.y + 12 + 2 * Math.sin(clock * 4));
+          // 斜面が ときどき くずれて、土が川へ ずり落ちる
+          ctx.fillStyle = "rgba(110,80,50,0.8)";
+          for (const side of [-1, 1]) {
+            const kk = side < 0 ? Math.max(0, lo - 3) : Math.min(S.length - 1, hi + 3);
+            const top = S[side < 0 ? Math.max(0, lo - 12) : Math.min(S.length - 1, hi + 12)], bot = S[kk];
+            for (let q = 0; q < 4; q++) {
+              const ph = ((q * 0.27 + clock * 0.45) % 1);
+              const dd = top.d + (bot.d - top.d) * ph, e = ground(top) + (ground(bot) - ground(top)) * ph;
+              const pp = P(dd, e); ctx.beginPath(); ctx.arc(pp.x, pp.y - 2, 2.2, 0, Math.PI * 2); ctx.fill();
+            }
+          }
+          tag(p.x, p.y - 16, "💧川が 右へ左へ動きながら けずる → 谷が広がる", "#1565ff");
+        }
+        if (loamI >= 0) {
+          this._volcano = { active: ashSeg || t >= 1 };
+          if (ashSeg || t >= 1) { particles(70, "rgba(120,60,30,0.65)", 1.7, () => L.zmax, ground, 0.35, 0.25); }
+          const p = P((L.d0 || 0) + (L.win || d.length) * 0.62, Math.min(L.zmax - 3, H0 + T + 10));
+          const round = Math.min(5, Math.floor(si9 / 2) + 1);
+          tag(p.x, p.y, ashSeg ? "🌋 ふん火 → 火山灰が 降り積もる（" + round + "回め）" : "💧 川が 谷をけずる（" + round + "回め）", ashSeg ? "#8a3b12" : "#1565ff");
         }
       } else {
-        // 今の地層（けずられた後）。⑤⑥は、谷の土砂・盛土が少しずつ たまる
+        // ④⑤ 今の地層。谷の土砂・盛土が少しずつ たまる
         const show = (l) => l.mode === "surface" || l.origin === "volcano" || (n >= 5 && l.mode === "valley") || (n >= 6 && l.origin === "human");
         const grow = (l) => (n === 5 && l.mode === "valley") || (n === 6 && l.origin === "human");
         d.layers.forEach((l, li) => { if (show(l)) poly(li, (s) => (grow(l) ? s.bots[li] + (s.tops[li] - s.bots[li]) * t : s.tops[li]), (s) => s.bots[li]); });
-        if (n === 5 && t < 1) {
+        if (n === 5) {
           const vi = d.layers.findIndex((l) => l.mode === "valley");
           if (vi >= 0) {
+            // 谷の底を流れる水と、たまっていく土砂のつぶ
+            const has = (s) => s.tops[vi] - s.bots[vi] > 0.3;
+            const vtop = (s) => (has(s) ? s.bots[vi] + (s.tops[vi] - s.bots[vi]) * t : s.bots[vi]);
+            const wtop = (s) => (has(s) ? Math.max(s.tops[vi] + 1.5, vtop(s) + 1.5) : vtop(s));
+            water(wtop, vtop, 1);
+            particles(40, "rgba(80,110,130,0.7)", 1.6, wtop, vtop, 0.3, 0.1);
             let best = null; S.forEach((s) => { const th = s.tops[vi] - s.bots[vi]; if (th > 0.3 && (!best || th > best.th)) best = { s, th }; });
-            if (best) { const p = P(best.s.d, best.s.bots[vi] + best.th * t); tag(p.x, p.y - 12, "🌊 川が運んだ土砂が、谷の底に たまっていく", "#1d5f99"); }
+            if (best) { const p = P(best.s.d, best.s.tops[vi] + 4); tag(p.x, p.y - 12, "🌊 川が運んだ土砂が、谷の底に たまっていく", "#1d5f99"); }
           }
         }
-        if (n === 6 && t < 1) { const p = P(midD, Htop + 6); tag(p.x, p.y, "🏗️ 人が土を運んで盛り、平らな土地をつくる", "#6b4a00"); }
-        // けずられた部分を点線で
+        if (n === 6 && t < 1) { const p = P(midD, H0 + 6); tag(p.x, p.y, "🏗️ 人が土を運んで盛り、平らな土地をつくる", "#6b4a00"); }
+        // けずられる前の地面を点線で
         ctx.save(); ctx.setLineDash([5, 4]); ctx.strokeStyle = "rgba(31,42,51,0.6)"; ctx.lineWidth = 1.5;
-        const y = P(0, H0 + T).y; ctx.beginPath(); ctx.moveTo(L.m.l, y); ctx.lineTo(L.W - L.m.r, y); ctx.stroke(); ctx.restore();
+        const y = P(0, H0).y; ctx.beginPath(); ctx.moveTo(L.m.l, y); ctx.lineTo(L.W - L.m.r, y); ctx.stroke(); ctx.restore();
       }
+      // 何年前？（大きく）
+      const stNow = this.stages().find((x) => x.n === n);
+      if (stNow && stNow.from != null) {
+        const yrs = stNow.from + (stNow.to - stNow.from) * t;
+        const txt = yrs >= 10000 ? "約" + (Math.round(yrs / 1000) / 10).toFixed(yrs >= 1000000 ? 0 : 1).replace(/\.0$/, "") + "万年前" : yrs >= 1 ? "約" + Math.round(yrs) + "年前" : "今";
+        ctx.save(); ctx.textAlign = "right"; ctx.font = "bold 30px " + font;
+        const x = L.W - L.m.r - 12, y = L.m.t + 40;
+        const w = ctx.measureText("⏳ " + txt).width + 20;
+        ctx.fillStyle = "rgba(255,251,239,0.92)"; ctx.fillRect(x - w + 10, y - 32, w, 42);
+        ctx.strokeStyle = "#d4a017"; ctx.strokeRect(x - w + 10, y - 32, w, 42);
+        ctx.fillStyle = "#9a5b00"; ctx.fillText("⏳ " + txt, x, y);
+        ctx.restore();
+      }
+      if (this.opts.onVolcano) { const v = this.cv.offsetParent ? this._volcano || null : null; this.opts.onVolcano(v); this._volShown = !!v; }
+      this._volcano = null;
+      // 水・火山灰を動かしつづける（大地のでき方を見ている間だけ）
+      if (!this._raf && this.cv.offsetParent) this._raf = requestAnimationFrame(() => { this._raf = 0; if (this.stage > 0 && this.cv.offsetParent) { this.clock = performance.now() / 1000; this.draw(); } });
       // 説明
       const st = this.stages().find((x) => x.n === n);
       if (st) {
@@ -682,8 +779,7 @@
   SectionView.AGES = {
     1: { age: "約250万〜50万年前ごろ", from: 2500000, to: 500000 },
     2: { age: "約50万〜13万年前ごろ", from: 500000, to: 130000 },
-    3: { age: "約13万〜1万年前ごろ", from: 130000, to: 10000 },
-    4: { age: "約7万〜2万年前ごろ（寒い時代で、海面が今より100mほど低く、川が深くけずった）", from: 70000, to: 20000 },
+    3: { age: "約13万〜1万年前ごろ（ふん火で火山灰が積もる時期と、寒くなって海面が下がり川が深くけずる時期が、何度もくり返した）", from: 130000, to: 10000 },
     5: { age: "約1万年前〜今（あたたかくなって海面が上がり、谷に土砂がたまった）", from: 10000, to: 0 },
     6: { age: "約60年前〜今（町が広がったころから）", from: 60, to: 0 },
   };

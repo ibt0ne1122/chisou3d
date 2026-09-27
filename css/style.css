@@ -357,3 +357,18 @@ body:has(.floatbar:not(.hidden)) #hint { bottom: 168px; }
 
 .peelrow .solo { margin-left: auto; min-height: 0; padding: 1px 8px; font-size: 12px; border-radius: 999px; background: #eef6f8; border: 1px solid #cfe3e8; }
 .peelrow .solo:hover { background: var(--accent); color: #fff; }
+
+#volcanoBox { position: fixed; z-index: 30; width: 190px; background: #fff; border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.25); padding: 6px; cursor: grab; touch-action: none; user-select: none; }
+#volcanoBox canvas { width: 100%; height: auto; display: block; border-radius: 8px; }
+#volcanoBox .vb-head { font-size: 13px; font-weight: bold; margin-bottom: 4px; }
+#volcanoBox .vb-head small { font-weight: normal; color: var(--sub); font-size: 10px; }
+#volcanoBox .vb-foot { font-size: 11px; color: var(--sub); text-align: center; margin-top: 2px; }
+
+#volcanoBox { width: 330px; padding: 8px; }
+#volcanoBox .vb-head { font-size: 16px; }
+#volcanoBox .vb-head small { font-size: 11px; }
+#volcanoBox .vb-foot { font-size: 12px; }
+@media (max-width: 760px) { #volcanoBox { width: 220px; } }
+
+#volcanoBox .vb-head { display: flex; align-items: center; gap: 6px; }
+#volcanoBox .vb-close { margin-left: auto; min-height: 0; padding: 0 8px; font-size: 14px; border-radius: 999px; }

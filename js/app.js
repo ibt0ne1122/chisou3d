@@ -1874,6 +1874,7 @@
       secView = new C.SectionView($("secCanvas"), {
         site: S.site,
         onBore: (id) => showBore(id), // 断面図の柱をさわると、くわしい柱状図
+        onVolcano: (v) => volcanoBox(v),
         onChange: (strokes) => {
           const all = store.get(key("sections"), {});
           all[sectionKey()] = strokes;
@@ -1934,6 +1935,7 @@
     download("断面図-" + stamp() + ".png", cv.toDataURL("image/png"));
   }
   function closeSectionSheet() {
+    volcanoBox(null); // 火山の小窓も閉じる
     document.body.classList.remove("sheet-open");
     $("sectionSheet").classList.add("hidden");
     updateViewOffset();
@@ -2780,7 +2782,7 @@
     /** from→to（段階の番号）へ、なめらかに時間を進める */
     const playStage = (fromIdx, toIdx) => {
       if (S.stageAnim) cancelAnimationFrame(S.stageAnim);
-      const v0 = fromIdx * 100, v1 = toIdx * 100, dur = Math.max(1, Math.abs(toIdx - fromIdx)) * 2200, t0 = performance.now();
+      const v0 = fromIdx * 100, v1 = toIdx * 100, dur = Math.max(1, Math.abs(toIdx - fromIdx)) * 3500, t0 = performance.now();
       const step = () => {
         const k = Math.min(1, (performance.now() - t0) / dur);
         S.stageAnim = k < 1 ? requestAnimationFrame(step) : 0;
@@ -3142,6 +3144,69 @@
       $("shareFormState").textContent = "✅ 送り先を決めました（名前" + (cfg.f.name ? "○" : "×") + "・予想" + (cfg.f.predict ? "○" : "×") + "・分かったこと" + (cfg.f.result ? "○" : "×") + "・リンク○）";
     };
     $("secSend").onclick = sendToTeacher;
+  }
+
+  // ---------- 遠くの火山（大地のでき方③で出す。ドラッグで動かせる小さな窓） ----------
+  let volEl = null, volState = null, volUserClosed = false;
+  function volcanoBox(v) {
+    volState = v;
+    if (!v) { volUserClosed = false; if (volEl) volEl.classList.add("hidden"); return; }
+    if (volUserClosed) return;
+    if (!volEl) {
+      volEl = document.createElement("div");
+      volEl.id = "volcanoBox";
+      volEl.innerHTML = '<div class="vb-head">🌋 遠くの火山 <small>（ドラッグで動かせます）</small><button type="button" class="vb-close" title="閉じる">✕</button></div><canvas width="640" height="400"></canvas><div class="vb-foot">富士山・箱根などの火山から、火山灰が風で運ばれてきた</div>';
+      document.body.appendChild(volEl);
+      volEl.querySelector(".vb-close").addEventListener("pointerdown", (e) => e.stopPropagation());
+      volEl.querySelector(".vb-close").onclick = () => { volUserClosed = true; volEl.classList.add("hidden"); };
+      const pos = store.get("chisou3d:volcanoPos", null);
+      if (pos) { volEl.style.left = Math.min(pos.x, window.innerWidth - 120) + "px"; volEl.style.top = Math.min(pos.y, window.innerHeight - 80) + "px"; }
+      else {
+        // はじめは、断面図のシートの すぐ上（右がわ）に置く。場所がなければ左上
+        const sh = $("sectionSheet").getBoundingClientRect(), h = volEl.offsetHeight || 260;
+        const top = sh.top - h - 8;
+        if (top >= 60) { volEl.style.right = "90px"; volEl.style.top = top + "px"; }
+        else { volEl.style.left = "310px"; volEl.style.top = "60px"; }
+      }
+      let drag = null;
+      volEl.addEventListener("pointerdown", (e) => { const r = volEl.getBoundingClientRect(); drag = { dx: e.clientX - r.left, dy: e.clientY - r.top }; volEl.setPointerCapture(e.pointerId); e.preventDefault(); });
+      volEl.addEventListener("pointermove", (e) => {
+        if (!drag) return;
+        const x = Math.max(0, Math.min(window.innerWidth - volEl.offsetWidth, e.clientX - drag.dx)), y = Math.max(0, Math.min(window.innerHeight - volEl.offsetHeight, e.clientY - drag.dy));
+        volEl.style.left = x + "px"; volEl.style.top = y + "px"; volEl.style.right = "auto";
+      });
+      const end = () => { if (!drag) return; drag = null; const r = volEl.getBoundingClientRect(); store.set("chisou3d:volcanoPos", { x: Math.round(r.left), y: Math.round(r.top) }); };
+      volEl.addEventListener("pointerup", end); volEl.addEventListener("pointercancel", end);
+      const cv = volEl.querySelector("canvas"), ctx = cv.getContext("2d");
+      const frame = () => {
+        requestAnimationFrame(frame);
+        if (volEl.classList.contains("hidden")) return;
+        const c = performance.now() / 1000, on = volState && volState.active;
+        ctx.setTransform(640 / 360, 0, 0, 400 / 220, 0, 0);
+        ctx.clearRect(0, 0, 360, 220);
+        const g = ctx.createLinearGradient(0, 0, 0, 220); g.addColorStop(0, "#dfeefa"); g.addColorStop(1, "#f6f1e3");
+        ctx.fillStyle = g; ctx.fillRect(0, 0, 360, 220);
+        // 火山
+        ctx.fillStyle = "#8d6e63"; ctx.beginPath(); ctx.moveTo(40, 200); ctx.lineTo(150, 95); ctx.lineTo(180, 95); ctx.lineTo(290, 200); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = "#6d4c41"; ctx.beginPath(); ctx.moveTo(150, 95); ctx.lineTo(165, 120); ctx.lineTo(180, 95); ctx.fill();
+        ctx.fillStyle = "#7c9a5e"; ctx.fillRect(0, 196, 360, 24);
+        if (on) {
+          ctx.fillStyle = "#ff6d00"; ctx.beginPath(); ctx.moveTo(150, 96); ctx.lineTo(165, 70 - 10 * Math.abs(Math.sin(c * 5))); ctx.lineTo(180, 96); ctx.fill();
+          for (let k = 0; k < 14; k++) {
+            const ph = (k / 14 + c * 0.15) % 1, r = 8 + ph * 34;
+            ctx.globalAlpha = 0.6 * (1 - ph); ctx.fillStyle = "#5f5f5f";
+            ctx.beginPath(); ctx.arc(165 + ph * 170, 80 - ph * 55 + Math.sin(k * 1.7) * 6, r, 0, Math.PI * 2); ctx.fill();
+          }
+          ctx.globalAlpha = 1; ctx.fillStyle = "rgba(110,60,30,0.7)";
+          for (let k = 0; k < 40; k++) { const ph = (k * 0.37 + c * 0.5) % 1; ctx.beginPath(); ctx.arc(200 + ((k * 53) % 150), 40 + ph * 160, 1.6, 0, Math.PI * 2); ctx.fill(); }
+          ctx.fillStyle = "#8a3b12"; ctx.font = 'bold 18px "BIZ UDPGothic","Meiryo",sans-serif'; ctx.fillText("ふん火中！ 火山灰 → 風で運ばれる ➜", 12, 28);
+        } else {
+          ctx.fillStyle = "#5a6873"; ctx.font = 'bold 18px "BIZ UDPGothic","Meiryo",sans-serif'; ctx.fillText("いまは しずか（ふん火していない）", 12, 28);
+        }
+      };
+      requestAnimationFrame(frame);
+    }
+    volEl.classList.remove("hidden");
   }
 
   window.__chisou = { S, setMode, makeSection, showBore, showYato, get camera() { return camera; }, get controls() { return controls; } };
