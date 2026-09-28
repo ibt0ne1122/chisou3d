@@ -1960,7 +1960,8 @@
   }
   function closeSectionSheet() {
     volcanoBox(null); // 火山の小窓も閉じる
-    document.body.classList.remove("sheet-open");
+    document.body.classList.remove("sheet-open", "sheet-full");
+    $("secFull").textContent = "⛶ 全画面";
     $("sectionSheet").classList.add("hidden");
     updateViewOffset();
   }
@@ -2740,20 +2741,25 @@
     // 断面図
     $("secUndo").onclick = () => secView && secView.undo();
     // 断面図の大きさ
-    const setSheetH = (px) => {
-      const h = Math.max(160, Math.min(window.innerHeight - 40, px));
+    // 下のボタン（見る・断面図を作成…）がいつも見えるように、シートはボタンの下までにする（全画面のときだけ上まで）
+    let mbH = 64;
+    const maxSheetH = () => { const mb = $("modebar"); if (mb && mb.offsetHeight) mbH = mb.offsetHeight; return window.innerHeight - mbH - 24; };
+    const setSheetH = (px, full) => {
+      const h = full ? window.innerHeight : Math.max(160, Math.min(maxSheetH(), px));
       document.documentElement.style.setProperty("--sheetH", h + "px");
-      document.body.classList.toggle("sheet-full", h >= window.innerHeight - 60);
-      store.set("chisou3d:sheetH", h);
+      document.body.classList.toggle("sheet-full", !!full);
+      $("secFull").textContent = full ? "⛶ 全画面をやめる" : "⛶ 全画面";
+      if (!full) store.set("chisou3d:sheetH", h);
       if (secView) secView.resize();
       updateViewOffset();
     };
     const sh0 = store.get("chisou3d:sheetH", 0);
-    if (sh0) document.documentElement.style.setProperty("--sheetH", Math.min(sh0, window.innerHeight - 40) + "px");
+    if (sh0) document.documentElement.style.setProperty("--sheetH", Math.min(sh0, maxSheetH()) + "px");
+    window.addEventListener("resize", () => { if (document.body.classList.contains("sheet-open") && !document.body.classList.contains("sheet-full") && curH() > maxSheetH()) setSheetH(maxSheetH()); });
     const curH = () => $("sectionSheet").offsetHeight || window.innerHeight * 0.46;
     $("secBigger").onclick = () => setSheetH(curH() + window.innerHeight * 0.15);
     $("secSmaller").onclick = () => setSheetH(curH() - window.innerHeight * 0.15);
-    $("secFull").onclick = () => setSheetH(curH() >= window.innerHeight - 60 ? window.innerHeight * 0.46 : window.innerHeight);
+    $("secFull").onclick = () => (document.body.classList.contains("sheet-full") ? setSheetH(window.innerHeight * 0.46) : setSheetH(window.innerHeight, true));
     const grip = $("sheetGrip");
     grip.addEventListener("pointerdown", (e) => {
       grip.setPointerCapture(e.pointerId);
@@ -2801,13 +2807,13 @@
       S.stageLayoutOn = on;
       $("sectionSheet").classList.toggle("stage-mode", on);
       if (on) {
-        S.stageSaved = { h: curH(), ve: store.get("chisou3d:secVe", "auto"), hs: store.get("chisou3d:secHScale", 1) };
+        S.stageSaved = { full: document.body.classList.contains("sheet-full"), h: curH(), ve: store.get("chisou3d:secVe", "auto"), hs: store.get("chisou3d:secHScale", 1) };
         setSecHScale(1); setSecVe("auto");
-        setSheetH(window.innerHeight - 40);
+        if (!S.stageSaved.full) setSheetH(window.innerHeight - 40);
       } else if (S.stageSaved) {
         const sv = S.stageSaved; S.stageSaved = null;
         setSecHScale(sv.hs); setSecVe(sv.ve);
-        setSheetH(sv.h);
+        if (sv.full) setSheetH(window.innerHeight, true); else setSheetH(sv.h);
       }
     };
     S.stageLayout = stageLayout;
@@ -2823,11 +2829,17 @@
     /** from→to（段階の番号）へ、なめらかに時間を進める */
     const playStage = (fromIdx, toIdx) => {
       if (S.stageAnim) cancelAnimationFrame(S.stageAnim);
-      const v0 = fromIdx * 100, v1 = toIdx * 100, dur = Math.max(1, Math.abs(toIdx - fromIdx)) * 3500, t0 = performance.now();
+      // ③（火山灰と川のくり返し）は出来事が多いので、ゆっくり進める
+      const list = secView.stages(), wt = (i) => (list[i] && list[i].n === 3 ? 6 : 1);
+      const lo = Math.min(fromIdx, toIdx), hi = Math.max(fromIdx, toIdx), segs = [];
+      for (let i = lo; i < hi; i++) segs.push(wt(i));
+      const total = segs.reduce((a, b) => a + b, 0) || 1, dur = total * 3500, t0 = performance.now();
+      const vAt = (k) => { let acc = k * total; for (let j = 0; j < segs.length; j++) { if (acc <= segs[j]) return (lo + j + acc / segs[j]) * 100; acc -= segs[j]; } return hi * 100; };
       const step = () => {
         const k = Math.min(1, (performance.now() - t0) / dur);
         S.stageAnim = k < 1 ? requestAnimationFrame(step) : 0;
-        const v = v0 + (v1 - v0) * k;
+        const v = fromIdx <= toIdx ? vAt(k) : vAt(1 - k);
+        if (S.onStageFrame) S.onStageFrame(k);
         $("secStageRange").value = v;
         setStageV(v);
       };
@@ -2849,6 +2861,60 @@
     };
     $("secStageRange").oninput = () => { if (S.stageAnim) { cancelAnimationFrame(S.stageAnim); S.stageAnim = 0; } setStageV(+$("secStageRange").value); };
     $("secStagePlay").onclick = () => { const n = secView.stages().length; playStage(0, n); };
+    // 🎥 動画で保存：はじめから通して再生しながら、断面図（年代・説明・火山の小窓つき）を録画する
+    const recBtn = $("secStageRec");
+    const stopRec = () => { if (S.rec && S.rec.mr.state !== "inactive") S.rec.mr.stop(); };
+    recBtn.onclick = () => {
+      if (S.rec) return stopRec();
+      const src = $("secCanvas");
+      const types = ["video/mp4;codecs=avc1", "video/mp4", "video/webm;codecs=vp9", "video/webm"];
+      const type = window.MediaRecorder && types.find((x) => MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(x));
+      if (!type || !src.captureStream) return alert("このブラウザでは動画の保存ができません。Safari・Chrome・Edge の新しい版でためしてください。");
+      const W = src.width, head = Math.round(src.width * 0.09), H = src.height + head;
+      const rc = document.createElement("canvas"); rc.width = W; rc.height = H + (H % 2); rc.width += W % 2;
+      const g = rc.getContext("2d"), font = getComputedStyle(document.body).fontFamily;
+      const drawFrame = () => {
+        g.fillStyle = "#fff"; g.fillRect(0, 0, rc.width, rc.height);
+        g.fillStyle = "#fffbef"; g.fillRect(0, 0, rc.width, head);
+        const fs = Math.round(head * 0.26);
+        g.fillStyle = "#9a5b00"; g.font = "bold " + Math.round(head * 0.42) + "px " + font; g.textAlign = "right";
+        const yr = ($("secYear").textContent || "").trim(), yrW = g.measureText(yr).width;
+        g.fillText(yr, W - fs, head * 0.52);
+        g.textAlign = "left"; g.fillStyle = "#1f2a33"; g.font = "bold " + fs + "px " + font;
+        const el = $("secStageText"), txt = el.classList.contains("hidden") ? "" : (el.querySelector(".st-text") || el).textContent;
+        let ttl = "大地のでき方　" + S.site.title + "　断面" + ($("secInfo").textContent || "");
+        while (ttl.length > 4 && g.measureText(ttl).width > W - yrW - fs * 2.5) ttl = ttl.slice(0, -2) + "…";
+        g.fillText(ttl, fs * 0.6, fs * 1.3);
+        g.font = fs * 0.9 + "px " + font;
+        const maxW = W - yrW - fs * 2.5; let line = "", y = fs * 2.6;
+        for (const ch of txt) { if (g.measureText(line + ch).width > maxW) { g.fillText(line, fs * 0.6, y); line = ""; y += fs * 1.1; if (y > head) break; } line += ch; }
+        if (y <= head) g.fillText(line, fs * 0.6, y);
+        g.drawImage(src, 0, head);
+        const vc = document.querySelector("#volcanoBox:not(.hidden) canvas");
+        if (vc) { const vw = W * 0.2, vh = vw * vc.height / vc.width; g.drawImage(vc, W - vw - fs, head + src.height - vh - fs * 2.4, vw, vh); g.strokeStyle = "#999"; g.strokeRect(W - vw - fs, head + src.height - vh - fs * 2.4, vw, vh); }
+      };
+      drawFrame();
+      const mr = new MediaRecorder(rc.captureStream(30), { mimeType: type, videoBitsPerSecond: 6000000 });
+      const chunks = [];
+      mr.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
+      mr.onstop = () => {
+        cancelAnimationFrame(S.rec.raf); S.rec = null; S.onStageFrame = null;
+        recBtn.textContent = "🎥 動画で保存"; recBtn.classList.remove("on");
+        const blob = new Blob(chunks, { type: type.split(";")[0] });
+        const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+        a.download = "大地のでき方-" + S.site.title + "-" + stamp() + (type.includes("mp4") ? ".mp4" : ".webm");
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+        flashHint("🎥 動画を保存しました（" + Math.round(blob.size / 1024 / 1024 * 10) / 10 + "MB）");
+      };
+      S.rec = { mr, raf: 0 };
+      const loop = () => { drawFrame(); S.rec.raf = requestAnimationFrame(loop); };
+      loop();
+      mr.start(500);
+      recBtn.textContent = "⏹ 録画をやめる"; recBtn.classList.add("on");
+      S.onStageFrame = (k) => { if (k >= 1) { S.onStageFrame = null; setTimeout(stopRec, 1500); } };
+      const n = secView.stages().length; playStage(0, n);
+    };
     $("secStagePrev").onclick = () => stageStep(-1);
     $("secStageNext").onclick = () => stageStep(1);
     // 考えメモ
@@ -3232,7 +3298,11 @@
         else {
           // シートが大きいとき：断面図の右下（いちばん下の古い地層の上。動きの少ない所）に置く
           const cr = $("secCanvas").getBoundingClientRect();
-          volEl.style.right = Math.max(8, window.innerWidth - cr.right + 56) + "px";
+          // 川のある側とは反対に置く（川の動きがかくれないように）
+          const dd = secView && secView.data, rv = dd && dd.rivers && dd.rivers[0];
+          let rf = rv ? rv.d / dd.length : 1; if (S.sectionFlip) rf = 1 - rf;
+          if (rf > 0.5) volEl.style.left = cr.left + 64 + "px";
+          else volEl.style.right = Math.max(8, window.innerWidth - cr.right + 56) + "px";
           volEl.style.top = Math.max(60, cr.bottom - h - 30) + "px";
         }
       }
@@ -3277,5 +3347,5 @@
     volEl.classList.remove("hidden");
   }
 
-  window.__chisou = { S, setMode, makeSection, showBore, showYato, get camera() { return camera; }, get controls() { return controls; } };
+  window.__chisou = { S, setMode, makeSection, showBore, showYato, get secView() { return secView; }, get camera() { return camera; }, get controls() { return controls; } };
 })();

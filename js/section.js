@@ -635,53 +635,95 @@
         let maxDeep = 0.01; for (const q of S) maxDeep = Math.max(maxDeep, H0 - gS(q));
         const act = (s) => Math.min(1, (H0 - gS(s)) / (maxDeep * 0.35)); // 深くけずられる所ほど、火山灰もけずられる
         const keep = (s) => (t >= 1 ? 1 : ashSeg ? (si9 === 0 ? 1 : 1 - act(s) * (1 - f9)) : 1 - act(s) * f9);
-        const cut = (s) => Math.min(H0, H0 - cutP * (H0 - gS(s)));
-        for (let si = last; si >= 0; si--) poly(surf[si], (s) => Math.min(clip(preTop(si, s), preBot(si, s), Infinity), cut(s)), (s) => Math.min(preBot(si, s), cut(s)));
-        const lt = (s) => (loamI >= 0 ? Math.max(0, s.tops[loamI] - s.bots[loamI]) : 0);
-        const ground = (s) => cut(s) + lt(s) * ashP * keep(s);
+        // けずり方を「台地全体が少し下がる分」と「川がほる谷の分」に分ける
+        //  台地の高さ（base）＝まわりのいちばん高い所をならしたもの。谷の深さ＝base − 今の地面
+        const N = S.length, g0 = S.map(gS), win = Math.max(3, Math.round((Math.max(100, d.length * 0.3) / d.length) * (N - 1)));
+        const mx = g0.map((_, i) => { let v = -Infinity; for (let k = Math.max(0, i - win); k <= Math.min(N - 1, i + win); k++) v = Math.max(v, g0[k]); return v; });
+        const hw = Math.max(1, Math.round(win / 6));
+        const base = mx.map((_, i) => { let a = 0, c = 0; for (let k = Math.max(0, i - hw); k <= Math.min(N - 1, i + hw); k++) { a += mx[k]; c++; } return Math.max(g0[i], a / c); });
+        const inc = base.map((b, i) => b - g0[i]);
+        let incMax = 0.01; for (const v of inc) incMax = Math.max(incMax, v);
+        const incTol = Math.max(1, incMax * 0.12); // これより浅い所は台地（谷ではない）
+        const vE = new Array(N).fill(-1); // 谷の分を、どれだけけずったか（0〜1）。-1＝川の谷ではない所
+        // 川の動き：けずる時期ごとに、谷のまん中 → 右の段差 → 左の段差 → まん中 と1往復。回を重ねるほど遠くまで行く
+        const stateAt = (tau) => {
+          const x = Math.min(segs - 1e-6, tau * segs), i9 = Math.floor(x), f = x - i9, a = i9 % 2 === 0;
+          const cd = Math.floor(i9 / 2) + (a ? 0 : f);
+          const amp = Math.min(1, cd / 3.6);
+          return { cd, amp, pos: amp * Math.sin(cd * Math.PI * 2), depth: Math.min(1, (cd / 4) * 1.7) };
+        };
+        const now = stateAt(t);
+        let reachL = 0, reachR = 0;
+        for (let q = 0; q <= 240; q++) { const st = stateAt((t * q) / 240); reachL = Math.max(reachL, -st.pos); reachR = Math.max(reachR, st.pos); }
+        let depth = now.depth;
+        if (now.cd >= 4) { const k = Math.min(1, f9 * 3); reachL += (1 - reachL) * k; reachR += (1 - reachR) * k; }
+        if (t >= 1) { reachL = reachR = depth = 1; }
+        const rivers = d.rivers && d.rivers.length ? d.rivers.map((r) => r.d) : [S.reduce((a, b) => (gS(b) < gS(a) ? b : a)).d];
+        const rv = [];
+        for (const rd of rivers) {
+          const k0 = S.reduce((a, b, k) => (Math.abs(b.d - rd) < Math.abs(S[a].d - rd) ? k : a), 0);
+          // 谷の はんい（段差の上のはしまで）
+          let lo = k0, hi = k0;
+          // 小さな高まり（はば gap 以内）は のりこえて、その先の谷も同じ川の谷とみなす
+          const gap = Math.max(2, Math.round((Math.max(30, d.length * 0.08) / d.length) * (N - 1)));
+          const grow = (k, dir) => { for (;;) { let j = 0; for (let q = 1; q <= gap; q++) { const kk = k + dir * q; if (kk < 0 || kk >= N) break; if (inc[kk] > incTol) { j = q; break; } } if (!j) return k; k += dir * j; } };
+          lo = grow(lo, -1); hi = grow(hi, 1);
+          if (hi - lo < 2) continue;
+          // 谷底（いちばん低い所のあたり）のまん中を、川のはじめの場所にする
+          let gmin = Infinity; for (let k = lo; k <= hi; k++) gmin = Math.min(gmin, g0[k]);
+          const floorLim = gmin + Math.max(1.5, (base[k0] - gmin) * 0.15);
+          let fl = k0, fh = k0; while (fl > lo && g0[fl - 1] <= floorLim) fl--; while (fh < hi && g0[fh + 1] <= floorLim) fh++;
+          const mid = (S[fl].d + S[fh].d) / 2, extL = Math.max(2, mid - S[lo].d), extR = Math.max(2, S[hi].d - mid);
+          const edgeL = mid - reachL * extL, edgeR = mid + reachR * extR, fall = Math.max(3, (extL + extR) * 0.12);
+          for (let k = lo; k <= hi; k++) {
+            const dd = S[k].d, out = dd < edgeL ? edgeL - dd : dd > edgeR ? dd - edgeR : 0;
+            vE[k] = Math.max(vE[k], depth * Math.max(0, 1 - out / fall));
+          }
+          rv.push({ mid, extL, extR, edgeL, edgeR, gmin });
+        }
+        const cutArr = S.map((q, i) => H0 - cutP * (H0 - base[i]) - (vE[i] < 0 ? cutP : vE[i]) * inc[i]);
+        const cutMap = new Map(S.map((q, i) => [q, Math.min(H0, cutArr[i])]));
+        const cut = (q) => cutMap.get(q);
+        for (let si = last; si >= 0; si--) poly(surf[si], (q) => Math.min(clip(preTop(si, q), preBot(si, q), Infinity), cut(q)), (q) => Math.min(preBot(si, q), cut(q)));
+        const lt = (q) => (loamI >= 0 ? Math.max(0, q.tops[loamI] - q.bots[loamI]) : 0);
+        const ground = (q) => cut(q) + lt(q) * ashP * keep(q);
         if (loamI >= 0) poly(loamI, ground, cut);
         // 空（けずられた所・まだ積もっていない所）
         band(() => skyTop, ground, "#eef6fb", 1);
-        ctx.beginPath(); S.forEach((s, i) => { const p = P(s.d, ground(s)); i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y); });
+        ctx.beginPath(); S.forEach((q, i) => { const p = P(q.d, ground(q)); i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y); });
         ctx.strokeStyle = "#3b2a1a"; ctx.lineWidth = 2; ctx.stroke(); ctx.lineWidth = 1;
-        // 川（谷のいちばん低い所）：水が流れ、けずる
-        const rivers = d.rivers && d.rivers.length ? d.rivers.map((r) => r.d) : [S.reduce((a, b) => (gS(b) < gS(a) ? b : a)).d];
-        for (const rd of rivers) {
-          // 谷底のはば（今の谷底の低い所）を調べ、川はその中を右へ左へ動きながら けずる
-          const k0 = S.reduce((a, b, k) => (Math.abs(b.d - rd) < Math.abs(S[a].d - rd) ? k : a), 0);
-          let lo = k0, hi = k0, gmin = gS(S[k0]);
-          for (let k = Math.max(0, k0 - 40); k <= Math.min(S.length - 1, k0 + 40); k++) if (gS(S[k]) < gmin) { gmin = gS(S[k]); }
-          const floorLim = gmin + Math.max(2, (H0 - gmin) * 0.12);
-          while (lo > 0 && gS(S[lo - 1]) <= floorLim) lo--;
-          while (hi < S.length - 1 && gS(S[hi + 1]) <= floorLim) hi++;
-          const dL = S[lo].d, dR = S[hi].d, half = Math.max(4, (dR - dL) / 2), mid = (dL + dR) / 2;
-          // 時間（つまみ）とともに、川の流れる場所が ゆっくり左右に動く
-          const rdNow = mid + half * 0.9 * Math.sin(t * Math.PI * 7 + 0.4 * Math.sin(clock * 0.8));
-          const sR = S.reduce((a, b) => (Math.abs(b.d - rdNow) < Math.abs(a.d - rdNow) ? b : a));
+        const near = (dd) => S.reduce((a, b) => (Math.abs(b.d - dd) < Math.abs(a.d - dd) ? b : a));
+        for (const r of rv) {
+          const x = now.pos >= 0 ? r.mid + now.pos * r.extR : r.mid + now.pos * r.extL;
+          // 川は段差の下（谷底）を流れる：がけの上に来たら、谷底まで もどす
+          let kx = S.indexOf(near(Math.max(r.edgeL, Math.min(r.edgeR, x))));
+          const kMid = S.indexOf(near(r.mid)), stepK = kx < kMid ? 1 : -1;
+          const dStep = d.length / Math.max(1, N - 1), drop = Math.max(0.15, dStep * 0.12);
+          while (kx !== kMid && ground(S[kx + stepK]) < ground(S[kx]) - drop) kx += stepK; // がけの斜面なら、下まで下りる
+          const sR = S[kx];
           const p = P(sR.d, ground(sR));
           if (ashSeg && t < 1) { ctx.fillStyle = "#1565ff"; ctx.beginPath(); ctx.ellipse(p.x, p.y - 3, 12, 4, 0, 0, Math.PI * 2); ctx.fill(); continue; }
-          // 川が通ってきた あと（谷底の はば）
-          const pl = P(dL, gmin), pr = P(dR, gmin);
-          ctx.save(); ctx.setLineDash([4, 4]); ctx.strokeStyle = "rgba(21,101,255,0.55)"; ctx.lineWidth = 2;
-          ctx.beginPath(); ctx.moveTo(pl.x, pl.y + 6); ctx.lineTo(pr.x, pr.y + 6); ctx.stroke(); ctx.restore();
-          const w = 16 + 4 * Math.sin(clock * 3);
+          // 川の水（流れの白い線が動く）
+          const w = 14 + 3 * Math.sin(clock * 3);
           ctx.fillStyle = "#1565ff"; ctx.beginPath(); ctx.ellipse(p.x, p.y - 3, w, 5, 0, 0, Math.PI * 2); ctx.fill();
           ctx.strokeStyle = "rgba(255,255,255,0.9)"; ctx.beginPath(); ctx.moveTo(p.x - w + 4 + ((clock * 20) % 10), p.y - 3); ctx.lineTo(p.x - w + 12 + ((clock * 20) % 10), p.y - 3); ctx.stroke();
-          ctx.fillStyle = "#1565ff"; ctx.font = "bold 16px " + font; ctx.textAlign = "center";
-          const goingRight = Math.cos(t * Math.PI * 7) > 0;
-          ctx.fillText(goingRight ? "↘" : "↙", p.x + (goingRight ? 18 : -18), p.y + 12 + 2 * Math.sin(clock * 4));
-          // 斜面が ときどき くずれて、土が川へ ずり落ちる
-          ctx.fillStyle = "rgba(110,80,50,0.8)";
-          for (const side of [-1, 1]) {
-            const kk = side < 0 ? Math.max(0, lo - 3) : Math.min(S.length - 1, hi + 3);
-            const top = S[side < 0 ? Math.max(0, lo - 12) : Math.min(S.length - 1, hi + 12)], bot = S[kk];
-            for (let q = 0; q < 4; q++) {
-              const ph = ((q * 0.27 + clock * 0.45) % 1);
+          // 動いている向き
+          const vel = Math.cos(now.cd * Math.PI * 2), goingRight = vel > 0;
+          ctx.fillStyle = "#1565ff"; ctx.font = "bold 18px " + font; ctx.textAlign = "center";
+          if (Math.abs(vel) > 0.2) ctx.fillText(goingRight ? "➡" : "⬅", p.x + (goingRight ? 26 : -26), p.y - 1);
+          // 段差にぶつかったとき：がけがくずれて、土が川へ落ちる
+          const hitR = now.pos > 0 && x >= r.edgeR - r.extR * 0.12, hitL = now.pos < 0 && x <= r.edgeL + r.extL * 0.12;
+          if (hitR || hitL) {
+            const wd = hitR ? r.edgeR : r.edgeL, dir = hitR ? 1 : -1;
+            const ext = hitR ? r.extR : r.extL, top = near(wd + dir * Math.max(8, ext * 0.08)), bot = near(wd - dir * 2);
+            ctx.fillStyle = "rgba(110,80,50,0.85)";
+            for (let q = 0; q < 7; q++) {
+              const ph = (q * 0.19 + clock * 0.9) % 1;
               const dd = top.d + (bot.d - top.d) * ph, e = ground(top) + (ground(bot) - ground(top)) * ph;
-              const pp = P(dd, e); ctx.beginPath(); ctx.arc(pp.x, pp.y - 2, 2.2, 0, Math.PI * 2); ctx.fill();
+              const pp = P(dd, e); ctx.beginPath(); ctx.arc(pp.x + Math.sin(q * 7) * 3, pp.y - 2, 2.6, 0, Math.PI * 2); ctx.fill();
             }
-          }
-          tag(p.x, p.y - 16, "💧川が 右へ左へ動きながら けずる → 谷が広がる", "#1565ff");
+            tag(p.x, p.y - 18, "💥 川が段差（がけ）にぶつかって けずる → がけがくずれる", "#8a3b12");
+          } else tag(p.x, p.y - 18, "💧 川が 右へ左へ動きながら けずる → 谷が広がる", "#1565ff");
         }
         if (loamI >= 0) {
           this._volcano = { active: ashSeg || t >= 1 };
