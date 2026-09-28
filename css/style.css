@@ -391,3 +391,8 @@ body:has(.floatbar:not(.hidden)) #hint { bottom: 168px; }
 .scalebox b { min-width: 3.4em; color: var(--text, #222); font-weight: 600; }
 #secTotalVe { font-size: 12px; }
 @media (pointer: coarse) { .scalebox input[type=range] { width: 160px; height: 36px; } }
+/* 断面図の上のボタン：文字を折り返さず、高さをそろえる */
+.size-btns { flex-wrap: wrap; row-gap: 6px; }
+.size-btns button, .seg button { white-space: nowrap; min-height: 32px; height: 32px; font-size: 13px; line-height: 1.1; }
+.seg { white-space: nowrap; flex-shrink: 0; }
+.seg.scalebox { white-space: normal; }

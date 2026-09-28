@@ -65,13 +65,10 @@
       for (const b of d.bores) deep = Math.min(deep, b.elev - b.depth);
       let zmin = isFinite(deep) ? Math.floor((deep - 3) / 5) * 5 : d.base;
       if (zmin >= zmax - 10) zmin = zmax - 10;
-      const sx = (W - m.l - m.r) / win;
+      let sx = (W - m.l - m.r) / win;
       let sy = (H - m.t - m.b) / (zmax - zmin);
       // 自動でも、たてが横より縮むことはしない（深い柱があるときは下を切る）
-      // 横をちぢめる（1/n）と、同じ画面の幅に入れるので、たては横のn倍に見える
-      const hs = Math.max(0.1, Math.min(1, this.hScale || 1));
-      let vf = this.veFixed || (sy < sx ? 1 : 0);
-      if (hs < 0.999) vf = (vf || sy / sx) / hs;
+      const vf = this.veFixed || (sy < sx ? 1 : 0);
       let vclip = false;
       if (vf) {
         // たての強調を決めたとき：縮尺はそのままで、いちばん深い柱の下で図を終わりにする
@@ -88,6 +85,13 @@
           zmax = top + (this.vshift || 0); // マウスのホイールで上下に動かした分
           zmin = zmax - range;
         }
+      }
+      // 横の倍率：たての大きさはそのままで、横の長さだけを短くかく（図がせまくなり、まん中に寄る）
+      const hs = Math.max(0.1, Math.min(1, this.hScale || 1));
+      if (hs < 0.999) {
+        const cut = (W - m.l - m.r) * (1 - hs);
+        m.l += cut / 2; m.r += cut / 2;
+        sx *= hs;
       }
       return { W, H, m, zmin, zmax, sx, sy, ve: sy / sx, d0, win, zoom, vclip };
     }
@@ -406,11 +410,11 @@
         ctx.textAlign = al; ctx.fillText(t, x, y);
       }
       ctx.font = "12px " + font;
-      ctx.save(); ctx.translate(14, m.t + (H - m.t - m.b) / 2); ctx.rotate(-Math.PI / 2);
+      ctx.save(); ctx.translate(Math.max(14, m.l - 50), m.t + (H - m.t - m.b) / 2); ctx.rotate(-Math.PI / 2);
       ctx.textAlign = "center"; ctx.fillText("標高", 0, 0); ctx.restore();
       // 目盛り（距離）…左はしからの長さ
       ctx.textAlign = "center";
-      const dstep = niceStep(L.win / 8);
+      const dstep = niceStep(Math.max(L.win / 8, 64 / L.sx)); // 文字が重ならない間かく
       for (let x = Math.ceil(L.d0 / dstep) * dstep; x <= L.d0 + L.win + 0.5; x += dstep) {
         ctx.fillText(Math.round(x) + "m", L.m.l + (x - L.d0) * L.sx, H - m.b + 16);
       }
@@ -425,14 +429,17 @@
       const [left, right] = this.reversed ? [d.ends[1], d.ends[0]] : d.ends;
       ctx.font = "bold 15px " + font;
       ctx.fillStyle = "#1f2a33";
-      ctx.textAlign = "left";
-      ctx.fillText("◀ " + left, m.l + 4, m.t - 10);
-      ctx.textAlign = "right";
-      ctx.fillText(right + " ▶", W - m.r - 4, m.t - 10);
+      // 横を短くかいて図がせまいときは、方角を図の外側へ、説明を図の下へ
+      const narrow = W - m.l - m.r < 420;
+      ctx.textAlign = narrow ? "right" : "left";
+      ctx.fillText("◀ " + left, narrow ? m.l + 24 : m.l + 4, m.t - 10);
+      ctx.textAlign = narrow ? "left" : "right";
+      ctx.fillText(right + " ▶", narrow ? W - m.r - 24 : W - m.r - 4, m.t - 10);
       ctx.textAlign = "center";
       ctx.font = "12px " + font;
       ctx.fillStyle = "#5a6873";
-      ctx.fillText((Math.abs(L.ve - 1) < 0.05 ? "たて・横が同じ縮尺（本当の形）" : "たての長さは横の約" + L.ve.toFixed(1) + "倍に強調") + ((this.hScale || 1) < 0.999 ? "（横を1/" + (1 / this.hScale).toFixed(1).replace(/\.0$/, "") + "にちぢめた）" : ""), (m.l + W - m.r) / 2, m.t - 10);
+      if (narrow) ctx.textAlign = "left";
+      ctx.fillText((Math.abs(L.ve - 1) < 0.05 ? "たて・横が同じ縮尺（本当の形）" : "たての長さは横の約" + L.ve.toFixed(1) + "倍に強調") + ((this.hScale || 1) < 0.999 ? "（横を1/" + (1 / this.hScale).toFixed(1).replace(/\.0$/, "") + "の長さでかいた）" : ""), narrow ? 8 : (m.l + W - m.r) / 2, narrow ? 14 : m.t - 10);
       ctx.strokeStyle = "#8a99a6";
       ctx.strokeRect(m.l, m.t, W - m.l - m.r, H - m.t - m.b);
     }
