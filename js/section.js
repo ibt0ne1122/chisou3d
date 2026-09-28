@@ -20,6 +20,8 @@
       this.stage = 0;
       this.zoom = 1; // 横の拡大（1＝全体）
       this.vshift = 0; // 上下に動かした量(m)
+      this.hScale = 1; // 横の倍率（1＝そのまま〜0.1＝1/10にちぢめる）
+      this.vpan = 0; // たてがはみ出すとき、どこを見るか（0＝地面〜1＝いちばん深い所）
       this.showNames = true; // 柱の名前
       this.pan = 0.5; // 拡大したとき、どこを見るか（0＝左はし〜1＝右はし）
       this.pen = null;
@@ -66,7 +68,11 @@
       const sx = (W - m.l - m.r) / win;
       let sy = (H - m.t - m.b) / (zmax - zmin);
       // 自動でも、たてが横より縮むことはしない（深い柱があるときは下を切る）
-      const vf = this.veFixed || (sy < sx ? 1 : 0);
+      // 横をちぢめる（1/n）と、同じ画面の幅に入れるので、たては横のn倍に見える
+      const hs = Math.max(0.1, Math.min(1, this.hScale || 1));
+      let vf = this.veFixed || (sy < sx ? 1 : 0);
+      if (hs < 0.999) vf = (vf || sy / sx) / hs;
+      let vclip = false;
       if (vf) {
         // たての強調を決めたとき：縮尺はそのままで、いちばん深い柱の下で図を終わりにする
         sy = sx * vf;
@@ -75,12 +81,15 @@
         else {
           // 見える高さの幅がせまいとき：地面が必ず枠に入るように、上のはしを地面に近づける
           const range = avail / sy;
-          if (isFinite(gmax) && zmax - gmax > range * 0.12) zmax = gmax + range * 0.12;
-          zmax += this.vshift || 0; // マウスのホイールで上下に動かした分
+          let top = zmax;
+          if (isFinite(gmax) && zmax - gmax > range * 0.12) top = gmax + range * 0.12;
+          const lowest = zmin + range; // いちばん下まで動かしたときの上のはし
+          if (top > lowest) { vclip = true; top -= Math.max(0, Math.min(1, this.vpan || 0)) * (top - lowest); }
+          zmax = top + (this.vshift || 0); // マウスのホイールで上下に動かした分
           zmin = zmax - range;
         }
       }
-      return { W, H, m, zmin, zmax, sx, sy, ve: sy / sx, d0, win, zoom };
+      return { W, H, m, zmin, zmax, sx, sy, ve: sy / sx, d0, win, zoom, vclip };
     }
     /** たての5mが px ピクセル以上になる拡大の大きさ */
     zoomFor5m(px) {
@@ -108,6 +117,7 @@
       ctx.clearRect(0, 0, this.cv.width, this.cv.height);
       if (!d) return;
       const { W, H, m } = L;
+      if (this.opts.onLayout) this.opts.onLayout(L);
       const P = (dist, e) => this.toScreen(dist, e, L);
       const font = '"BIZ UDPGothic","Hiragino Kaku Gothic ProN","Meiryo",sans-serif';
 
@@ -422,7 +432,7 @@
       ctx.textAlign = "center";
       ctx.font = "12px " + font;
       ctx.fillStyle = "#5a6873";
-      ctx.fillText((Math.abs(L.ve - 1) < 0.05 ? "たて・横が同じ縮尺（本当の形）" : "たての長さは横の約" + L.ve.toFixed(1) + "倍に強調"), (m.l + W - m.r) / 2, m.t - 10);
+      ctx.fillText((Math.abs(L.ve - 1) < 0.05 ? "たて・横が同じ縮尺（本当の形）" : "たての長さは横の約" + L.ve.toFixed(1) + "倍に強調") + ((this.hScale || 1) < 0.999 ? "（横を1/" + (1 / this.hScale).toFixed(1).replace(/\.0$/, "") + "にちぢめた）" : ""), (m.l + W - m.r) / 2, m.t - 10);
       ctx.strokeStyle = "#8a99a6";
       ctx.strokeRect(m.l, m.t, W - m.l - m.r, H - m.t - m.b);
     }

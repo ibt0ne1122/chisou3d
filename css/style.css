@@ -383,3 +383,11 @@ body:has(.floatbar:not(.hidden)) #hint { bottom: 168px; }
 .sheet-bores .sec-offnote { flex-basis: 100%; margin: 2px 0 0; font-size: 12px; }
 
 .sec-offnote { margin: 0; padding: 2px 14px; font-size: 12px; background: #f7fafb; }
+
+/* 断面図：横の倍率・たての強調のスライダー（指で動かしやすい大きさ） */
+.seg.scalebox { flex-wrap: wrap; gap: 4px 12px; }
+.scalebox label { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.scalebox input[type=range] { width: 130px; height: 30px; accent-color: var(--accent); touch-action: pan-y; }
+.scalebox b { min-width: 3.4em; color: var(--text, #222); font-weight: 600; }
+#secTotalVe { font-size: 12px; }
+@media (pointer: coarse) { .scalebox input[type=range] { width: 160px; height: 36px; } }

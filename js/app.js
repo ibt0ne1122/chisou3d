@@ -1893,6 +1893,10 @@
           if (el.dataset.k !== st.text) { el.innerHTML = html; el.dataset.k = st.text; }
           el.classList.remove("hidden");
         },
+        onLayout: (L) => {
+          // たてがはみ出しているときだけ「上下」のスライダーを出す
+          if (secView._vclip !== L.vclip) { secView._vclip = L.vclip; $("secVPanBox").classList.toggle("hidden", !L.vclip); }
+        },
         onYear: (txt) => { const el = $("secYear"); if (el && el.textContent !== "⏳ " + txt) el.textContent = "⏳ " + txt; },
         onChange: (strokes) => {
           const all = store.get(key("sections"), {});
@@ -1908,7 +1912,7 @@
     secView.showModel = $("secShowModel").checked && !S.hideStrata;
     secView.connect = $("secConnect").checked;
     secView.showNames = $("secNames").checked;
-    secView.vshift = 0;
+    secView.vshift = 0; secView.vpan = 0; $("secVPan").value = 0;
     $("secInfo").textContent = "（" + sec.pts.map((p, i) => LETTERS[i]).join("→") + "・長さ約" + Math.round(sec.length) + "m）";
     const saved = store.get(key("sections"), {})[sectionKey()] || [];
     secView.stage = 0;
@@ -2836,10 +2840,25 @@
     const setSecVe = (v) => {
       store.set("chisou3d:secVe", v);
       document.querySelectorAll("#secVeBox button").forEach((b) => b.classList.toggle("on", b.dataset.ve === v));
+      if (v !== "auto") { $("secVEx").value = v; $("secVExV").textContent = "×" + (+v).toFixed(1).replace(/\.0$/, ""); }
+      else $("secVExV").textContent = "自動";
       if (secView) { secView.veFixed = v === "auto" ? 0 : parseFloat(v); secView.draw(); if (S.applySecZoom) S.applySecZoom(); }
     };
     document.querySelectorAll("#secVeBox button").forEach((b) => (b.onclick = () => setSecVe(b.dataset.ve)));
-    S.applySecVe = () => setSecVe(store.get("chisou3d:secVe", "auto"));
+    // たての強調のスライダー：×1〜×10を指で自由に（ボタンと同じ設定を動かす）
+    $("secVEx").oninput = () => setSecVe(String(Math.round($("secVEx").value * 10) / 10));
+    // 横の倍率のスライダー：1倍〜1/10（長い断面図でも、地層が太く見える）
+    const setSecHScale = (n) => {
+      n = Math.max(1, Math.min(10, Math.round(n * 10) / 10));
+      store.set("chisou3d:secHScale", n);
+      $("secHScale").value = n;
+      $("secHScaleV").textContent = n === 1 ? "1倍" : "1/" + n.toFixed(1).replace(/\.0$/, "");
+      if (secView) { secView.hScale = 1 / n; secView.draw(); }
+    };
+    $("secHScale").oninput = () => setSecHScale(parseFloat($("secHScale").value));
+    $("secVPan").oninput = () => { if (secView) { secView.vpan = $("secVPan").value / 1000; secView.vshift = 0; secView.draw(); } };
+    S.setSecVe = setSecVe; S.setSecHScale = setSecHScale;
+    S.applySecVe = () => { setSecHScale(store.get("chisou3d:secHScale", 1)); setSecVe(store.get("chisou3d:secVe", "auto")); };
     // 横に拡大：たての強調はそのままで、断面の一部を大きく見る（「本当の形」のまま5mの目盛りが読める）
     let secZoomSel = "1";
     const setSecZoom = (v) => {
@@ -2855,16 +2874,19 @@
     $("secPan").oninput = () => { if (secView) { secView.pan = $("secPan").value / 1000; secView.draw(); } };
     // マウスのホイール（横スクロール・Shift＋ホイール）でも左右に動かせる
     $("secCanvas").addEventListener("wheel", (e) => {
-      if (!secView || secView.zoom <= 1.01) return;
+      if (!secView || (secView.zoom <= 1.01 && !secView._vclip)) return;
       const dx = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.shiftKey ? e.deltaY : 0;
       if (!dx && e.deltaY) {
-        // ふつうのホイール：上下に動かす（拡大して、たての幅がせまいとき）
+        // ふつうのホイール：上下に動かす（たての幅がせまいとき）
         e.preventDefault();
-        secView.vshift = (secView.vshift || 0) - e.deltaY / 40;
+        if (secView._vclip) {
+          secView.vpan = Math.max(0, Math.min(1, (secView.vpan || 0) + e.deltaY / 1500));
+          $("secVPan").value = Math.round(secView.vpan * 1000);
+        } else secView.vshift = (secView.vshift || 0) - e.deltaY / 40;
         secView.draw();
         return;
       }
-      if (!dx) return;
+      if (!dx || secView.zoom <= 1.01) return;
       e.preventDefault();
       secView.pan = Math.max(0, Math.min(1, secView.pan + dx / 1500 / secView.zoom));
       $("secPan").value = Math.round(secView.pan * 1000);
@@ -3028,6 +3050,7 @@
       st.pts = S.section.pts.map((p) => [Math.round(p.x), Math.round(p.z)].concat(p.boreId ? [p.boreId] : []));
       if (S.sectionFlip) st.flip = 1;
       st.ve = store.get("chisou3d:secVe", "auto");
+      const hs = store.get("chisou3d:secHScale", 1); if (hs !== 1) st.hs = hs;
       if (S.secExtent === "full") st.ext = "full";
       if ($("secConnect").checked) st.conn = 1;
       if ($("secShowModel").checked) st.model = 1;
@@ -3071,7 +3094,8 @@
     setPeeled(new Set(st.peel || []));
     updatePeelLabel();
     buildAll();
-    if (st.ve) { const b = document.querySelector('#secVeBox [data-ve="' + st.ve + '"]'); if (b) b.click(); }
+    if (st.hs && S.setSecHScale) S.setSecHScale(+st.hs);
+    if (st.ve && S.setSecVe) S.setSecVe(String(st.ve));
     if (st.ext) { const b = document.querySelector('#secExtentBox [data-ext="' + st.ext + '"]'); if (b) b.click(); }
     if (st.pts && st.pts.length >= 2) {
       setMode(st.mode === "cut" ? "cut" : "section");

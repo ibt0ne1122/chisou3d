@@ -175,6 +175,11 @@
         <button type="button" data-z="1">なし</button><button type="button" data-z="2">×2</button><button type="button" data-z="4">×4</button><button type="button" data-z="5m" title="たての5mの間が、はっきり見える大きさまで拡大します">🔍 5mが見える</button>
         <input type="range" id="secPan" min="0" max="1000" value="500" class="hidden" title="左右に動かして、見る場所を変えます">
       </span>
+      <span id="secScaleBox" class="seg scalebox">
+        <label title="横の長さをちぢめます。長い断面図が細い帯になるときに使います">横の倍率 <input type="range" id="secHScale" min="1" max="10" step="0.1" value="1"> <b id="secHScaleV">1倍</b></label>
+        <label title="たての長さを大きくします（×1が本当の形）">たての強調 <input type="range" id="secVEx" min="1" max="10" step="0.1" value="1"> <b id="secVExV">×1</b></label>
+        <label id="secVPanBox" class="hidden" title="図が上下にはみ出しているとき、見る深さを変えます">上下 <input type="range" id="secVPan" min="0" max="1000" value="0"></label>
+      </span>
     </span>
     <div class="sheet-tools">
       <span class="tool-label">予想をかく：</span>
