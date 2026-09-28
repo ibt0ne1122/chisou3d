@@ -1917,6 +1917,7 @@
     const saved = store.get(key("sections"), {})[sectionKey()] || [];
     secView.stage = 0;
     $("secStage").classList.remove("on"); $("secStagePrev").classList.add("hidden"); $("secStageNext").classList.add("hidden");
+    $("secTimeline").classList.add("hidden"); if (S.stageLayout) S.stageLayout(false);
     loadMemo();
     secView.pan = 0.5; $("secPan").value = 500;
     requestAnimationFrame(() => { secView.setData(data, saved); if (S.applySecZoom) S.applySecZoom(); });
@@ -2791,8 +2792,25 @@
           return '<i class="' + (k === i ? "on" : "") + '" style="left:' + left + "%;width:" + width + '%" title="' + esc(x.age) + '"></i>';
         }).join("") + '<span class="tl-now">今 ▶</span><span class="tl-old">◀ ' + (T >= 10000 ? Math.round(T / 10000) + "万" : T) + "年前</span>";
       }
+      if (on !== was) stageLayout(!!on);
       if (on !== was && secView) secView.resize();
     };
+    // 大地のでき方を見ている間は「見る用の画面」：いらない段をたたみ、シートを大きく、たての強調を自動に
+    const stageLayout = (on) => {
+      if (!!S.stageLayoutOn === on) return;
+      S.stageLayoutOn = on;
+      $("sectionSheet").classList.toggle("stage-mode", on);
+      if (on) {
+        S.stageSaved = { h: curH(), ve: store.get("chisou3d:secVe", "auto"), hs: store.get("chisou3d:secHScale", 1) };
+        setSecHScale(1); setSecVe("auto");
+        setSheetH(window.innerHeight - 40);
+      } else if (S.stageSaved) {
+        const sv = S.stageSaved; S.stageSaved = null;
+        setSecHScale(sv.hs); setSecVe(sv.ve);
+        setSheetH(sv.h);
+      }
+    };
+    S.stageLayout = stageLayout;
     // つまみの位置 v（0〜段階の数×100）→ どの出来事の、どこまで進んだか
     const setStageV = (v) => {
       const list = secView.stages();
@@ -3211,7 +3229,12 @@
         const sh = $("sectionSheet").getBoundingClientRect(), h = volEl.offsetHeight || 260;
         const top = sh.top - h - 8;
         if (top >= 60) { volEl.style.right = "90px"; volEl.style.top = top + "px"; }
-        else { volEl.style.left = "310px"; volEl.style.top = "60px"; }
+        else {
+          // シートが大きいとき：断面図の右下（いちばん下の古い地層の上。動きの少ない所）に置く
+          const cr = $("secCanvas").getBoundingClientRect();
+          volEl.style.right = Math.max(8, window.innerWidth - cr.right + 56) + "px";
+          volEl.style.top = Math.max(60, cr.bottom - h - 30) + "px";
+        }
       }
       let drag = null;
       volEl.addEventListener("pointerdown", (e) => { const r = volEl.getBoundingClientRect(); drag = { dx: e.clientX - r.left, dy: e.clientY - r.top }; volEl.setPointerCapture(e.pointerId); e.preventDefault(); });

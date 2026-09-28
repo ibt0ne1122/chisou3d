@@ -396,3 +396,25 @@ body:has(.floatbar:not(.hidden)) #hint { bottom: 168px; }
 .size-btns button, .seg button { white-space: nowrap; min-height: 32px; height: 32px; font-size: 13px; line-height: 1.1; }
 .seg { white-space: nowrap; flex-shrink: 0; }
 .seg.scalebox { white-space: normal; }
+/* 大地のでき方を見ている間：いらない段をたたんで、断面図を大きく */
+.stage-mode .sheet-bores, .stage-mode .sec-offnote, .stage-mode #secScaleBox, .stage-mode #secZoomBox,
+.stage-mode .tool-label, .stage-mode #penBox, .stage-mode #secUndo, .stage-mode #secClear,
+.stage-mode label.toggle:has(#secConnect), .stage-mode label.toggle:has(#secShowModel),
+.stage-mode #secFlip, .stage-mode #secMemoBtn, .stage-mode #secMemo { display: none !important; }
+.stage-mode #secLegend { padding: 2px 14px; font-size: 12px; }
+.stage-mode #secTimeline { padding: 2px 14px 4px; }
+.stage-mode #secTimeline .tl-head small { display: none; }
+.stage-mode #secYear { font-size: 20px; line-height: 1.3; padding: 0 10px; }
+.stage-mode #secStageRange { margin: 0; }
+.stage-mode #secStageTicks button { padding: 1px 4px; font-size: 12px; line-height: 1.2; }
+.stage-mode #secStageTicks button b { display: inline; font-size: 13px; margin-right: 3px; }
+.stage-mode .tl-real { margin-top: 2px; font-size: 11px; }
+.stage-mode #secStageBar { height: 10px; }
+.stage-mode #secStageBar i { top: 1px; height: 8px; }
+.stage-mode #secStageText { margin-top: 3px; padding: 3px 10px; }
+.stage-mode #secStageText .st-age { display: inline; font-size: 13px; margin-right: 8px; }
+.stage-mode #secStageText .st-text { display: inline; font-size: 15px; }
+.stage-mode #secStageText .st-note { display: block; font-size: 10px; }
+body:has(#sectionSheet.stage-mode) #volcanoBox { width: 230px; padding: 6px; }
+body:has(#sectionSheet.stage-mode) #volcanoBox .vb-head { font-size: 14px; }
+body:has(#sectionSheet.stage-mode) #volcanoBox .vb-head small { display: none; }
