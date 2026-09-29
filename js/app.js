@@ -37,7 +37,7 @@
     setTimeout(run, 0); // 1ファイル版：設定がすでに入っている（準備が終わってから始める）
   } else {
     const sc = document.createElement("script");
-    sc.src = entry.file + "?v=20260929223127";
+    sc.src = entry.file + "?v=20260929223953";
     sc.onload = run;
     sc.onerror = () => showError("場所の設定ファイル（" + entry.file + "）を読み込めませんでした。ZIPの場合は「すべて展開」してから開いてください。");
     document.body.appendChild(sc);
@@ -73,7 +73,7 @@
     $("siteTitle").textContent = site.title;
     $("siteSub").textContent = site.subtitle || "";
     S.ve = site.defaultExaggeration || 3;
-    S.mapType = store.get("chisou3d:map", site.defaultMap || "std");
+    S.mapType = store.get("chisou3d:map2", site.defaultMap || "photo"); // はじめは航空写真
     if (!C.MAP_TYPES[S.mapType]) S.mapType = "std";
     const prefs = store.get(key("prefs"), {});
     S.sampleOn = prefs.sampleOn != null ? prefs.sampleOn : !!(site.sample && site.sample.enabled);
@@ -1167,7 +1167,7 @@
   async function setMap(type) {
     const prev = S.mapType && S.mapCanvas && S.mapCanvas[S.mapType] ? S.mapType : null;
     S.mapType = type;
-    store.set("chisou3d:map", type);
+    store.set("chisou3d:map2", type);
     $("mapSelect").value = type;
     S.mapCanvas = S.mapCanvas || {};
     if (!S.mapCanvas[type]) {

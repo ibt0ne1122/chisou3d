@@ -23,7 +23,7 @@ CHISOU.registerSite({
   ],
   half: 1000, // 中心から端までの距離(m)。1000 → たて横2kmの模型
   gridSize: 160, // 細かさ（大きいほど細かいが重くなる）
-  defaultMap: "std",
+  defaultMap: "photo",
   defaultExaggeration: 3, // 高さの強調（何倍にするか）
 
   // 地図に出す目印（学校・駅など）
