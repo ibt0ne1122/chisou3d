@@ -2715,6 +2715,17 @@
 
     document.querySelectorAll("[data-view]").forEach((b) => (b.onclick = () => setView(b.dataset.view)));
     document.querySelectorAll("#modebar button[data-mode]").forEach((b) => (b.onclick = () => setMode(b.dataset.mode)));
+    // ボタンをたたむ・出す（スマホは はじめから たたんでおく）。えらんだ状態は次も同じ
+    const setFold = (id, cls, on, labelOn) => {
+      document.body.classList.toggle(cls, on);
+      $(id).textContent = on ? labelOn : "▾ たたむ";
+      store.set("chisou3d:" + cls, on);
+    };
+    const small = window.innerWidth < 600;
+    setFold("mbFold", "mb-folded", store.get("chisou3d:mb-folded", small), "☰ ボタンを出す");
+    setFold("npFold", "np-folded", store.get("chisou3d:np-folded", small), "🎮 動かす");
+    $("mbFold").onclick = () => setFold("mbFold", "mb-folded", !document.body.classList.contains("mb-folded"), "☰ ボタンを出す");
+    $("npFold").onclick = () => setFold("npFold", "np-folded", !document.body.classList.contains("np-folded"), "🎮 動かす");
     // 右下の操作ボタン
     document.querySelectorAll("#navpad [data-pan]").forEach((b) => (b.onclick = () => nudge("pan", b.dataset.pan.split(",").map(Number))));
     document.querySelectorAll("#navpad [data-rot]").forEach((b) => (b.onclick = () => nudge("rotate", parseFloat(b.dataset.rot))));

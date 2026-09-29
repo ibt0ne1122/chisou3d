@@ -420,3 +420,13 @@ body:has(#sectionSheet.stage-mode) #volcanoBox .vb-head { font-size: 14px; }
 body:has(#sectionSheet.stage-mode) #volcanoBox .vb-head small { display: none; }
 #secStageRec { min-height: 0; padding: 2px 10px; font-size: 13px; margin-left: 6px; background: #fff; border-color: #d4a017; color: #9a5b00; }
 #secStageRec.on { background: #c62828; color: #fff; border-color: #c62828; }
+
+/* ボタンをたたむ（スマホで模型を広く見る） */
+#modebar button.fold, #navpad button.fold { font-size: 13px; min-height: 32px; border: 1px dashed var(--line); background: #f4f7f9; color: var(--sub); }
+body.mb-folded #modebar > :not(#mbFold):not(.active) { display: none !important; }
+body.mb-folded #modebar { width: max-content; flex-wrap: nowrap; }
+body.mb-folded #mbFold { color: #fff; background: #1f5f99; border-style: solid; }
+body.np-folded #navpad > :not(#npFold) { display: none !important; }
+body.np-folded #navpad { width: auto; padding: 4px; }
+body.np-folded #npFold { color: #fff; background: #1f5f99; border-style: solid; padding: 0 10px; min-height: 40px; }
+body.mb-folded #modebar { left: 12px; right: auto; transform: none; max-width: calc(100vw - 24px); }
