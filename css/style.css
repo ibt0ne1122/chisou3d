@@ -430,3 +430,9 @@ body.np-folded #navpad > :not(#npFold) { display: none !important; }
 body.np-folded #navpad { width: auto; padding: 4px; }
 body.np-folded #npFold { color: #fff; background: #1f5f99; border-style: solid; padding: 0 10px; min-height: 40px; }
 body.mb-folded #modebar { left: 12px; right: auto; transform: none; max-width: calc(100vw - 24px); }
+
+/* ✕（とじる）ボタン：小さく、指でおしやすく */
+#modebar button.fold:not(:only-child), #navpad button.fold { font-size: 18px; font-weight: 700; }
+#mbFold, #npFold { min-width: 44px; min-height: 44px; }
+body:not(.mb-folded) #mbFold { padding: 0 10px; }
+body:not(.np-folded) #npFold { justify-self: end; width: 44px; }

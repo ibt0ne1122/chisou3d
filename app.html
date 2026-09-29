@@ -6,7 +6,7 @@
 <title>大地のつくり 3D土地模型</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/style.css?v=20260929223127">
 </head>
 <body>
 <div id="viewport"></div>
@@ -116,7 +116,7 @@
 
 <!-- 下：モード切りかえ -->
 <nav id="modebar">
-  <button id="mbFold" class="fold" type="button" title="ボタンをたたんで、模型を広く見ます">▾ たたむ</button>
+  <button id="mbFold" class="fold" type="button" title="ボタンをとじて、模型を広く見ます" aria-label="ボタンをとじる">✕</button>
   <button data-mode="view" class="active">👆 見る</button>
   <button data-mode="section">✂️ 断面図を作成</button>
   <button data-mode="cut" class="cutbtn">🔪 模型を切る</button>
@@ -230,7 +230,7 @@
 
 <div id="reliefLegend" class="hidden"></div>
 <div id="navpad">
-  <button id="npFold" class="fold" type="button" title="動かすボタンをたたみます">▾ たたむ</button>
+  <button id="npFold" class="fold" type="button" title="動かすボタンをとじます" aria-label="動かすボタンをとじる">✕</button>
   <div class="np-drag">
     <button data-drag="move" type="button">✋ 移動</button>
     <button data-drag="rotate" type="button">🔄 回転</button>
@@ -387,18 +387,18 @@
 
 <footer id="attribution">出典：<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">国土地理院（地理院タイル・標高タイル）</a> ／ 目印：<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap</a> ／ 地下の地層はボーリング資料からの推定です（<a href="#" id="attrMore">くわしく</a>）</footer>
 
-<script src="lib/three.min.js"></script>
-<script src="lib/OrbitControls.js"></script>
+<script src="lib/three.min.js?v=20260929223127"></script>
+<script src="lib/OrbitControls.js?v=20260929223127"></script>
 <script>window.CHISOU = { sites: {}, registerSite: function (s) { this.sites[s.id] = s; } };</script>
-<script src="js/geo.js"></script>
-<script src="js/geology.js"></script>
-<script src="sites/sites.js"></script>
-<script src="js/section.js"></script>
-<script src="js/boringxml.js"></script>
-<script src="js/mvt.js"></script>
-<script src="js/yato_yokohama.js"></script>
-<script src="js/ngic_bookmarklet.js"></script>
-<script src="js/help.js"></script>
-<script src="js/app.js"></script>
+<script src="js/geo.js?v=20260929223127"></script>
+<script src="js/geology.js?v=20260929223127"></script>
+<script src="sites/sites.js?v=20260929223127"></script>
+<script src="js/section.js?v=20260929223127"></script>
+<script src="js/boringxml.js?v=20260929223127"></script>
+<script src="js/mvt.js?v=20260929223127"></script>
+<script src="js/yato_yokohama.js?v=20260929223127"></script>
+<script src="js/ngic_bookmarklet.js?v=20260929223127"></script>
+<script src="js/help.js?v=20260929223127"></script>
+<script src="js/app.js?v=20260929223127"></script>
 </body>
 </html>

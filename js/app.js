@@ -37,7 +37,7 @@
     setTimeout(run, 0); // 1ファイル版：設定がすでに入っている（準備が終わってから始める）
   } else {
     const sc = document.createElement("script");
-    sc.src = entry.file;
+    sc.src = entry.file + "?v=20260929223127";
     sc.onload = run;
     sc.onerror = () => showError("場所の設定ファイル（" + entry.file + "）を読み込めませんでした。ZIPの場合は「すべて展開」してから開いてください。");
     document.body.appendChild(sc);
@@ -2718,7 +2718,7 @@
     // ボタンをたたむ・出す（スマホは はじめから たたんでおく）。えらんだ状態は次も同じ
     const setFold = (id, cls, on, labelOn) => {
       document.body.classList.toggle(cls, on);
-      $(id).textContent = on ? labelOn : "▾ たたむ";
+      $(id).textContent = on ? labelOn : "✕";
       store.set("chisou3d:" + cls, on);
     };
     const small = window.innerWidth < 600;
