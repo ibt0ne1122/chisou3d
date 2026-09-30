@@ -37,7 +37,7 @@
       setTimeout(run, 0); // 1ファイル版：設定がすでに入っている（準備が終わってから始める）
     } else {
       const sc = document.createElement("script");
-      sc.src = entry.file + "?v=20260930133208";
+      sc.src = entry.file + "?v=20260930133648";
       sc.onload = run;
       sc.onerror = () => showError("場所の設定ファイル（" + entry.file + "）を読み込めませんでした。ZIPの場合は「すべて展開」してから開いてください。");
       document.body.appendChild(sc);
@@ -598,7 +598,7 @@
       (S.hiddenBores.has(b.id) - S.hiddenBores.has(a.id)) || (b.depth - a.depth));
     for (const b of order) {
       // 「えらんだ柱だけ」のときは、名前を出さず ● の印だけにする（「？」にした柱は名前つき）
-      const dotsOnly = (S.showOnly || S.boreNames === false) && !S.boreSel; // 「柱の名前」をオフにしたときも ● だけ
+      const dotsOnly = (S.showOnly || S.boreNames !== "name") && !S.boreSel; // 「● だけ」「名前も●もなし」のときは名前を作らない
       if (S.hiddenBores.has(b.id) || (!dotsOnly && (S.bores.length <= 30 || !placed.some((p) => Math.hypot(p.x - b.x, p.z - b.z) < minD)))) {
         named.add(b.id); placed.push(b);
       }
@@ -668,7 +668,9 @@
     const lg = new THREE.BufferGeometry();
     lg.setAttribute("position", new THREE.Float32BufferAttribute(lpos, 3));
     lg.setAttribute("color", new THREE.Float32BufferAttribute(lcol, 3));
-    groups.bores.add(new THREE.LineSegments(lg, clipMat(new THREE.LineBasicMaterial({ vertexColors: true }))));
+    const pins = new THREE.LineSegments(lg, clipMat(new THREE.LineBasicMaterial({ vertexColors: true })));
+    pins.userData.isPin = true; // 旗のぼう（「名前も●もなし」のときはかくす）
+    groups.bores.add(pins);
     applyVisibility();
   }
 
@@ -1261,7 +1263,7 @@
     groups.labels.visible = S.labels;
     groups.notes.visible = S.showNotes;
     groups.ring.visible = S.ring;
-    groups.bores.children.forEach((c) => { if (c.userData.isLabel) c.visible = !!S.boreSel || S.labels; });
+    groups.bores.children.forEach((c) => { if (c.userData.isLabel) c.visible = !!S.boreSel || (S.labels && S.boreNames !== "none"); else if (c.userData.isPin) c.visible = !!S.boreSel || S.boreNames !== "none"; });
   }
 
   // ---------- 地図の画像 ----------
@@ -3321,9 +3323,22 @@
     chk("chkYato", setYato);
     $("qYato").onclick = () => setYato(!S.showYato);
     // 柱の名前（🔍の名札）を出す・かくす
-    const setBoreNames = (v) => { S.boreNames = v; store.set("chisou3d:boreNames", v); $("qNames").classList.toggle("on", v); $("qNames").title = v ? "今は柱の名前を出しています（押すと、名前をかくして ● だけにする）" : "今は柱の名前をかくしています（押すと、出す）"; if (groups.bores) buildBores(); };
-    $("qNames").onclick = () => { setBoreNames(!S.boreNames); if (S.boreNames && !S.labels) { $("chkLabels").checked = true; $("chkLabels").dispatchEvent(new Event("change")); } };
-    setBoreNames(store.get("chisou3d:boreNames", true));
+    // 柱の名前：名前あり → ● だけ → 名前も●もなし（柱そのものは出たまま）
+    const BN = { name: ["🏷 柱：名前あり", "柱の名前と旗を出しています（押すと ● だけ）"], dot: ["● 柱：●だけ", "名前をかくして ● の旗だけ出しています（押すと 名前も●もなし）"], none: ["🚫 柱：名前も●もなし", "名前も旗も出していません（押すと 名前あり）"] };
+    const setBoreNames = (v) => {
+      if (v === true) v = "name"; if (v === false) v = "dot"; if (!BN[v]) v = "name";
+      S.boreNames = v; store.set("chisou3d:boreNames", v);
+      $("qNames").classList.toggle("on", v === "name");
+      $("qNames").textContent = BN[v][0]; $("qNames").title = BN[v][1];
+      if (groups.bores) buildBores();
+    };
+    S.setBoreNames = setBoreNames;
+    $("qNames").onclick = () => {
+      setBoreNames({ name: "dot", dot: "none", none: "name" }[S.boreNames]);
+      flashHint({ name: "🏷 柱の名前を出しました", dot: "● 名前をかくして、●の旗だけにしました", none: "🚫 柱の名前も●の旗も、かくしました（柱はそのまま）" }[S.boreNames]);
+      if (S.boreNames === "name" && !S.labels) { $("chkLabels").checked = true; $("chkLabels").dispatchEvent(new Event("change")); }
+    };
+    setBoreNames(store.get("chisou3d:boreNames", "name"));
     const hasYato = yatoList().length > 0;
     $("qYato").classList.toggle("hidden", !hasYato);
     $("chkYato").parentElement.classList.toggle("hidden", !hasYato);
@@ -3938,7 +3953,7 @@
     if (S.opacity < 1) st.op = S.opacity;
     if (S.hazard && S.hazard !== "none") st.hz = S.hazard;
     if (S.showBasin) st.basin = 1;
-    if (S.boreNames === false) st.nobn = 1;
+    if (S.boreNames && S.boreNames !== "name") st.bn = S.boreNames;
     if (o.only && o.only.length) st.only = o.only;
     if (o.ui && o.ui.length) st.ui = o.ui;
     if (o.strokes && secView && secView.strokes.length) st.strokes = packStrokes(secView.strokes);
@@ -3973,7 +3988,7 @@
     if (st.op) { $("opacityRange").value = st.op; $("opacityRange").dispatchEvent(new Event("input")); }
     if (st.hz) await setHazard(st.hz);
     if (st.basin) setChk("chkBasin", 1);
-    if (st.nobn && $("qNames").classList.contains("on")) $("qNames").click();
+    if ((st.bn || st.nobn) && S.setBoreNames) S.setBoreNames(st.bn || "dot");
     if (st.map && st.map !== S.mapType) await setMap(st.map);
     if (st.relief && st.relief !== S.relief) setRelief(st.relief);
     setChk("chkRiver", st.riv);
