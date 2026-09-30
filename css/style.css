@@ -528,3 +528,13 @@ a.btnlike { display: inline-flex; align-items: center; padding: 6px 12px; border
 #detail .selrow button { font-weight: 700; border: 2px solid #2e7d32; color: #2e7d32; background: #fff; }
 #detail .selrow button.on { background: #2e7d32; color: #fff; }
 #detail .selrow small { color: var(--sub); }
+
+/* 柱の高さ（資料の高さ／今の地面にそろえる） */
+.alignbox { margin-top: 6px; }
+.whylink { display: block; width: 100%; text-align: left; background: none; border: none; padding: 2px 0; margin: 0; color: #b0462c; font-size: 13px; text-decoration: underline; cursor: pointer; }
+.whylink::after { content: " ▼"; font-size: 11px; text-decoration: none; }
+.whylink.open::after { content: " ▲"; }
+.whybody { background: #fff8ee; border: 1px solid #f0d6b8; border-radius: 8px; padding: 6px 8px; margin: 4px 0; color: #3a3a3a; font-size: 12.5px; line-height: 1.55; }
+.whybody p { margin: 2px 0; }
+.whybody ul { margin: 2px 0 2px 1.2em; padding: 0; }
+.alignbox .onlyseg button { white-space: normal; height: auto; min-height: 34px; padding: 3px 6px; }

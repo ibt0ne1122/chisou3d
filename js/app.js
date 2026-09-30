@@ -37,7 +37,7 @@
       setTimeout(run, 0); // 1ファイル版：設定がすでに入っている（準備が終わってから始める）
     } else {
       const sc = document.createElement("script");
-      sc.src = entry.file + "?v=20260930211341";
+      sc.src = entry.file + "?v=20260930214914";
       sc.onload = run;
       sc.onerror = () => showError("場所の設定ファイル（" + entry.file + "）を読み込めませんでした。ZIPの場合は「すべて展開」してから開いてください。");
       document.body.appendChild(sc);
@@ -77,7 +77,7 @@
   const S = {
     site: null, frame: null, grid: null, stats: null, model: null, bores: [],
     ve: 3, opacity: 1, peel: 0, visLayers: [], mode: "view", mapType: "std", cardClosed: {},
-    showBores: true, lift: false, labels: true, showNotes: true, ring: true, hideStrata: false,
+    showBores: true, lift: false, alignBores: false, labels: true, showNotes: true, ring: true, hideStrata: false,
     teacher: false, sampleOn: true, notes: [], section: null, sectionFlip: false, sectionPts: [], hiddenBores: new Set(), savedOpacity: null, relief: "none",
     textures: {}, clipPlanes: [], noteColor: "#ffd54f", pickIds: [],
   };
@@ -585,6 +585,13 @@
   }
 
   // ---------- ボーリングの柱 ----------
+  /** 柱をかく高さ：資料の高さ（ほった時の地面の標高）か、今の地図の地面にそろえるか。
+   *  そろえるのは「見せ方」だけで、地層の推定（模型）はいつも資料の高さから作る */
+  function boreTop(b) {
+    if (!S.alignBores) return b.elev;
+    const g = groundAt(b.x, b.z);
+    return isNaN(g) ? b.elev : g;
+  }
   function buildBores() {
     disposeGroup(groups.bores);
     const ve = S.ve, R = Math.max(6, S.site.half * (S.lift ? 0.018 : 0.011));
@@ -616,9 +623,9 @@
     for (const b of S.bores) {
       if (isNaN(b.elev) || Math.abs(b.x) > S.site.half || Math.abs(b.z) > S.site.half) continue;
       const hidden = S.hiddenBores.has(b.id);
-      const lift = S.lift ? b.depth * ve + 25 : 0;
+      const lift = S.lift ? b.depth * ve + 25 : 0, e = boreTop(b);
       if (!hidden) for (const sg of b.segs) {
-        const h = Math.max(0.05, (sg.to - sg.from) * ve), cy = (b.elev - (sg.from + sg.to) / 2) * ve + lift;
+        const h = Math.max(0.05, (sg.to - sg.from) * ve), cy = (e - (sg.from + sg.to) / 2) * ve + lift;
         c.set(segColor(sg));
         for (let v = 0; v < nv; v++) {
           pos.push(b.x + up[v * 3] * R, cy + up[v * 3 + 1] * h, b.z + up[v * 3 + 2] * R);
@@ -626,17 +633,17 @@
           col.push(c.r, c.g, c.b);
         }
       }
-      const top = b.elev * ve + lift;
+      const top = e * ve + lift;
       const pinTop = S.lift ? top + 18 : Math.max(top, surfaceAt(b.x, b.z) * S.ve) + 45;
       const mk = S.boreSel ? (S.boreSel.has(b.id) ? SEL_MARK : null) : markOf(b.id);
       const pc = mk ? new THREE.Color(mk.c) : b.sample ? pinOrange : pinBlue;
       const pTop = mk ? pinTop + 35 : pinTop; // 目立たせた柱は、旗を高く
-      lpos.push(b.x, S.lift ? b.elev * ve : top, b.z, b.x, pTop, b.z);
+      lpos.push(b.x, S.lift ? e * ve : top, b.z, b.x, pTop, b.z);
       lcol.push(pc.r, pc.g, pc.b, pc.r, pc.g, pc.b);
       if (mk) {
         // ぼうを太く見せるため、少しずらした線をもう2本
         for (const [dx, dz] of [[R * 0.35, 0], [0, R * 0.35]]) {
-          lpos.push(b.x + dx, S.lift ? b.elev * ve : top, b.z + dz, b.x + dx, pTop, b.z + dz);
+          lpos.push(b.x + dx, S.lift ? e * ve : top, b.z + dz, b.x + dx, pTop, b.z + dz);
           lcol.push(pc.r, pc.g, pc.b, pc.r, pc.g, pc.b);
         }
       }
@@ -2362,8 +2369,9 @@
       const t = p.d - sg.d0, x = sg.x + sg.ux * t + o.x, z = sg.z + sg.uz * t + o.z;
       const ex = sg.ux * w / 2, ez = sg.uz * w / 2;
       const bp = [], bc = [];
+      const e = boreTop(b);
       for (const s2 of b.segs) {
-        const top = (b.elev - s2.from) * ve, bot = (b.elev - s2.to) * ve;
+        const top = (e - s2.from) * ve, bot = (e - s2.to) * ve;
         c.set(segColor(s2));
         const v = [[x - ex, top, z - ez], [x + ex, top, z + ez], [x + ex, bot, z + ez], [x - ex, bot, z - ez]];
         for (const k of [0, 1, 2, 0, 2, 3]) { bp.push(...v[k]); bc.push(c.r, c.g, c.b); }
@@ -2377,7 +2385,7 @@
       m1.renderOrder = 6;
       m1.userData.pick = { type: "cutbore", id: b.id };
       grp.add(m1);
-      const top = b.elev * ve, bot = (b.elev - b.depth) * ve;
+      const top = e * ve, bot = (e - b.depth) * ve;
       lines.push(x - ex, top, z - ez, x - ex, bot, z - ez, x + ex, top, z + ez, x + ex, bot, z + ez, x - ex, top, z - ez, x + ex, top, z + ez);
       if (labels++ < 6) { // 名札は、線に近い6本だけ（多いと読めないので）
         const lab = makeLabel("✔本物（線から" + Math.round(p.off) + "m）", { bg: "#1f5f99", color: "#fff", size: 11, bold: true });
@@ -2499,7 +2507,7 @@
     for (const b of S.bores) {
       const p = project(b.x, b.z);
       if (p.off > near || isNaN(b.elev)) continue;
-      bores.push({ id: b.id, d: p.d, off: p.off, elev: b.elev, depth: b.depth, name: b.name, sample: b.sample, hidden: S.hiddenBores.has(b.id), mark: S.boreMarks[b.id] || null,
+      bores.push({ id: b.id, d: p.d, off: p.off, elev: boreTop(b), depth: b.depth, name: b.name, sample: b.sample, hidden: S.hiddenBores.has(b.id), mark: S.boreMarks[b.id] || null,
         // ボーリングは「わかっている事実」なので、地層をかくしている時も本当の色で
         segs: b.segs.map((s) => ({ from: s.from, to: s.to, color: segColor(s), name: segName(s) })) });
     }
@@ -2749,6 +2757,9 @@
     if (b.sample) html += '<div class="warnbox">⚠ ' + esc(S.site.sample.note || "仮のデータです") + "</div>";
     html += '<div class="meta">地面の標高：<b>' + elevTxt + "</b> " + (typeof b.elevation === "number" ? demTxt : "") +
       "<br>掘った深さ：" + b.depth.toFixed(1) + "m（いちばん下の標高 " + (b.elev - b.depth).toFixed(1) + "m）" +
+      (typeof b.elevation === "number" && !isNaN(b.demElev) && Math.abs(b.elev - b.demElev) >= 0.5
+        ? "<br>資料と今の地図の差：" + "資料の方が " + Math.abs(b.elev - b.demElev).toFixed(1) + "m " + (b.elev > b.demElev ? "高い" : "低い") +
+          (S.alignBores ? "（今は地面にそろえてかいています）" : "") : "") +
       (b.source ? "<br>出典：" + esc(b.source) : "") +
       (b.url ? '<br><a href="' + esc(b.url) + '" target="_blank" rel="noopener">元の資料を開く ↗</a>' : "") + "</div>";
     html += svg;
@@ -3295,6 +3306,19 @@
     chk("chkBores", (v) => { S.showBores = v; applyVisibility(); });
     const setLift = (v) => { S.lift = v; $("chkLift").checked = v; $("qLift").classList.toggle("on", v); buildBores(); };
     chk("chkLift", setLift);
+    // 柱の高さ：資料の高さ ⇔ 今の地面にそろえる
+    const setAlign = (v) => {
+      S.alignBores = !!v; store.set("chisou3d:alignBores", S.alignBores);
+      $("alignRec").classList.toggle("on", !S.alignBores); $("alignGround").classList.toggle("on", S.alignBores);
+      buildBores(); applyVisibility();
+      if (S.section) { if (S.mode === "cut") buildAll(); openSectionSheet(); }
+    };
+    S.setAlign = setAlign;
+    $("alignRec").onclick = () => setAlign(false);
+    $("alignGround").onclick = () => setAlign(true);
+    $("alignWhy").onclick = () => { const o = $("alignWhyBody").classList.toggle("hidden"); $("alignWhy").classList.toggle("open", !o); };
+    S.alignBores = !!store.get("chisou3d:alignBores", false);
+    $("alignRec").classList.toggle("on", !S.alignBores); $("alignGround").classList.toggle("on", S.alignBores);
     $("qLift").onclick = () => setLift(!S.lift);
     const setRiver = (v) => { S.showRivers = v; $("chkRiver").checked = v; $("qRiver").classList.toggle("on", v); buildRivers(); if (S.section) openSectionSheet(); };
     chk("chkRiver", setRiver);
@@ -3951,6 +3975,7 @@
     if (S.showRivers) st.riv = 1;
     if (S.showYato) st.yato = 1;
     if (S.lift) st.lift = 1;
+    if (S.alignBores) st.al = 1;
     if (S.ve !== (S.site.defaultExaggeration || 3)) st.vz = S.ve;
     if (S.opacity < 1) st.op = S.opacity;
     if (S.hazard && S.hazard !== "none") st.hz = S.hazard;
@@ -3996,6 +4021,7 @@
     setChk("chkRiver", st.riv);
     if (!$("chkYato").parentElement.classList.contains("hidden")) setChk("chkYato", st.yato);
     setChk("chkLift", st.lift);
+    if (!!st.al !== S.alignBores) S.setAlign(!!st.al);
     if (st.marks) { S.boreMarks = Object.assign({}, st.marks); }
     S.hiddenBores = new Set(st.hid || []);
     if (st.pm) S.peelMode = st.pm;
@@ -4089,6 +4115,7 @@
       if (sec.classList.contains("checks")) {
         sec.querySelectorAll("label").forEach((lb) => { const i = lb.querySelector("input"); if (i && i.id) add("パネルの中（表示の切りかえ）", "ck:" + i.id, lb.textContent, [lb]); });
         add("パネルの中（表示の切りかえ）", "ck:onlyBores", "📍 表示する柱をえらぶ", [$("onlyBoresBox")]);
+        add("パネルの中（表示の切りかえ）", "ck:alignBores", "柱の高さ（資料の高さ／今の地面にそろえる）", [$("alignBox")]);
         return;
       }
       if (!h) return;

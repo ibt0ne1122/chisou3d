@@ -6,7 +6,7 @@
 <title>大地のつくり 3D土地模型</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css?v=20260930211341">
+<link rel="stylesheet" href="css/style.css?v=20260930214914">
 </head>
 <body>
 <div id="viewport"></div>
@@ -62,6 +62,19 @@
       <div id="onlyBoresBox" class="onlybox"><span id="onlyBoresState"></span>
         <div id="onlySeg" class="seg onlyseg hidden"><button type="button" id="onlyAll">全部の柱</button><button type="button" id="onlySelBtn">えらんだ柱だけ</button></div>
         <div class="btnrow"><button type="button" id="onlyBoresPick">📍 表示する柱をえらぶ</button><button type="button" id="onlyBoresReset" class="hidden">えらんだのを消す</button></div></div>
+      <div id="alignBox" class="onlybox alignbox">
+        <button type="button" id="alignWhy" class="whylink">※なぜ柱状図が飛び出ているところがあるのか</button>
+        <div id="alignWhyBody" class="whybody hidden">
+          <p>柱は、<b>ボーリングをほった時に測った地面の高さ（資料の高さ）</b>に立てています。いっぽう、模型の地面は<b>今の地図の高さ</b>です。この2つがずれている所では、柱が飛び出したり、うまったりして見えます。</p>
+          <ul>
+            <li><b>ほった後に土地が変わった</b>：ほった後に、けずって平らにしたり（→柱が飛び出す）、土をもったり（→柱がうまる）した所。</li>
+            <li><b>がけ・急な坂の近く</b>：ほった場所が数mずれるだけで、地図の高さが大きく変わります。</li>
+            <li><b>高さを強調している</b>：「高さの強調」を大きくすると、小さなずれも大きく見えます。</li>
+          </ul>
+          <p>「今の地面にそろえる」にすると、柱の上を今の地面に合わせてかきます（見せ方だけ）。<b>模型の地層の推定は変わりません</b>。柱をタップすると、資料の高さと地図の高さの両方が見られます。</p>
+        </div>
+        <div class="seg onlyseg"><button type="button" id="alignRec">資料の高さ<br>（今のまま）</button><button type="button" id="alignGround">今の地面に<br>そろえる</button></div>
+      </div>
       <label><input type="checkbox" id="chkLift"> 柱を地上に引き出す</label>
       <label><input type="checkbox" id="chkRiver"> 川を強調する</label>
       <label><input type="checkbox" id="chkYato"> 谷戸（やと）を表示</label>
@@ -465,19 +478,19 @@
 
 <footer id="attribution">出典：<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">国土地理院（地理院タイル・標高タイル）</a> ／ 目印：<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap</a> ／ 地下の地層はボーリング資料からの推定です（<a href="#" id="attrMore">くわしく</a>）</footer>
 
-<script src="lib/three.min.js?v=20260930211341"></script>
-<script src="lib/OrbitControls.js?v=20260930211341"></script>
-<script src="lib/qrcode.js?v=20260930211341"></script>
+<script src="lib/three.min.js?v=20260930214914"></script>
+<script src="lib/OrbitControls.js?v=20260930214914"></script>
+<script src="lib/qrcode.js?v=20260930214914"></script>
 <script>window.CHISOU = { sites: {}, registerSite: function (s) { this.sites[s.id] = s; } };</script>
-<script src="js/geo.js?v=20260930211341"></script>
-<script src="js/geology.js?v=20260930211341"></script>
-<script src="sites/sites.js?v=20260930211341"></script>
-<script src="js/section.js?v=20260930211341"></script>
-<script src="js/boringxml.js?v=20260930211341"></script>
-<script src="js/mvt.js?v=20260930211341"></script>
-<script src="js/yato_yokohama.js?v=20260930211341"></script>
-<script src="js/ngic_bookmarklet.js?v=20260930211341"></script>
-<script src="js/help.js?v=20260930211341"></script>
-<script src="js/app.js?v=20260930211341"></script>
+<script src="js/geo.js?v=20260930214914"></script>
+<script src="js/geology.js?v=20260930214914"></script>
+<script src="sites/sites.js?v=20260930214914"></script>
+<script src="js/section.js?v=20260930214914"></script>
+<script src="js/boringxml.js?v=20260930214914"></script>
+<script src="js/mvt.js?v=20260930214914"></script>
+<script src="js/yato_yokohama.js?v=20260930214914"></script>
+<script src="js/ngic_bookmarklet.js?v=20260930214914"></script>
+<script src="js/help.js?v=20260930214914"></script>
+<script src="js/app.js?v=20260930214914"></script>
 </body>
 </html>
