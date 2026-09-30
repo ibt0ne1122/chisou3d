@@ -37,7 +37,7 @@
       setTimeout(run, 0); // 1ファイル版：設定がすでに入っている（準備が終わってから始める）
     } else {
       const sc = document.createElement("script");
-      sc.src = entry.file + "?v=20260930132303";
+      sc.src = entry.file + "?v=20260930133208";
       sc.onload = run;
       sc.onerror = () => showError("場所の設定ファイル（" + entry.file + "）を読み込めませんでした。ZIPの場合は「すべて展開」してから開いてください。");
       document.body.appendChild(sc);
@@ -598,7 +598,7 @@
       (S.hiddenBores.has(b.id) - S.hiddenBores.has(a.id)) || (b.depth - a.depth));
     for (const b of order) {
       // 「えらんだ柱だけ」のときは、名前を出さず ● の印だけにする（「？」にした柱は名前つき）
-      const dotsOnly = S.showOnly && !S.boreSel;
+      const dotsOnly = (S.showOnly || S.boreNames === false) && !S.boreSel; // 「柱の名前」をオフにしたときも ● だけ
       if (S.hiddenBores.has(b.id) || (!dotsOnly && (S.bores.length <= 30 || !placed.some((p) => Math.hypot(p.x - b.x, p.z - b.z) < minD)))) {
         named.add(b.id); placed.push(b);
       }
@@ -1261,7 +1261,7 @@
     groups.labels.visible = S.labels;
     groups.notes.visible = S.showNotes;
     groups.ring.visible = S.ring;
-    groups.bores.children.forEach((c) => { if (c.userData.isLabel) c.visible = !!S.boreSel || (S.labels && S.boreNames !== false); });
+    groups.bores.children.forEach((c) => { if (c.userData.isLabel) c.visible = !!S.boreSel || S.labels; });
   }
 
   // ---------- 地図の画像 ----------
@@ -3321,7 +3321,7 @@
     chk("chkYato", setYato);
     $("qYato").onclick = () => setYato(!S.showYato);
     // 柱の名前（🔍の名札）を出す・かくす
-    const setBoreNames = (v) => { S.boreNames = v; store.set("chisou3d:boreNames", v); $("qNames").classList.toggle("on", v); $("qNames").title = v ? "今は柱の名前を出しています（押すと、かくす）" : "今は柱の名前をかくしています（押すと、出す）"; applyVisibility(); };
+    const setBoreNames = (v) => { S.boreNames = v; store.set("chisou3d:boreNames", v); $("qNames").classList.toggle("on", v); $("qNames").title = v ? "今は柱の名前を出しています（押すと、名前をかくして ● だけにする）" : "今は柱の名前をかくしています（押すと、出す）"; if (groups.bores) buildBores(); };
     $("qNames").onclick = () => { setBoreNames(!S.boreNames); if (S.boreNames && !S.labels) { $("chkLabels").checked = true; $("chkLabels").dispatchEvent(new Event("change")); } };
     setBoreNames(store.get("chisou3d:boreNames", true));
     const hasYato = yatoList().length > 0;
