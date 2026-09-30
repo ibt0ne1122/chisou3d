@@ -6,7 +6,7 @@
 <title>大地のつくり 3D土地模型</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css?v=20260930064330">
+<link rel="stylesheet" href="css/style.css?v=20260930065535">
 </head>
 <body>
 <div id="viewport"></div>
@@ -73,7 +73,6 @@
       <h2>学習の道具</h2>
       <div class="btnrow tools">
         <button id="btnDig" type="button">⛏ どこでもボーリング</button>
-        <button id="btnLab" type="button">🧪 流れる水の実験</button>
         <button id="btnSheet" type="button">🖨 断面図ワークシート</button>
         <button id="btnSTL" type="button">🧊 3Dプリンター用</button>
       </div>
@@ -130,15 +129,15 @@
   <button id="mbFold" class="fold" type="button" title="ボタンをとじて、模型を広く見ます" aria-label="ボタンをとじる">✕</button>
   <button data-mode="view" class="active">👆 見る</button>
   <button data-mode="section">✂️ 断面図を作成</button>
-  <button data-mode="cut" class="cutbtn">🔪 模型を切る</button>
   <button data-mode="pick">📍 柱状図を選択して断面図を作成</button>
+  <button data-mode="cut" class="cutbtn">🔪 模型を切る</button>
   <button data-mode="note">📝 気づきメモ</button>
   <button data-mode="edit" class="teacher-only hidden">➕ ボーリング追加</button>
   <span class="sep"></span>
   <button id="qLift" class="quick" type="button">⬆️ 柱を地上に</button>
+  <button id="qNames" class="quick on" type="button" title="ボーリングの柱の名前（🔍の名札）を出したり、かくしたりします">🏷 柱の名前</button>
   <button id="qRiver" class="quick" type="button">🌊 川を強調</button>
   <button id="qYato" class="quick hidden" type="button">〰 谷戸</button>
-  <button id="qNames" class="quick on" type="button" title="ボーリングの柱の名前（🔍の名札）を出したり、かくしたりします">🏷 柱の名前</button>
 </nav>
 <div id="hint" class="hidden"></div>
 <div id="floatStack"></div>
@@ -409,19 +408,18 @@
 
 <footer id="attribution">出典：<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">国土地理院（地理院タイル・標高タイル）</a> ／ 目印：<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap</a> ／ 地下の地層はボーリング資料からの推定です（<a href="#" id="attrMore">くわしく</a>）</footer>
 
-<script src="lib/three.min.js?v=20260930064330"></script>
-<script src="lib/OrbitControls.js?v=20260930064330"></script>
+<script src="lib/three.min.js?v=20260930065535"></script>
+<script src="lib/OrbitControls.js?v=20260930065535"></script>
 <script>window.CHISOU = { sites: {}, registerSite: function (s) { this.sites[s.id] = s; } };</script>
-<script src="js/geo.js?v=20260930064330"></script>
-<script src="js/geology.js?v=20260930064330"></script>
-<script src="sites/sites.js?v=20260930064330"></script>
-<script src="js/section.js?v=20260930064330"></script>
-<script src="js/boringxml.js?v=20260930064330"></script>
-<script src="js/mvt.js?v=20260930064330"></script>
-<script src="js/yato_yokohama.js?v=20260930064330"></script>
-<script src="js/ngic_bookmarklet.js?v=20260930064330"></script>
-<script src="js/flowlab.js?v=20260930064330"></script>
-<script src="js/help.js?v=20260930064330"></script>
-<script src="js/app.js?v=20260930064330"></script>
+<script src="js/geo.js?v=20260930065535"></script>
+<script src="js/geology.js?v=20260930065535"></script>
+<script src="sites/sites.js?v=20260930065535"></script>
+<script src="js/section.js?v=20260930065535"></script>
+<script src="js/boringxml.js?v=20260930065535"></script>
+<script src="js/mvt.js?v=20260930065535"></script>
+<script src="js/yato_yokohama.js?v=20260930065535"></script>
+<script src="js/ngic_bookmarklet.js?v=20260930065535"></script>
+<script src="js/help.js?v=20260930065535"></script>
+<script src="js/app.js?v=20260930065535"></script>
 </body>
 </html>

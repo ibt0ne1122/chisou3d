@@ -37,7 +37,7 @@
     setTimeout(run, 0); // 1ファイル版：設定がすでに入っている（準備が終わってから始める）
   } else {
     const sc = document.createElement("script");
-    sc.src = entry.file + "?v=20260930064330";
+    sc.src = entry.file + "?v=20260930065535";
     sc.onload = run;
     sc.onerror = () => showError("場所の設定ファイル（" + entry.file + "）を読み込めませんでした。ZIPの場合は「すべて展開」してから開いてください。");
     document.body.appendChild(sc);
@@ -1453,9 +1453,12 @@
     const [a, b] = e, len = Math.hypot(b.x - a.x, b.z - a.z), n = Math.max(2, Math.round(len / (S.grid.step * 0.7)));
     const pts = [];
     for (let i = 0; i <= n; i++) { const x = a.x + ((b.x - a.x) * i) / n, z = a.z + ((b.z - a.z) * i) / n; pts.push({ x, z, y: surfaceAt(x, z) * S.ve }); }
+    // 模型の外まで線をのばす（奥のほうでも、どこに線があるかわかるように）
+    const ext = S.site.half * 0.3, ux = (b.x - a.x) / len, uz = (b.z - a.z) / len, p0 = pts[0], p1 = pts[pts.length - 1];
+    const line = [{ x: p0.x - ux * ext, z: p0.z - uz * ext, y: p0.y }].concat(pts, [{ x: p1.x + ux * ext, z: p1.z + uz * ext, y: p1.y }]);
     // 地面の上の赤い帯
     const pos = [];
-    stripInto(pos, pts, Math.max(6, S.site.half * 0.011), 2);
+    stripInto(pos, line, Math.max(6, S.site.half * 0.011), 2);
     const gg = new THREE.BufferGeometry(); gg.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
     const band = new THREE.Mesh(gg, new THREE.MeshBasicMaterial({ color: 0xe53935, side: THREE.DoubleSide, depthTest: false, transparent: true, opacity: 0.95 }));
     band.renderOrder = 5; groups.guide.add(band);
@@ -1467,10 +1470,13 @@
     }
     const wg = new THREE.BufferGeometry(); wg.setAttribute("position", new THREE.Float32BufferAttribute(wall, 3));
     groups.guide.add(new THREE.Mesh(wg, new THREE.MeshBasicMaterial({ color: 0xe53935, side: THREE.DoubleSide, transparent: true, opacity: 0.22, depthWrite: false })));
-    // 両はしの目じるし
-    for (const [p, t] of [[pts[0], "🔪"], [pts[pts.length - 1], "🔪"]]) {
-      const lab = makeLabel(t, { bg: "#e53935", color: "#fff", bold: true, size: 14 });
-      lab.position.set(p.x, p.y + 12, p.z); groups.guide.add(lab);
+    // 両はしの目じるし（高い赤いぼう＋🔪）：遠くからでも線の向きがわかる
+    const poleH = S.site.half * 0.12, pr = Math.max(3, S.site.half * 0.006);
+    for (const p of [line[0], line[line.length - 1]]) {
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(pr, pr, poleH, 8), new THREE.MeshBasicMaterial({ color: 0xe53935 }));
+      pole.position.set(p.x, p.y + poleH / 2, p.z); groups.guide.add(pole);
+      const lab = makeLabel("🔪", { bg: "#e53935", color: "#fff", bold: true, size: 14 });
+      lab.position.set(p.x, p.y + poleH + 4, p.z); groups.guide.add(lab);
     }
   }
 
@@ -3060,7 +3066,6 @@
     chk("chkBasin", setBasin);
     // 学習の道具
     $("btnDig").onclick = () => setDig(!S.digOn);
-    $("btnLab").onclick = () => C.FlowLab.open();
     $("btnSheet").onclick = printWorksheet;
     $("btnSTL").onclick = exportSTL;
     $("qRiver").onclick = () => setRiver(!S.showRivers);
