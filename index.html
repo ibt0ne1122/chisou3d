@@ -14,6 +14,8 @@
   .card { display:flex; flex-direction:column; gap:4px; background:var(--panel); border-radius:14px; padding:18px; text-decoration:none; color:inherit; box-shadow:0 2px 10px rgba(0,0,0,.08); }
   .card:hover { outline:3px solid var(--accent); }
   .card .ic { font-size:28px; } .card b { font-size:18px; } .card small { color:var(--accent); }
+  h2 { font-size:20px; margin:28px 0 4px; }
+  .card.preset { border-left:6px solid #d4a017; }
   footer { margin-top:32px; font-size:13px; color:var(--sub); }
   footer a { color:var(--accent); }
 </style>
@@ -26,6 +28,31 @@
     <a class="card" href="app.html?site=nagatsuta"><span class="ic">🏫</span><b>長津田小学校のまわり</b><small>3D土地模型をひらく ›</small></a>
     <a class="card" href="app.html?site=shinoharanishi"><span class="ic">🏫</span><b>篠原西小学校のまわり</b><small>3D土地模型をひらく ›</small></a>
   </div>
+  <section id="presets" hidden>
+    <h2>👩‍🏫 先生が準備した画面</h2>
+    <p class="lead">授業で使う画面です。先生に言われたものをえらんでください。</p>
+    <div class="grid" id="presetGrid"></div>
+  </section>
+  <script>
+    (function () {
+      var sc = document.createElement("script");
+      sc.src = "presets.js?t=" + Date.now();
+      sc.onload = function () {
+        var list = window.CHISOU_PRESETS || [];
+        if (!list.length) return;
+        var g = document.getElementById("presetGrid");
+        list.forEach(function (p) {
+          var a = document.createElement("a");
+          a.className = "card preset"; a.href = "app.html?p=" + encodeURIComponent(p.id);
+          a.innerHTML = '<span class="ic">📘</span><b></b><small>この画面をひらく ›</small>';
+          a.querySelector("b").textContent = p.title;
+          g.appendChild(a);
+        });
+        document.getElementById("presets").hidden = false;
+      };
+      document.body.appendChild(sc);
+    })();
+  </script>
   <footer>
     <p>パソコン・タブレット（Edge・Chrome・Safari）で動きます。インターネットにつながっている必要があります。</p>
     <p>出典：<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">国土地理院（地理院タイル・標高タイル）</a>／

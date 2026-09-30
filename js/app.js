@@ -14,11 +14,35 @@
 
   // ---------- 場所の読み込み ----------
   const params = new URLSearchParams(location.search);
+  // 入り口ページで先生が登録した「配布用の画面」（app.html?p=名前）：presets.js から読む
+  let presetK = null;
+  function loadPresets() {
+    return new Promise((res) => {
+      if (window.CHISOU_PRESETS) return res(window.CHISOU_PRESETS);
+      const sc = document.createElement("script");
+      sc.src = "presets.js?t=" + Date.now(); // 登録してすぐ使えるように、毎回新しく読む
+      sc.onload = () => res(window.CHISOU_PRESETS || []);
+      sc.onerror = () => res([]);
+      document.head.appendChild(sc);
+    });
+  }
   // 先生が画面から作った場所（この端末に保存）
   const customSites = store.get("chisou3d:customSites", []);
-  const custom = customSites.find((c) => c.id === params.get("site"));
-  const entry = custom ? C.SITE_LIST[0] : C.SITE_LIST.find((s) => s.id === params.get("site")) || C.SITE_LIST[0];
-  const run = () => start(custom ? makeCustomSite(C.sites[entry.id], custom) : C.sites[entry.id]).catch((e) => showError(e.message || String(e)));
+  let siteParam = params.get("site");
+  function boot() {
+    const custom = customSites.find((c) => c.id === siteParam);
+    const entry = custom ? C.SITE_LIST[0] : C.SITE_LIST.find((s) => s.id === siteParam) || C.SITE_LIST[0];
+    const run = () => start(custom ? makeCustomSite(C.sites[entry.id], custom) : C.sites[entry.id]).catch((e) => showError(e.message || String(e)));
+    if (C.sites[entry.id]) {
+      setTimeout(run, 0); // 1ファイル版：設定がすでに入っている（準備が終わってから始める）
+    } else {
+      const sc = document.createElement("script");
+      sc.src = entry.file + "?v=20260930123142";
+      sc.onload = run;
+      sc.onerror = () => showError("場所の設定ファイル（" + entry.file + "）を読み込めませんでした。ZIPの場合は「すべて展開」してから開いてください。");
+      document.body.appendChild(sc);
+    }
+  }
   /** ひな形（最初の場所の設定）から、新しい場所の設定をつくる：層の設定は同じ、ボーリングは空 */
   function makeCustomSite(tpl, c) {
     const site = JSON.parse(JSON.stringify(Object.assign({}, tpl, { boreholes: [], mapMarks: null, dataRadius: null })));
@@ -33,15 +57,13 @@
     site.layers.forEach((l) => { if (l.id === "alluvium") l.desc = "近くの川が運んできた、やわらかい泥や砂。谷の底にたまっている。いちばん新しい層。"; });
     return site;
   }
-  if (C.sites[entry.id]) {
-    setTimeout(run, 0); // 1ファイル版：設定がすでに入っている（準備が終わってから始める）
-  } else {
-    const sc = document.createElement("script");
-    sc.src = entry.file + "?v=20260930121933";
-    sc.onload = run;
-    sc.onerror = () => showError("場所の設定ファイル（" + entry.file + "）を読み込めませんでした。ZIPの場合は「すべて展開」してから開いてください。");
-    document.body.appendChild(sc);
-  }
+  if (params.get("p")) {
+    loadPresets().then((list) => {
+      const pr = list.find((x) => x.id === params.get("p"));
+      if (pr) { siteParam = pr.site; presetK = pr.k; document.title = pr.title + "｜3D土地模型"; }
+      boot();
+    });
+  } else boot();
 
   function setLoading(t) { $("loadingText").textContent = t; }
   function showError(msg) {
@@ -180,6 +202,10 @@
     S.bores = GL.prepareBoreholes(allBoreData(), site.layers, S.frame, groundAt)
       .filter((b) => Math.abs(b.x) <= site.half * 1.2 && Math.abs(b.z) <= site.half * 1.2);
     S.model = GL.buildModel(site.layers, S.grid, S.bores, { baseElevation: site.baseElevation });
+    // 模型（地層の推定）は全部の柱から作り、画面に出す柱だけをしぼる
+    S.allBores = S.bores;
+    if (!S.kidOnly) { const so = store.get(key("showOnly"), null); S.showOnly = so && so.length ? new Set(so) : null; }
+    applyShowOnlyList();
     const m = S.model;
     S.visLayers = site.layers.map((l, i) => i).filter((i) => {
       for (let k = 0; k < m.tops[i].length; k += 7) if (m.tops[i][k] - m.bots[i][k] > 0.05) return true;
@@ -594,7 +620,7 @@
       }
       const top = b.elev * ve + lift;
       const pinTop = S.lift ? top + 18 : Math.max(top, surfaceAt(b.x, b.z) * S.ve) + 45;
-      const mk = markOf(b.id);
+      const mk = S.boreSel ? (S.boreSel.has(b.id) ? SEL_MARK : null) : markOf(b.id);
       const pc = mk ? new THREE.Color(mk.c) : b.sample ? pinOrange : pinBlue;
       const pTop = mk ? pinTop + 35 : pinTop; // 目立たせた柱は、旗を高く
       lpos.push(b.x, S.lift ? b.elev * ve : top, b.z, b.x, pTop, b.z);
@@ -608,7 +634,7 @@
       }
       let lab;
       if (mk) {
-        lab = makeLabel("★ " + shortName(b.name), { bg: mk.c, color: mk.fg, border: "#ffffff", size: 16, bold: true });
+        lab = makeLabel((mk === SEL_MARK ? "✅ " : "★ ") + shortName(b.name), { bg: mk.c, color: mk.fg, border: "#ffffff", size: 16, bold: true });
       } else if (named.has(b.id)) {
         lab = makeLabel(hidden ? "？" + shortName(b.name) + "（予想中）" : (b.sample ? "" : "🔍") + shortName(b.name), { bg: b.sample ? "#fff1dc" : "#e3f0fb", color: b.sample ? "#8a4500" : "#12497a", size: 13, bold: true });
       } else {
@@ -657,6 +683,42 @@
     { c: "#43a047", n: "緑", fg: "#fff" }, { c: "#8e24aa", n: "むらさき", fg: "#fff" },
   ];
   const markOf = (id) => MARK_COLORS.find((m) => m.c === S.boreMarks[id]);
+  const SEL_MARK = { c: "#2e7d32", fg: "#ffffff", n: "えらんだ柱" };
+  // ---------- 模型に表示する柱を、えらんだものだけにする ----------
+  function applyShowOnlyList() {
+    const all = S.allBores || S.bores;
+    S.bores = S.boreSel || !S.showOnly ? all : all.filter((b) => S.showOnly.has(b.id));
+  }
+  function updateOnlyBoresUI() {
+    const n = S.showOnly ? S.showOnly.size : 0;
+    $("onlyBoresState").textContent = n ? "✅ えらんだ " + n + " 本だけ表示中" : "全部の柱を表示中（" + (S.allBores || S.bores).length + "本）";
+    $("onlyBoresReset").classList.toggle("hidden", !n);
+  }
+  function startBoreSelect() {
+    if (S.mode !== "view") setMode("view");
+    S.boreSel = new Set(S.showOnly || []);
+    applyShowOnlyList(); buildBores(); applyVisibility();
+    $("selBar").classList.remove("hidden");
+    updateSelBar();
+    setHint("📍 模型に表示したい柱の旗（🔍や●）をタップ。もう一度タップで外れます");
+  }
+  function updateSelBar() { $("selInfo").textContent = "📍 表示する柱をタップ（" + S.boreSel.size + "本えらび中）"; $("selOk").disabled = !S.boreSel.size; }
+  function endBoreSelect(ok) {
+    if (ok) {
+      S.showOnly = S.boreSel.size ? new Set(S.boreSel) : null;
+      if (!S.kidOnly) store.set(key("showOnly"), S.showOnly ? [...S.showOnly] : null);
+    }
+    S.boreSel = null;
+    $("selBar").classList.add("hidden");
+    applyShowOnlyList(); buildBores(); applyVisibility(); updateOnlyBoresUI();
+    if (S.section) openSectionSheet();
+    setHint(modeHint());
+  }
+  function clearShowOnly() {
+    S.showOnly = null; store.set(key("showOnly"), null);
+    applyShowOnlyList(); buildBores(); updateOnlyBoresUI();
+    if (S.section) openSectionSheet();
+  }
   function setBoreMark(id, color) {
     if (color) S.boreMarks[id] = color; else delete S.boreMarks[id];
     store.set(key("boreMarks"), S.boreMarks);
@@ -1163,7 +1225,7 @@
     groups.labels.visible = S.labels;
     groups.notes.visible = S.showNotes;
     groups.ring.visible = S.ring;
-    groups.bores.children.forEach((c) => { if (c.userData.isLabel) c.visible = S.labels && S.boreNames !== false; });
+    groups.bores.children.forEach((c) => { if (c.userData.isLabel) c.visible = !!S.boreSel || (S.labels && S.boreNames !== false); });
   }
 
   // ---------- 地図の画像 ----------
@@ -2041,6 +2103,12 @@
     rayFrom(e);
     const obj = pickObject();
     if (obj && obj.type === "lore") return showLore(obj.id);
+    if (S.boreSel) {
+      if (!obj || obj.type !== "bore") return flashHint("📍 柱の旗（🔍や●）をタップしてえらんでね");
+      S.boreSel.has(obj.id) ? S.boreSel.delete(obj.id) : S.boreSel.add(obj.id);
+      buildBores(); updateSelBar();
+      return;
+    }
     if (S.digOn && (S.mode === "view" || S.mode === "dig") && !(obj && obj.type === "bore")) { const p = pickGround(); if (p) digAt(p); return; }
     if (obj && obj.type === "cutbore") return showBore(obj.id); // 切り口の本物の柱 → くわしい柱状図
     if (obj && obj.type === "bore" && S.mode === "cut") return showBore(obj.id);
@@ -2986,6 +3054,7 @@
   function setMode(m) {
     const prev = S.mode;
     S.mode = m;
+    if (S.boreSel) endBoreSelect(false);
     if (S.digOn && m !== "view") setDig(false); // ほかのモードにしたら、どこでもボーリングは終わり
     if (window.innerWidth <= 760 && !$("controls").classList.contains("collapsed")) { $("controls").classList.add("collapsed"); updateViewOffset(); } // スマホ：パネルをとじて模型を見やすく
     if (S.section && !(m === "section" && prev === "section")) clearSection();
@@ -3189,6 +3258,18 @@
     // 流域・分水界
     const setBasin = (v) => { S.showBasin = v; $("chkBasin").checked = v; if (v) S.cardClosed.basinCard = false; applyTexture(); basinCard(v); };
     chk("chkBasin", setBasin);
+    // 表示する柱をえらぶ
+    $("onlyBoresPick").onclick = startBoreSelect;
+    $("onlyBoresReset").onclick = clearShowOnly;
+    $("selOk").onclick = () => endBoreSelect(true);
+    $("selCancel").onclick = () => endBoreSelect(false);
+    $("selAll").onclick = () => { S.boreSel = new Set(S.allBores.map((b) => b.id)); buildBores(); updateSelBar(); };
+    $("selNone").onclick = () => { S.boreSel = new Set(); buildBores(); updateSelBar(); };
+    $("selFromSec").onclick = () => {
+      if (!S.sectionBores || !S.sectionBores.length) return flashHint("先に断面図を作ると、その断面図に出ている柱をまとめてえらべます");
+      S.sectionBores.forEach((b) => S.boreSel.add(b.id)); buildBores(); updateSelBar();
+    };
+    updateOnlyBoresUI();
     // 学習の道具
     $("btnDig").onclick = () => setDig(!S.digOn);
     $("btnSheet").onclick = printWorksheet;
@@ -3319,7 +3400,7 @@
     const relayout = () => { if (!layoutRaf) layoutRaf = requestAnimationFrame(layoutUI); };
     S.relayout = relayout;
     window.addEventListener("resize", relayout);
-    if (window.ResizeObserver) { const ro = new ResizeObserver(relayout); ["modebar", "navpad", "cutBar", "cutGuideBar", "pickBar", "controls"].forEach((id) => $(id) && ro.observe($(id))); }
+    if (window.ResizeObserver) { const ro = new ResizeObserver(relayout); ["modebar", "navpad", "cutBar", "cutGuideBar", "pickBar", "selBar", "controls"].forEach((id) => $(id) && ro.observe($(id))); }
     new MutationObserver(relayout).observe(document.body, { attributes: true, attributeFilter: ["class"] });
     document.querySelectorAll(".floatbar, #controls").forEach((f) => new MutationObserver(relayout).observe(f, { attributes: true, attributeFilter: ["class"] }));
     relayout();
@@ -3773,8 +3854,9 @@
   }
   async function readShared() {
     const m = location.hash.match(/[#&]k=([A-Za-z0-9_-]+)/);
-    if (!m) return null;
-    try { return await unpackState(m[1]); } catch (e) { console.warn("リンクを読めませんでした", e); return null; }
+    const k = m ? m[1] : presetK;
+    if (!k) return null;
+    try { return await unpackState(k); } catch (e) { console.warn("リンクを読めませんでした", e); return null; }
   }
   const R1 = (v) => Math.round(v * 10) / 10;
   /** 予想の線を短くする（近すぎる点を省いて、0.1m単位に） */
@@ -3842,8 +3924,9 @@
     if (st.ui) applyKidUi(st.ui);
     if (st.only) {
       // 先生がえらんだ柱だけを見せる（模型の地層の推定は、全部の柱からのまま）
-      const only = new Set(st.only);
-      S.bores = S.bores.filter((b) => only.has(b.id));
+      S.kidOnly = true; S.showOnly = new Set(st.only);
+      $("onlyBoresBox").classList.add("kid-hide");
+      applyShowOnlyList(); updateOnlyBoresUI();
     }
     if (st.vz) { $("veRange").value = st.vz; $("veRange").dispatchEvent(new Event("input")); }
     if (st.op) { $("opacityRange").value = st.op; $("opacityRange").dispatchEvent(new Event("input")); }
@@ -3947,6 +4030,7 @@
       const h = sec.querySelector("h2");
       if (sec.classList.contains("checks")) {
         sec.querySelectorAll("label").forEach((lb) => { const i = lb.querySelector("input"); if (i && i.id) add("パネルの中（表示の切りかえ）", "ck:" + i.id, lb.textContent, [lb]); });
+        add("パネルの中（表示の切りかえ）", "ck:onlyBores", "📍 表示する柱をえらぶ", [$("onlyBoresBox")]);
         return;
       }
       if (!h) return;
@@ -3984,23 +4068,73 @@
       const keep = /^(mb:view|mb:qNames|help|navpad|ps:地層の色（凡例）)$/;
       boxes().forEach((c) => (c.checked = keep.test(c.dataset.ui))); save();
     };
-    const ids = S.lastPickIds || [];
+    const ids = S.lastPickIds || [], shown = S.showOnly ? S.showOnly.size : 0;
     $("shareBoresPicked").disabled = ids.length < 1;
     $("sharePickedN").textContent = ids.length ? "（" + ids.length + "本）" : "（まだえらんでいません）";
-    if (!ids.length) document.querySelector('[name="shareBores"][value="all"]').checked = true;
+    $("shareBoresShown").disabled = !shown;
+    $("shareShownN").textContent = shown ? "（" + shown + "本）" : "（今は全部を表示中）";
+    document.querySelector('[name="shareBores"][value="' + (shown ? "shown" : "all") + '"]').checked = true;
+    $("shareQrBox").classList.add("hidden");
+    if (!$("shareTitle").value) $("shareTitle").value = store.get("chisou3d:shareTitle", "");
   }
+  /** QRコードをかく（読みやすいよう、まわりに白いすきまをとる） */
+  function drawQr(canvas, text) {
+    const q = qrcode(0, text.length > 300 ? "L" : "M");
+    q.addData(text); q.make();
+    const n = q.getModuleCount(), cell = Math.max(3, Math.floor(560 / (n + 8))), size = (n + 8) * cell;
+    canvas.width = canvas.height = size;
+    const g = canvas.getContext("2d");
+    g.fillStyle = "#fff"; g.fillRect(0, 0, size, size); g.fillStyle = "#000";
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (q.isDark(r, c)) g.fillRect((c + 4) * cell, (r + 4) * cell, cell, cell);
+    return canvas;
+  }
+  function showQr(link) {
+    const title = $("shareTitle").value.trim() || S.site.title;
+    drawQr($("shareQr"), link);
+    $("shareQrTitle").textContent = title;
+    $("shareQrBox").classList.remove("hidden");
+    S.qrLink = link;
+  }
+  function qrSheetHtml(link, title) {
+    const cv = drawQr(document.createElement("canvas"), link);
+    return '<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>' + esc(title) + '</title><style>body{font-family:"BIZ UDPGothic",sans-serif;text-align:center;margin:18mm}h1{font-size:26px}img{width:120mm;height:120mm;image-rendering:pixelated}p{font-size:15px}@media print{button{display:none}}</style></head><body>' +
+      "<h1>" + esc(title) + "</h1><img src=\"" + cv.toDataURL("image/png") + "\"><p>タブレットのカメラで読みとってね（3D土地模型）</p><button onclick=\"print()\">🖨 印刷する</button></body></html>";
+  }
+  function presetId() { const d = new Date(); return "p" + d.getFullYear() % 100 + String(d.getMonth() + 1).padStart(2, "0") + String(d.getDate()).padStart(2, "0") + Math.random().toString(36).slice(2, 5); }
   async function makeKidLink() {
     const hide = [...$("shareUi").querySelectorAll("[data-ui]")].filter((c) => !c.checked).map((c) => c.dataset.ui);
-    const only = document.querySelector('[name="shareBores"]:checked').value === "picked" ? (S.lastPickIds || []) : null;
+    const bsel = document.querySelector('[name="shareBores"]:checked').value;
+    const only = bsel === "picked" ? (S.lastPickIds || []) : bsel === "shown" && S.showOnly ? [...S.showOnly] : null;
+    store.set("chisou3d:shareTitle", $("shareTitle").value.trim());
     const st = captureState({ strokes: $("shareStrokes").checked, kid: { lock: $("shareLock").checked ? 1 : 0 }, form: true, ui: hide, only });
-    $("shareOut").value = baseUrl() + "#k=" + (await packState(st));
+    S.shareK = await packState(st);
+    $("shareOut").value = baseUrl() + "#k=" + S.shareK;
     $("shareOut").select();
+    showQr($("shareOut").value);
+    // 入り口ページに登録する文
+    S.sharePid = S.sharePid || presetId();
+    const title = $("shareTitle").value.trim() || S.site.title;
+    $("sharePresetOut").value = '  { id: "' + S.sharePid + '", title: ' + JSON.stringify(title) + ', site: "' + S.site.id + '", k: "' + S.shareK + '" },';
+    const u = new URL(baseUrl()); u.search = "?p=" + S.sharePid; u.pathname = u.pathname.replace(/[^/]*$/, "app.html");
+    $("sharePresetUrl").textContent = u.href;
   }
   function initShare() {
     S.formCfg = store.get("chisou3d:formCfg", null);
     $("btnShare").onclick = openShareDialog;
     $("shareMake").onclick = makeKidLink;
     $("shareTry").onclick = async () => { await makeKidLink(); window.open($("shareOut").value, "_blank"); };
+    $("shareQrSave").onclick = () => download("QRコード-" + ($("shareTitle").value.trim() || S.site.title) + ".png", $("shareQr").toDataURL("image/png"));
+    $("shareQrPrint").onclick = () => {
+      const html = qrSheetHtml(S.qrLink, $("shareTitle").value.trim() || S.site.title), w = window.open("", "_blank");
+      if (w) { w.document.write(html); w.document.close(); } else download("QRコード.html", html, "text/html");
+    };
+    $("sharePresetCopy").onclick = async () => {
+      if (!$("sharePresetOut").value) await makeKidLink();
+      try { await navigator.clipboard.writeText($("sharePresetOut").value); } catch (e) { $("sharePresetOut").select(); document.execCommand("copy"); }
+      flashHint("📋 登録用の文をコピーしました。GitHubの presets.js にはりつけてください");
+    };
+    $("sharePresetQr").onclick = async () => { if (!$("sharePresetOut").value) await makeKidLink(); showQr($("sharePresetUrl").textContent); flashHint("📱 登録したあとに使える、短いリンクのQRコードです"); };
+    $("shareTitle").oninput = () => { S.sharePid = null; };
     $("shareCopy").onclick = async () => {
       if (!$("shareOut").value) await makeKidLink();
       try { await navigator.clipboard.writeText($("shareOut").value); flashHint("📋 リンクをコピーしました"); } catch (e) { $("shareOut").select(); document.execCommand("copy"); flashHint("📋 リンクをコピーしました"); }

@@ -512,3 +512,12 @@ button, select, input, label { touch-action: manipulation; }
 #shareDialog label.toggle { display: flex !important; align-items: center; gap: 8px; margin: 4px 0; }
 #shareDialog label.toggle input { margin: 0; flex: 0 0 auto; width: 20px; height: 20px; }
 #shareUi label.toggle { display: inline-flex !important; }
+.onlybox { margin: 2px 0 6px 26px; font-size: 13px; color: var(--sub); }
+.onlybox .btnrow { margin-top: 2px; }
+.onlybox button { font-size: 13px; }
+.qrwrap { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; margin: 8px 0; }
+.qrwrap canvas { width: 220px; height: 220px; image-rendering: pixelated; border: 1px solid var(--line); border-radius: 8px; }
+.qrwrap > div { flex: 1; min-width: 200px; }
+#shareTitle { width: 100%; }
+a.btnlike { display: inline-flex; align-items: center; padding: 6px 12px; border: 1px solid var(--line); border-radius: 10px; text-decoration: none; color: var(--accent); background: #fff; min-height: 40px; }
+#sharePresetUrl { word-break: break-all; font-family: monospace; }

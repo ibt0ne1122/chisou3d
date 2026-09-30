@@ -6,7 +6,7 @@
 <title>大地のつくり 3D土地模型</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css?v=20260930121933">
+<link rel="stylesheet" href="css/style.css?v=20260930123142">
 </head>
 <body>
 <div id="viewport"></div>
@@ -59,6 +59,8 @@
     </section>
     <section class="checks">
       <label><input type="checkbox" id="chkBores" checked> ボーリングの柱</label>
+      <div id="onlyBoresBox" class="onlybox"><span id="onlyBoresState"></span>
+        <div class="btnrow"><button type="button" id="onlyBoresPick">📍 表示する柱をえらぶ</button><button type="button" id="onlyBoresReset" class="hidden">全部にもどす</button></div></div>
       <label><input type="checkbox" id="chkLift"> 柱を地上に引き出す</label>
       <label><input type="checkbox" id="chkRiver"> 川を強調する</label>
       <label><input type="checkbox" id="chkYato"> 谷戸（やと）を表示</label>
@@ -156,6 +158,14 @@
   <button id="cutSheet" type="button">📊 断面図も開く</button>
   <button id="cutRedo" type="button">✂️ 切り直す</button>
   <button id="cutEnd" type="button">✕ やめる</button>
+</div>
+<div id="selBar" class="floatbar hidden">
+  <span id="selInfo">📍 表示する柱をタップ</span>
+  <button id="selOk" type="button" class="primary">✅ この柱だけ表示</button>
+  <button id="selFromSec" type="button">断面図の柱をまとめて</button>
+  <button id="selAll" type="button">全部えらぶ</button>
+  <button id="selNone" type="button">全部はずす</button>
+  <button id="selCancel" type="button">✕ やめる</button>
 </div>
 <div id="pickBar" class="floatbar hidden">
   <span id="pickInfo">📍 断面に使う柱の旗を、順番にタップ</span>
@@ -339,16 +349,36 @@
     <label class="toggle"><input type="checkbox" id="shareStrokes"> 先生がかいた予想の線もいっしょに配る</label>
     <details id="shareBoresBox" open><summary><b>📍 見せる柱状図</b></summary>
       <label class="toggle"><input type="radio" name="shareBores" value="all" checked> 全部の柱を見せる</label>
-      <label class="toggle"><input type="radio" name="shareBores" value="picked" id="shareBoresPicked"> えらんだ柱だけを見せる <b id="sharePickedN"></b></label>
-      <p class="hint" id="sharePickedHint">下のボタンの「📍 柱状図を選択して断面図を作成」で柱をえらんで断面図を作ってから、この画面を開くと、その柱だけを子どもに見せられます（ほかの柱は、旗も柱も出ません。模型の地層はそのままです）。</p>
+      <label class="toggle"><input type="radio" name="shareBores" value="shown" id="shareBoresShown"> 今、模型に表示している柱だけ <b id="shareShownN"></b></label>
+      <label class="toggle"><input type="radio" name="shareBores" value="picked" id="shareBoresPicked"> 「📍 柱状図を選択」でえらんだ柱だけ <b id="sharePickedN"></b></label>
+      <p class="hint">柱をしぼるには、☰パネルの「📍 表示する柱をえらぶ」で柱をえらんでから、この画面を開きます。ほかの柱は、子どもの画面では旗も柱も出ません（模型の地層は全部の資料からの推定のままです）。</p>
     </details>
     <details id="shareUiBox"><summary><b>🧩 子どもの画面に出すボタン（外したものは出ません）</b></summary>
       <div class="btnrow"><button type="button" id="shareUiAll">全部出す</button><button type="button" id="shareUiMin">見るだけ（少なく）</button></div>
       <div id="shareUi"></div>
     </details>
     <p class="hint">子どもの画面では「先生モード」は出ません。</p>
+    <label>配る画面の名前（入り口のページやQRコードの紙に出ます）<input id="shareTitle" type="text" placeholder="例：6年 断面図の予想（長津田小のまわり）"></label>
     <div class="btnrow"><button type="button" id="shareMake" class="primary">リンクをつくる</button><button type="button" id="shareCopy">📋 コピー</button><button type="button" id="shareTry">👀 子どもの画面をためす</button></div>
     <textarea id="shareOut" rows="3" readonly spellcheck="false"></textarea>
+    <div id="shareQrBox" class="hidden">
+      <div class="qrwrap"><canvas id="shareQr"></canvas><div><b id="shareQrTitle"></b><p class="hint">子どもは、タブレットのカメラでこのQRコードを読むと、この画面から始められます。</p>
+        <div class="btnrow"><button type="button" id="shareQrSave">🖼 QRコードを保存</button><button type="button" id="shareQrPrint">🖨 QRコードを印刷</button></div></div></div>
+    </div>
+    <details id="sharePresetBox"><summary><b>🏠 入り口のページに登録する（短いQRコードになります）</b></summary>
+      <p class="hint">登録すると、入り口のページ（場所をえらぶページ）に、この画面が「先生が準備した画面」として出ます。QRコードも小さく読みやすくなります。</p>
+      <ol class="hint">
+        <li>上で「リンクをつくる」を押してから、下の「登録用の文をコピー」を押す</li>
+        <li>「GitHubで登録ファイルを開く」を押して、えんぴつ（編集）ボタンを押す</li>
+        <li>いちばん下の <code>];</code> の<b>すぐ上の行</b>に、コピーした文をはりつける</li>
+        <li>右上の「Commit changes」を押す（1〜2分で入り口のページに出ます）</li>
+      </ol>
+      <div class="btnrow"><button type="button" id="sharePresetCopy">📋 登録用の文をコピー</button><a id="sharePresetEdit" class="btnlike" href="https://github.com/ibt0ne1122/chisou3d/edit/main/presets.js" target="_blank" rel="noopener">GitHubで登録ファイルを開く ↗</a></div>
+      <textarea id="sharePresetOut" rows="3" readonly spellcheck="false"></textarea>
+      <p class="hint">登録したあとの短いリンク：<br><span id="sharePresetUrl"></span></p>
+      <div class="btnrow"><button type="button" id="sharePresetQr">📱 短いリンクのQRコードを出す</button></div>
+      <p class="hint">登録や消すのがむずかしいときは、Claude に「入り口ページに登録して」と、この文を送ってもかまいません。</p>
+    </details>
     <p id="shareFileNote" class="hint warnbox hidden">⚠ いまはパソコンの中のファイルを開いているので、リンクもこのパソコンの中の場所になります。インターネットに公開したアドレスで開いてから作ると、子どもの端末でも開けるリンクになります。</p>
     <hr>
     <h3>📮 子どもの予想の送り先（Googleフォーム）</h3>
@@ -435,18 +465,19 @@
 
 <footer id="attribution">出典：<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">国土地理院（地理院タイル・標高タイル）</a> ／ 目印：<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap</a> ／ 地下の地層はボーリング資料からの推定です（<a href="#" id="attrMore">くわしく</a>）</footer>
 
-<script src="lib/three.min.js?v=20260930121933"></script>
-<script src="lib/OrbitControls.js?v=20260930121933"></script>
+<script src="lib/three.min.js?v=20260930123142"></script>
+<script src="lib/OrbitControls.js?v=20260930123142"></script>
+<script src="lib/qrcode.js?v=20260930123142"></script>
 <script>window.CHISOU = { sites: {}, registerSite: function (s) { this.sites[s.id] = s; } };</script>
-<script src="js/geo.js?v=20260930121933"></script>
-<script src="js/geology.js?v=20260930121933"></script>
-<script src="sites/sites.js?v=20260930121933"></script>
-<script src="js/section.js?v=20260930121933"></script>
-<script src="js/boringxml.js?v=20260930121933"></script>
-<script src="js/mvt.js?v=20260930121933"></script>
-<script src="js/yato_yokohama.js?v=20260930121933"></script>
-<script src="js/ngic_bookmarklet.js?v=20260930121933"></script>
-<script src="js/help.js?v=20260930121933"></script>
-<script src="js/app.js?v=20260930121933"></script>
+<script src="js/geo.js?v=20260930123142"></script>
+<script src="js/geology.js?v=20260930123142"></script>
+<script src="sites/sites.js?v=20260930123142"></script>
+<script src="js/section.js?v=20260930123142"></script>
+<script src="js/boringxml.js?v=20260930123142"></script>
+<script src="js/mvt.js?v=20260930123142"></script>
+<script src="js/yato_yokohama.js?v=20260930123142"></script>
+<script src="js/ngic_bookmarklet.js?v=20260930123142"></script>
+<script src="js/help.js?v=20260930123142"></script>
+<script src="js/app.js?v=20260930123142"></script>
 </body>
 </html>
