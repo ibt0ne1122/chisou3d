@@ -486,3 +486,13 @@ body.sheet-full #floatStack { display: none; }
 body:has(.floatbar:not(.hidden)) #hint { bottom: calc(var(--mbTop, 94px) + var(--fbH, 0px) + 10px); }
 /* 説明のバー・ヒントは、左のパネルと右の「動かす」のあいだのまん中に */
 .floatbar, #hint { left: calc(var(--lpW, 0px) + (100vw - var(--lpW, 0px) - var(--npW, 0px)) / 2); max-width: calc(100vw - var(--lpW, 0px) - var(--npW, 0px) - 24px); }
+/* ===== ページ全体の拡大（ピンチ）を止める：ピンチでズームするのは模型だけ ===== */
+html, body { touch-action: pan-x pan-y; -webkit-text-size-adjust: 100%; }
+button, select, input, label { touch-action: manipulation; }
+/* ===== 下のボタンの列：折り返さず、指で横にスライドしてえらぶ ===== */
+#modebar, body.mb-folded #modebar { justify-content: flex-start !important; flex-wrap: nowrap !important; overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; scrollbar-width: none; touch-action: pan-x; width: auto !important; }
+#modebar::-webkit-scrollbar { display: none; }
+#modebar > * { flex: 0 0 auto; }
+#modebar.more-right { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 44px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 44px), transparent); }
+#modebar.more-left { -webkit-mask-image: linear-gradient(to left, #000 calc(100% - 44px), transparent); mask-image: linear-gradient(to left, #000 calc(100% - 44px), transparent); }
+#modebar.more-left.more-right { -webkit-mask-image: linear-gradient(to right, transparent, #000 44px, #000 calc(100% - 44px), transparent); mask-image: linear-gradient(to right, transparent, #000 44px, #000 calc(100% - 44px), transparent); }

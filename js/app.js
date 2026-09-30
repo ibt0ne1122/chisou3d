@@ -37,7 +37,7 @@
     setTimeout(run, 0); // 1ファイル版：設定がすでに入っている（準備が終わってから始める）
   } else {
     const sc = document.createElement("script");
-    sc.src = entry.file + "?v=20260930011033";
+    sc.src = entry.file + "?v=20260930054033";
     sc.onload = run;
     sc.onerror = () => showError("場所の設定ファイル（" + entry.file + "）を読み込めませんでした。ZIPの場合は「すべて展開」してから開いてください。");
     document.body.appendChild(sc);
@@ -2807,6 +2807,7 @@
     if (m === "pick") updatePickBar();
     updateMarkers();
     document.querySelectorAll("#modebar button[data-mode]").forEach((b) => b.classList.toggle("active", b.dataset.mode === m));
+    const act = document.querySelector("#modebar button.active"); if (act && act.scrollIntoView) act.scrollIntoView({ block: "nearest", inline: "nearest" });
     setHint(modeHint());
   }
 
@@ -3128,6 +3129,21 @@
     new MutationObserver(relayout).observe(document.body, { attributes: true, attributeFilter: ["class"] });
     document.querySelectorAll(".floatbar, #controls").forEach((f) => new MutationObserver(relayout).observe(f, { attributes: true, attributeFilter: ["class"] }));
     relayout();
+    // 下のボタンの列：横にスライドできるとき、はしをうすくして「まだある」ことを知らせる
+    const mbEl = $("modebar");
+    const mbEdge = () => {
+      const more = mbEl.scrollWidth - mbEl.clientWidth > 4;
+      mbEl.classList.toggle("more-left", more && mbEl.scrollLeft > 4);
+      mbEl.classList.toggle("more-right", more && mbEl.scrollLeft < mbEl.scrollWidth - mbEl.clientWidth - 4);
+    };
+    mbEl.addEventListener("scroll", mbEdge, { passive: true });
+    if (window.ResizeObserver) new ResizeObserver(mbEdge).observe(mbEl);
+    // マウスのホイール（たて）でも横に動かせる
+    mbEl.addEventListener("wheel", (e) => { if (Math.abs(e.deltaY) > Math.abs(e.deltaX) && mbEl.scrollWidth > mbEl.clientWidth) { mbEl.scrollLeft += e.deltaY; e.preventDefault(); } }, { passive: false });
+    setTimeout(mbEdge, 300);
+    // ページ全体のピンチ拡大（iPad・iPhone の Safari）を止める。模型の上のピンチは、模型のズームに使う
+    ["gesturestart", "gesturechange", "gestureend"].forEach((t) => document.addEventListener(t, (e) => e.preventDefault(), { passive: false }));
+    document.addEventListener("touchmove", (e) => { if (e.touches.length > 1 || (e.scale && e.scale !== 1)) e.preventDefault(); }, { passive: false });
     // ボタンをたたむ・出す（スマホは はじめから たたんでおく）。えらんだ状態は次も同じ
     const setFold = (id, cls, on, labelOn) => {
       document.body.classList.toggle(cls, on);
