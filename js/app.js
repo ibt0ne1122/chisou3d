@@ -37,7 +37,7 @@
       setTimeout(run, 0); // 1ファイル版：設定がすでに入っている（準備が終わってから始める）
     } else {
       const sc = document.createElement("script");
-      sc.src = entry.file + "?v=20260930214914";
+      sc.src = entry.file + "?v=20260930220009";
       sc.onload = run;
       sc.onerror = () => showError("場所の設定ファイル（" + entry.file + "）を読み込めませんでした。ZIPの場合は「すべて展開」してから開いてください。");
       document.body.appendChild(sc);
@@ -199,11 +199,18 @@
   }
   function rebuildGeology(rebuild3d) {
     const site = S.site;
-    S.bores = GL.prepareBoreholes(allBoreData(), site.layers, S.frame, groundAt)
+    const full = GL.prepareBoreholes(allBoreData(), site.layers, S.frame, groundAt)
       .filter((b) => Math.abs(b.x) <= site.half * 1.2 && Math.abs(b.z) <= site.half * 1.2);
-    S.model = GL.buildModel(site.layers, S.grid, S.bores, { baseElevation: site.baseElevation });
+    // 資料の高さと今の地図の高さが大きくずれた柱（5m・10m以上）は、かくせる。推定からも外すかはえらべる
+    if (S.gapHide == null) { S.gapHide = store.get(key("gapHide"), 0); S.gapModel = !!store.get(key("gapModel"), false); }
+    const bad = S.gapHide ? full.filter((b) => boreGap(b) >= S.gapHide) : [];
+    const ok = bad.length ? full.filter((b) => !bad.includes(b)) : full;
+    S.gapBad = bad;
+    S.model = GL.buildModel(site.layers, S.grid, S.gapModel ? ok : full, { baseElevation: site.baseElevation });
     // 模型（地層の推定）は全部の柱から作り、画面に出す柱だけをしぼる
+    S.bores = ok;
     S.allBores = S.bores;
+    updateGapUI();
     if (!S.kidOnly) {
       // えらんだ柱（onlySel）はずっと覚えておき、「全部の柱／えらんだ柱だけ」を切りかえる（onlyOn）
       const so = store.get(key("showOnly"), null);
@@ -702,6 +709,24 @@
   const markOf = (id) => MARK_COLORS.find((m) => m.c === S.boreMarks[id]);
   const SEL_MARK = { c: "#2e7d32", fg: "#ffffff", n: "えらんだ柱" };
   // ---------- 模型に表示する柱を、えらんだものだけにする ----------
+  /** 資料の高さ（孔口標高）と今の地図の高さの差（m）。資料に高さが書いていない柱は 0 */
+  function boreGap(b) {
+    return typeof b.elevation === "number" && !isNaN(b.demElev) ? Math.abs(b.elev - b.demElev) : 0;
+  }
+  function updateGapUI() {
+    if (!$("gapSeg")) return;
+    [["gapOff", 0], ["gap5", 5], ["gap10", 10]].forEach(([id, v]) => $(id).classList.toggle("on", S.gapHide === v));
+    $("chkGapModel").checked = !!S.gapModel;
+    $("gapModelRow").classList.toggle("hidden", !S.gapHide);
+    const n = (S.gapBad || []).length;
+    $("gapState").textContent = !S.gapHide ? "" :
+      S.gapHide + "m以上ずれた柱 " + n + " 本をかくしています（" + (S.gapModel ? "地層の推定からも外しています" : "地層の推定には使っています") + "）";
+  }
+  function setGap(v, model) {
+    S.gapHide = v; S.gapModel = !!model;
+    store.set(key("gapHide"), v); store.set(key("gapModel"), S.gapModel);
+    rebuildGeology(true);
+  }
   function applyShowOnlyList() {
     const all = S.allBores || S.bores;
     S.bores = S.boreSel || !S.showOnly ? all : all.filter((b) => S.showOnly.has(b.id));
@@ -3314,6 +3339,13 @@
       if (S.section) { if (S.mode === "cut") buildAll(); openSectionSheet(); }
     };
     S.setAlign = setAlign;
+    // ずれの大きい柱をかくす（5m／10m）・推定からも外す
+    $("gapOff").onclick = () => setGap(0, S.gapModel);
+    $("gap5").onclick = () => setGap(5, S.gapModel);
+    $("gap10").onclick = () => setGap(10, S.gapModel);
+    $("chkGapModel").onchange = () => setGap(S.gapHide, $("chkGapModel").checked);
+    S.setGap = setGap;
+    updateGapUI();
     $("alignRec").onclick = () => setAlign(false);
     $("alignGround").onclick = () => setAlign(true);
     $("alignWhy").onclick = () => { const o = $("alignWhyBody").classList.toggle("hidden"); $("alignWhy").classList.toggle("open", !o); };
@@ -3976,6 +4008,7 @@
     if (S.showYato) st.yato = 1;
     if (S.lift) st.lift = 1;
     if (S.alignBores) st.al = 1;
+    if (S.gapHide) { st.gh = S.gapHide; if (S.gapModel) st.gm = 1; }
     if (S.ve !== (S.site.defaultExaggeration || 3)) st.vz = S.ve;
     if (S.opacity < 1) st.op = S.opacity;
     if (S.hazard && S.hazard !== "none") st.hz = S.hazard;
@@ -4022,6 +4055,7 @@
     if (!$("chkYato").parentElement.classList.contains("hidden")) setChk("chkYato", st.yato);
     setChk("chkLift", st.lift);
     if (!!st.al !== S.alignBores) S.setAlign(!!st.al);
+    if ((st.gh || 0) !== S.gapHide || !!st.gm !== S.gapModel) S.setGap(st.gh || 0, !!st.gm);
     if (st.marks) { S.boreMarks = Object.assign({}, st.marks); }
     S.hiddenBores = new Set(st.hid || []);
     if (st.pm) S.peelMode = st.pm;
@@ -4115,6 +4149,7 @@
       if (sec.classList.contains("checks")) {
         sec.querySelectorAll("label").forEach((lb) => { const i = lb.querySelector("input"); if (i && i.id) add("パネルの中（表示の切りかえ）", "ck:" + i.id, lb.textContent, [lb]); });
         add("パネルの中（表示の切りかえ）", "ck:onlyBores", "📍 表示する柱をえらぶ", [$("onlyBoresBox")]);
+        add("パネルの中（表示の切りかえ）", "ck:gapBores", "ずれの大きい柱をかくす（5m／10m）", [$("gapBox")]);
         add("パネルの中（表示の切りかえ）", "ck:alignBores", "柱の高さ（資料の高さ／今の地面にそろえる）", [$("alignBox")]);
         return;
       }

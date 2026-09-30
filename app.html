@@ -6,7 +6,7 @@
 <title>大地のつくり 3D土地模型</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css?v=20260930214914">
+<link rel="stylesheet" href="css/style.css?v=20260930220009">
 </head>
 <body>
 <div id="viewport"></div>
@@ -70,10 +70,17 @@
             <li><b>ほった後に土地が変わった</b>：ほった後に、けずって平らにしたり（→柱が飛び出す）、土をもったり（→柱がうまる）した所。</li>
             <li><b>がけ・急な坂の近く</b>：ほった場所が数mずれるだけで、地図の高さが大きく変わります。</li>
             <li><b>高さを強調している</b>：「高さの強調」を大きくすると、小さなずれも大きく見えます。</li>
+            <li><b>記録の場所や高さがずれている</b>：差が5m・10mをこえるような柱は、資料の記録そのものがずれている可能性があります。下の「かくす」で外せます。</li>
           </ul>
           <p>「今の地面にそろえる」にすると、柱の上を今の地面に合わせてかきます（見せ方だけ）。<b>模型の地層の推定は変わりません</b>。柱をタップすると、資料の高さと地図の高さの両方が見られます。</p>
         </div>
         <div class="seg onlyseg"><button type="button" id="alignRec">資料の高さ<br>（今のまま）</button><button type="button" id="alignGround">今の地面に<br>そろえる</button></div>
+        <div id="gapBox">
+          <div class="gaphead">資料と今の地図の高さが大きくずれた柱をかくす</div>
+          <div id="gapSeg" class="seg onlyseg"><button type="button" id="gapOff">かくさない</button><button type="button" id="gap5">5m以上</button><button type="button" id="gap10">10m以上</button></div>
+          <label id="gapModelRow" class="hidden"><input type="checkbox" id="chkGapModel"> 地層の推定（模型）からも外す<br><small>付けたり外したりして、模型の地層の形を見比べられます</small></label>
+          <div id="gapState" class="hint"></div>
+        </div>
       </div>
       <label><input type="checkbox" id="chkLift"> 柱を地上に引き出す</label>
       <label><input type="checkbox" id="chkRiver"> 川を強調する</label>
@@ -478,19 +485,19 @@
 
 <footer id="attribution">出典：<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">国土地理院（地理院タイル・標高タイル）</a> ／ 目印：<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap</a> ／ 地下の地層はボーリング資料からの推定です（<a href="#" id="attrMore">くわしく</a>）</footer>
 
-<script src="lib/three.min.js?v=20260930214914"></script>
-<script src="lib/OrbitControls.js?v=20260930214914"></script>
-<script src="lib/qrcode.js?v=20260930214914"></script>
+<script src="lib/three.min.js?v=20260930220009"></script>
+<script src="lib/OrbitControls.js?v=20260930220009"></script>
+<script src="lib/qrcode.js?v=20260930220009"></script>
 <script>window.CHISOU = { sites: {}, registerSite: function (s) { this.sites[s.id] = s; } };</script>
-<script src="js/geo.js?v=20260930214914"></script>
-<script src="js/geology.js?v=20260930214914"></script>
-<script src="sites/sites.js?v=20260930214914"></script>
-<script src="js/section.js?v=20260930214914"></script>
-<script src="js/boringxml.js?v=20260930214914"></script>
-<script src="js/mvt.js?v=20260930214914"></script>
-<script src="js/yato_yokohama.js?v=20260930214914"></script>
-<script src="js/ngic_bookmarklet.js?v=20260930214914"></script>
-<script src="js/help.js?v=20260930214914"></script>
-<script src="js/app.js?v=20260930214914"></script>
+<script src="js/geo.js?v=20260930220009"></script>
+<script src="js/geology.js?v=20260930220009"></script>
+<script src="sites/sites.js?v=20260930220009"></script>
+<script src="js/section.js?v=20260930220009"></script>
+<script src="js/boringxml.js?v=20260930220009"></script>
+<script src="js/mvt.js?v=20260930220009"></script>
+<script src="js/yato_yokohama.js?v=20260930220009"></script>
+<script src="js/ngic_bookmarklet.js?v=20260930220009"></script>
+<script src="js/help.js?v=20260930220009"></script>
+<script src="js/app.js?v=20260930220009"></script>
 </body>
 </html>
