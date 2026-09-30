@@ -6,7 +6,7 @@
 <title>大地のつくり 3D土地模型</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css?v=20260930054033">
+<link rel="stylesheet" href="css/style.css?v=20260930064330">
 </head>
 <body>
 <div id="viewport"></div>
@@ -138,9 +138,17 @@
   <button id="qLift" class="quick" type="button">⬆️ 柱を地上に</button>
   <button id="qRiver" class="quick" type="button">🌊 川を強調</button>
   <button id="qYato" class="quick hidden" type="button">〰 谷戸</button>
+  <button id="qNames" class="quick on" type="button" title="ボーリングの柱の名前（🔍の名札）を出したり、かくしたりします">🏷 柱の名前</button>
 </nav>
 <div id="hint" class="hidden"></div>
 <div id="floatStack"></div>
+<div id="cutGuideBar" class="floatbar hidden">
+  <span>🔪 赤い線で切ります</span>
+  <label class="cg">向き <input type="range" id="cutAng" min="0" max="179" step="1" value="0"> <b id="cutAngV">東西</b></label>
+  <label class="cg">位置 <input type="range" id="cutOff" min="-98" max="98" step="1" value="0"></label>
+  <button id="cutGo" type="button" class="primary">🔪 この線で切る</button>
+  <button id="cutGuideEnd" type="button">✕ やめる</button>
+</div>
 <div id="cutBar" class="floatbar hidden">
   <span>🔪 模型の切り口</span>
   <label class="toggle"><input type="checkbox" id="cutNoData"> 資料のない深さを灰色に</label>
@@ -401,19 +409,19 @@
 
 <footer id="attribution">出典：<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">国土地理院（地理院タイル・標高タイル）</a> ／ 目印：<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap</a> ／ 地下の地層はボーリング資料からの推定です（<a href="#" id="attrMore">くわしく</a>）</footer>
 
-<script src="lib/three.min.js?v=20260930054033"></script>
-<script src="lib/OrbitControls.js?v=20260930054033"></script>
+<script src="lib/three.min.js?v=20260930064330"></script>
+<script src="lib/OrbitControls.js?v=20260930064330"></script>
 <script>window.CHISOU = { sites: {}, registerSite: function (s) { this.sites[s.id] = s; } };</script>
-<script src="js/geo.js?v=20260930054033"></script>
-<script src="js/geology.js?v=20260930054033"></script>
-<script src="sites/sites.js?v=20260930054033"></script>
-<script src="js/section.js?v=20260930054033"></script>
-<script src="js/boringxml.js?v=20260930054033"></script>
-<script src="js/mvt.js?v=20260930054033"></script>
-<script src="js/yato_yokohama.js?v=20260930054033"></script>
-<script src="js/ngic_bookmarklet.js?v=20260930054033"></script>
-<script src="js/flowlab.js?v=20260930054033"></script>
-<script src="js/help.js?v=20260930054033"></script>
-<script src="js/app.js?v=20260930054033"></script>
+<script src="js/geo.js?v=20260930064330"></script>
+<script src="js/geology.js?v=20260930064330"></script>
+<script src="sites/sites.js?v=20260930064330"></script>
+<script src="js/section.js?v=20260930064330"></script>
+<script src="js/boringxml.js?v=20260930064330"></script>
+<script src="js/mvt.js?v=20260930064330"></script>
+<script src="js/yato_yokohama.js?v=20260930064330"></script>
+<script src="js/ngic_bookmarklet.js?v=20260930064330"></script>
+<script src="js/flowlab.js?v=20260930064330"></script>
+<script src="js/help.js?v=20260930064330"></script>
+<script src="js/app.js?v=20260930064330"></script>
 </body>
 </html>

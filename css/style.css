@@ -496,3 +496,8 @@ button, select, input, label { touch-action: manipulation; }
 #modebar.more-right { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 44px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 44px), transparent); }
 #modebar.more-left { -webkit-mask-image: linear-gradient(to left, #000 calc(100% - 44px), transparent); mask-image: linear-gradient(to left, #000 calc(100% - 44px), transparent); }
 #modebar.more-left.more-right { -webkit-mask-image: linear-gradient(to right, transparent, #000 44px, #000 calc(100% - 44px), transparent); mask-image: linear-gradient(to right, transparent, #000 44px, #000 calc(100% - 44px), transparent); }
+/* 模型を切る：赤い線の向き・位置 */
+#cutGuideBar label.cg { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; white-space: nowrap; }
+#cutGuideBar input[type=range] { width: 150px; height: 32px; accent-color: #e53935; }
+#cutGuideBar b { min-width: 5.5em; }
+#cutGo { background: #e53935; border-color: #e53935; color: #fff; }

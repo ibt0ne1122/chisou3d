@@ -37,7 +37,7 @@
     setTimeout(run, 0); // 1ファイル版：設定がすでに入っている（準備が終わってから始める）
   } else {
     const sc = document.createElement("script");
-    sc.src = entry.file + "?v=20260930054033";
+    sc.src = entry.file + "?v=20260930064330";
     sc.onload = run;
     sc.onerror = () => showError("場所の設定ファイル（" + entry.file + "）を読み込めませんでした。ZIPの場合は「すべて展開」してから開いてください。");
     document.body.appendChild(sc);
@@ -225,7 +225,7 @@
     const fill = new THREE.DirectionalLight(0xffffff, 0.18);
     fill.position.set(0.7, 0.3, -0.5);
     scene.add(fill);
-    for (const g of ["walls", "bores", "labels", "notes", "ring", "section", "markers", "rivers", "yato", "lore", "dig"]) {
+    for (const g of ["walls", "bores", "labels", "notes", "ring", "section", "markers", "rivers", "yato", "lore", "dig", "guide"]) {
       groups[g] = new THREE.Group();
       scene.add(groups[g]);
     }
@@ -385,6 +385,7 @@
     buildRing();
     buildLore();
     buildDig();
+    buildCutGuide();
     if (S.section) buildSectionRibbon();
     updateMarkers();
   }
@@ -1162,7 +1163,7 @@
     groups.labels.visible = S.labels;
     groups.notes.visible = S.showNotes;
     groups.ring.visible = S.ring;
-    groups.bores.children.forEach((c) => { if (c.userData.isLabel) c.visible = S.labels; });
+    groups.bores.children.forEach((c) => { if (c.userData.isLabel) c.visible = S.labels && S.boreNames !== false; });
   }
 
   // ---------- 地図の画像 ----------
@@ -1417,6 +1418,62 @@
     texMat.map = tex;
     texMat.needsUpdate = true;
   }
+  // ---------- 模型を切る：赤いガイド線 ----------
+  //  向き ang（0＝東西の線、90°＝南北の線）と、まん中からのずれ off（m）で、切る線を決める
+  S.cutGuide = { ang: 0, off: 0 };
+  function cutGuideEnds() {
+    const g = S.cutGuide, h = S.site.half, ux = Math.cos(g.ang), uz = Math.sin(g.ang), nx = -uz, nz = ux;
+    const cx = nx * g.off, cz = nz * g.off;
+    let t0 = -Infinity, t1 = Infinity;
+    for (const [p, u] of [[cx, ux], [cz, uz]]) {
+      if (Math.abs(u) < 1e-9) { if (Math.abs(p) > h) return null; continue; }
+      const ta = (-h - p) / u, tb = (h - p) / u;
+      t0 = Math.max(t0, Math.min(ta, tb)); t1 = Math.min(t1, Math.max(ta, tb));
+    }
+    if (!(t1 - t0 > 20)) return null;
+    t0 += 1; t1 -= 1;
+    return [{ x: cx + ux * t0, z: cz + uz * t0 }, { x: cx + ux * t1, z: cz + uz * t1 }];
+  }
+  function cutDirName(a) {
+    const d = ((((a * 180) / Math.PI) % 180) + 180) % 180;
+    return d < 22.5 || d >= 157.5 ? "東西" : d < 67.5 ? "北西〜南東" : d < 112.5 ? "南北" : "北東〜南西";
+  }
+  function syncCutGuideUI() {
+    const g = S.cutGuide, h = S.site.half;
+    g.off = Math.max(-h * 0.98, Math.min(h * 0.98, g.off));
+    $("cutAng").value = Math.round(((((g.ang * 180) / Math.PI) % 180) + 180) % 180);
+    $("cutOff").value = Math.round((g.off / h) * 100);
+    $("cutAngV").textContent = cutDirName(g.ang);
+  }
+  function buildCutGuide() {
+    if (!groups.guide) return;
+    disposeGroup(groups.guide);
+    if (S.mode !== "cut" || S.section) return;
+    const e = cutGuideEnds(); if (!e) return;
+    const [a, b] = e, len = Math.hypot(b.x - a.x, b.z - a.z), n = Math.max(2, Math.round(len / (S.grid.step * 0.7)));
+    const pts = [];
+    for (let i = 0; i <= n; i++) { const x = a.x + ((b.x - a.x) * i) / n, z = a.z + ((b.z - a.z) * i) / n; pts.push({ x, z, y: surfaceAt(x, z) * S.ve }); }
+    // 地面の上の赤い帯
+    const pos = [];
+    stripInto(pos, pts, Math.max(6, S.site.half * 0.011), 2);
+    const gg = new THREE.BufferGeometry(); gg.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+    const band = new THREE.Mesh(gg, new THREE.MeshBasicMaterial({ color: 0xe53935, side: THREE.DoubleSide, depthTest: false, transparent: true, opacity: 0.95 }));
+    band.renderOrder = 5; groups.guide.add(band);
+    // ナイフの面（うすい赤）：ここで模型が切られる
+    const top = Math.max(...pts.map((p) => p.y)) + 30, bot = S.model.base * S.ve, wall = [];
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p = pts[i], q = pts[i + 1];
+      wall.push(p.x, bot, p.z, q.x, bot, q.z, q.x, top, q.z, p.x, bot, p.z, q.x, top, q.z, p.x, top, p.z);
+    }
+    const wg = new THREE.BufferGeometry(); wg.setAttribute("position", new THREE.Float32BufferAttribute(wall, 3));
+    groups.guide.add(new THREE.Mesh(wg, new THREE.MeshBasicMaterial({ color: 0xe53935, side: THREE.DoubleSide, transparent: true, opacity: 0.22, depthWrite: false })));
+    // 両はしの目じるし
+    for (const [p, t] of [[pts[0], "🔪"], [pts[pts.length - 1], "🔪"]]) {
+      const lab = makeLabel(t, { bg: "#e53935", color: "#fff", bold: true, size: 14 });
+      lab.position.set(p.x, p.y + 12, p.z); groups.guide.add(lab);
+    }
+  }
+
   // ---------- 自然災害伝承碑（国土地理院） ----------
   async function loadLore() {
     if (S.lore && S.lore.site === S.site.id + S.site.half) return;
@@ -1863,14 +1920,13 @@
       return;
     }
     if (S.mode === "cut") {
-      if (S.section) clearSection(), (S.sectionPts = []); // もう一度タップしたら、切り直し
+      if (S.section) return; // 切ったあとは「✂️ 切り直す」から
       const p = pickGround();
       if (!p) return;
-      const pts = S.sectionPts, last = pts[pts.length - 1];
-      if (last && Math.hypot(p.x - last.x, p.z - last.z) < 20) { flashHint("もう少しはなれた所をタップしてください"); return; }
-      pts.push(p);
-      if (pts.length === 1) { updateMarkers(); setHint("🔪 もう1か所をタップすると、その線で模型を切ります"); }
-      else { makeSection(pts.slice()); }
+      // タップした所を通るように、赤い線を動かす（向きはそのまま）
+      const g = S.cutGuide, nx = -Math.sin(g.ang), nz = Math.cos(g.ang);
+      g.off = p.x * nx + p.z * nz;
+      syncCutGuideUI(); buildCutGuide();
       return;
     }
     if (S.mode === "pick") {
@@ -1977,6 +2033,8 @@
     updateMarkers();
     if (S.mode === "cut") {
       $("cutBar").classList.remove("hidden");
+      $("cutGuideBar").classList.add("hidden");
+      disposeGroup(groups.guide);
       setHint("");
       return;
     }
@@ -2791,7 +2849,7 @@
   function flashHint(t) { setHint(t); clearTimeout(hintTimer); hintTimer = setTimeout(() => setHint(modeHint()), 3500); }
   function modeHint() {
     return { view: "", section: "✂️ 断面図を作成：地図の上で2か所以上をタップ（ボーリングの旗をタップすると、その柱を通ります）",
-      cut: "🔪 模型を切る：切りたい線の はし を2か所タップ（ケーキを切るように、模型の切り口が見えます）",
+      cut: "🔪 赤い線の所で模型を切ります。向き・位置を動かすか、模型をタップして線を動かしてから「この線で切る」",
       pick: "📍 断面に使うボーリングの旗を、つなぎたい順にタップ（2本以上）→「✅ この柱で断面図をつくる」", note: "📝 メモを置きたい場所をタップ", edit: "➕ ボーリングの場所をタップ（柱をタップすると編集）" }[S.mode];
   }
   function setMode(m) {
@@ -2803,6 +2861,8 @@
     S.sectionPts = [];
     S.pickIds = [];
     $("cutBar").classList.add("hidden");
+    $("cutGuideBar").classList.toggle("hidden", m !== "cut");
+    if (m === "cut") { syncCutGuideUI(); buildCutGuide(); } else if (groups.guide) disposeGroup(groups.guide);
     $("pickBar").classList.toggle("hidden", m !== "pick");
     if (m === "pick") updatePickBar();
     updateMarkers();
@@ -3008,6 +3068,10 @@
     const setYato = (v) => { S.showYato = v; store.set("chisou3d:yato", v); $("chkYato").checked = v; $("qYato").classList.toggle("on", v); buildYato(); if (S.section) openSectionSheet(); };
     chk("chkYato", setYato);
     $("qYato").onclick = () => setYato(!S.showYato);
+    // 柱の名前（🔍の名札）を出す・かくす
+    const setBoreNames = (v) => { S.boreNames = v; store.set("chisou3d:boreNames", v); $("qNames").classList.toggle("on", v); $("qNames").title = v ? "今は柱の名前を出しています（押すと、かくす）" : "今は柱の名前をかくしています（押すと、出す）"; applyVisibility(); };
+    $("qNames").onclick = () => { setBoreNames(!S.boreNames); if (S.boreNames && !S.labels) { $("chkLabels").checked = true; $("chkLabels").dispatchEvent(new Event("change")); } };
+    setBoreNames(store.get("chisou3d:boreNames", true));
     const hasYato = yatoList().length > 0;
     $("qYato").classList.toggle("hidden", !hasYato);
     $("chkYato").parentElement.classList.toggle("hidden", !hasYato);
@@ -3125,7 +3189,7 @@
     const relayout = () => { if (!layoutRaf) layoutRaf = requestAnimationFrame(layoutUI); };
     S.relayout = relayout;
     window.addEventListener("resize", relayout);
-    if (window.ResizeObserver) { const ro = new ResizeObserver(relayout); ["modebar", "navpad", "cutBar", "pickBar", "controls"].forEach((id) => $(id) && ro.observe($(id))); }
+    if (window.ResizeObserver) { const ro = new ResizeObserver(relayout); ["modebar", "navpad", "cutBar", "cutGuideBar", "pickBar", "controls"].forEach((id) => $(id) && ro.observe($(id))); }
     new MutationObserver(relayout).observe(document.body, { attributes: true, attributeFilter: ["class"] });
     document.querySelectorAll(".floatbar, #controls").forEach((f) => new MutationObserver(relayout).observe(f, { attributes: true, attributeFilter: ["class"] }));
     relayout();
@@ -3449,7 +3513,12 @@
     const setCutOpt = (k, id) => { $(id).checked = S[k]; $(id).onchange = () => { S[k] = $(id).checked; store.set("chisou3d:" + k, S[k]); buildSectionRibbon(); }; };
     setCutOpt("cutNoData", "cutNoData");
     setCutOpt("cutReal", "cutReal");
-    $("cutRedo").onclick = () => { clearSection(); S.sectionPts = []; updateMarkers(); setHint(modeHint()); };
+    $("cutRedo").onclick = () => { clearSection(); S.sectionPts = []; updateMarkers(); $("cutGuideBar").classList.remove("hidden"); syncCutGuideUI(); buildCutGuide(); setHint(modeHint()); };
+    // 切る線（赤いガイド）の向き・位置・切る
+    $("cutAng").oninput = () => { S.cutGuide.ang = (+$("cutAng").value * Math.PI) / 180; syncCutGuideUI(); buildCutGuide(); };
+    $("cutOff").oninput = () => { S.cutGuide.off = (+$("cutOff").value / 100) * S.site.half; syncCutGuideUI(); buildCutGuide(); };
+    $("cutGo").onclick = () => { const e = cutGuideEnds(); if (e) makeSection(e); };
+    $("cutGuideEnd").onclick = () => setMode("view");
     $("cutEnd").onclick = () => setMode("view");
     // 柱をえらんで断面
     $("pickUndo").onclick = () => { S.pickIds.pop(); updatePickBar(); };
