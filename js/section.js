@@ -785,6 +785,19 @@
           const c = this._cols.find((k) => Math.abs(q.x - k.x) <= 14 && q.y >= k.top - 4 && q.y <= k.bot + 4);
           if (c && !c.b.hidden) return this.opts.onBore(c.b.id);
         }
+        if (this.data && !this.pen && this.showModel && this.stage === 0 && this.opts.onLayer) {
+          // ペンを持っていないとき：模型の地層をさわると、何の土かの説明
+          const q = pos(e), p = this.toData(q.x, q.y), S = this.data.samples;
+          let i = 0;
+          while (i < S.length - 2 && S[i + 1].d < p.d) i++;
+          const a = S[i], b = S[i + 1] || a, f = b.d > a.d ? Math.min(1, Math.max(0, (p.d - a.d) / (b.d - a.d))) : 0;
+          const at = (arr, k) => a[arr][k] * (1 - f) + b[arr][k] * f;
+          for (let k = 0; k < this.data.layers.length; k++) {
+            if (at("tops", k) - at("bots", k) > 0.05 && p.e <= at("tops", k) && p.e >= at("bots", k)) {
+              return this.opts.onLayer(k, a.x * (1 - f) + b.x * f, a.z * (1 - f) + b.z * f);
+            }
+          }
+        }
         if (!this.data || !this.pen) return;
         cv.setPointerCapture(e.pointerId);
         const p = this.toData(pos(e).x, pos(e).y);

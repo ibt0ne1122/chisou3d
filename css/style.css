@@ -556,3 +556,13 @@ a.btnlike { display: inline-flex; align-items: center; padding: 6px 12px; border
 #patLegend { list-style: none; padding: 0; }
 #patLegend li { display: flex; gap: 8px; align-items: center; padding: 3px 0; font-size: 13px; }
 #patLegend li small { display: block; color: var(--sub); font-size: 11.5px; }
+
+/* 層をタップしたときの説明 */
+.layerhead { display: flex; align-items: center; gap: 8px; }
+.bigsw { flex: 0 0 34px; width: 34px; height: 34px; border-radius: 6px; overflow: hidden; border: 1px solid rgba(0,0,0,0.3); display: inline-block; }
+.bigsw .patsw { width: 34px; height: 34px; }
+.patinfo { display: flex; gap: 8px; align-items: flex-start; background: #f4f6f7; border-radius: 8px; padding: 6px 8px; margin: 6px 0; font-size: 14px; }
+.soillist { list-style: none; padding: 0; margin: 4px 0; }
+.soillist li { display: flex; align-items: center; gap: 6px; padding: 2px 0; font-size: 14px; }
+.soillist .patsw { border: 1px solid rgba(0,0,0,0.3); border-radius: 4px; }
+#detail { z-index: 8; } /* 断面図の上でも、説明が前に出るように */

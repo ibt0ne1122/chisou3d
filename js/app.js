@@ -37,7 +37,7 @@
       setTimeout(run, 0); // 1ファイル版：設定がすでに入っている（準備が終わってから始める）
     } else {
       const sc = document.createElement("script");
-      sc.src = entry.file + "?v=20260930230307";
+      sc.src = entry.file + "?v=20260930232211";
       sc.onload = run;
       sc.onerror = () => showError("場所の設定ファイル（" + entry.file + "）を読み込めませんでした。ZIPの場合は「すべて展開」してから開いてください。");
       document.body.appendChild(sc);
@@ -477,7 +477,7 @@
   function wallMesh(samples) {
     const L = S.site.layers.length, ve = S.ve, from = 0;
     const terr = S.relief === "terrace" && S.peel === 0;
-    const pos = [], col = [], lines = [], pat = [], puv = [];
+    const pos = [], col = [], lines = [], pat = [], puv = [], faceLayer = [];
     const c = new THREE.Color();
     let dist = 0;
     for (let i = 0; i < samples.length - 1; i++) {
@@ -501,6 +501,7 @@
           col.push(c.r, c.g, c.b);
           pat.push(pn, pw); puv.push(du[t], v[t][1] * ve);
         }
+        faceLayer.push(li, li);
         if (!S.hideStrata) lines.push(a.x, ba * ve, a.z, b.x, bb * ve, b.z);
       }
       let ta = sa < L ? a.tops[sa] : a.bots[L - 1], tb = sb < L ? b.tops[sb] : b.bots[L - 1];
@@ -514,6 +515,8 @@
     g.setAttribute("puv", new THREE.Float32BufferAttribute(puv, 2));
     g.computeVertexNormals();
     const mesh = new THREE.Mesh(g, clipMat(C.Pattern.material3d(new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }), Math.max(6, S.site.half * 0.011))));
+    mesh.userData.pick = { type: "strata" }; // 層をタップすると、何の土かの説明
+    mesh.userData.faceLayer = faceLayer;
     const lg = new THREE.BufferGeometry();
     lg.setAttribute("position", new THREE.Float32BufferAttribute(lines, 3));
     const line = new THREE.LineSegments(lg, clipMat(new THREE.LineBasicMaterial({ color: 0x333333, transparent: true, opacity: 0.55 })));
@@ -2176,10 +2179,15 @@
   function shown(o) { for (let p = o; p; p = p.parent) if (!p.visible) return false; return true; }
   function clippedAway(pt) { return S.clipPlanes.some((pl) => pl.distanceToPoint(pt) < -1); }
   function pickObject() {
-    const hits = raycaster.intersectObjects([groups.section, groups.bores, groups.notes, groups.yato, groups.lore], true);
+    const hits = raycaster.intersectObjects([groups.section, groups.bores, groups.notes, groups.yato, groups.lore, groups.walls], true);
     for (const h of hits) {
       const onCut = h.object.userData.pick && h.object.userData.pick.type === "cutbore"; // 切り口の上の柱は、切られない
-      if (!shown(h.object) || (!onCut && clippedAway(h.point))) continue;
+      const onSec = h.object.parent && h.object.parent.parent === groups.section; // 切り口の面そのものも切られない
+      if (!shown(h.object) || (!onCut && !onSec && clippedAway(h.point))) continue;
+      if (h.object.userData.faceLayer) {
+        const li = h.object.userData.faceLayer[h.faceIndex];
+        return li == null ? null : { type: "strata", li, x: h.point.x, z: h.point.z };
+      }
       for (let o = h.object; o; o = o.parent) if (o.userData.pick) return o.userData.pick;
     }
     return null;
@@ -2201,6 +2209,7 @@
     }
     if (S.digOn && (S.mode === "view" || S.mode === "dig") && !(obj && obj.type === "bore")) { const p = pickGround(); if (p) digAt(p); return; }
     if (obj && obj.type === "cutbore") return showBore(obj.id); // 切り口の本物の柱 → くわしい柱状図
+    if (obj && obj.type === "strata" && (S.mode === "view" || (S.mode === "cut" && S.section))) return showLayerInfo(obj.li, obj.x, obj.z);
     if (obj && obj.type === "bore" && S.mode === "cut") return showBore(obj.id);
     if (S.mode === "view") {
       if (obj && obj.type === "bore") showBore(obj.id);
@@ -2609,6 +2618,7 @@
       secView = new C.SectionView($("secCanvas"), {
         site: S.site,
         onBore: (id) => showBore(id), // 断面図の柱をさわると、くわしい柱状図
+        onLayer: (li, x, z) => showLayerInfo(li, x, z), // 断面図の地層をさわると、何の土かの説明
         onVolcano: (v) => volcanoBox(v),
         onStageText: (st) => {
           const el = $("secStageText");
@@ -2764,6 +2774,40 @@
     });
     setPen(none, null);
   }
+
+  // ---------- 層をタップ：何の土かの説明 ----------
+  /** その層になった資料の土の名前（近くの柱を優先）：[{soil, share}] */
+  function soilsOfLayer(li, x, z, R) {
+    const id = S.site.layers[li].id, t = {};
+    let tot = 0;
+    for (const b of S.allBores || S.bores) {
+      if (b.sample || (R && Math.hypot(b.x - x, b.z - z) > R)) continue;
+      for (const sg of b.segs) if (sg.layer === id) { const k = sg.soil || "（名前なし）", d = sg.to - sg.from; t[k] = (t[k] || 0) + d; tot += d; }
+    }
+    return { tot, list: Object.entries(t).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([soil, v]) => ({ soil, share: v / tot })) };
+  }
+  function showLayerInfo(li, x, z) {
+    const l = S.site.layers[li], o = C.ORIGINS[l.origin];
+    if (S.hideStrata) return openDetail('<h3>？ 予想中の地層</h3><p>いまは「地下の地層をかくす」になっているので、何の層かはひみつです。柱状図を手がかりに予想してみよう。</p>');
+    const lp = layerPatOf(li);
+    let html = '<h3 class="layerhead"><span class="bigsw">' + patSwatch(l.color, lp) + "</span>" + (o ? o.icon : "") + esc(l.name) + "</h3>";
+    html += "<p>" + esc(l.desc || "") + "</p>";
+    if (o) html += '<p class="hint">' + o.icon + " " + esc(o.name) + "でできた層</p>";
+    if (lp) html += '<div class="patinfo"><span class="bigsw">' + patSwatch("#dfe3e0", lp) + "</span><div><b>柄の意味：" + esc(C.Pattern.NAMES[lp.id]) + "</b><br>この層の資料のうち、約" + Math.round(lp.share * 100) + "%に" + esc(C.Pattern.NAMES[lp.id].replace("がまじる", "")) + "がまじっていたので、柄をつけています" + (lp.weak ? "（少しまじる所が多いので、まばらな柄）" : "") + "。</div></div>";
+    // 近くの柱での土の名前（なければ、模型全体から）
+    const R = Math.max(250, S.site.half * 0.25);
+    let near = soilsOfLayer(li, x, z, R), where = "この近く（半径" + Math.round(R) + "m）の柱では";
+    if (near.tot < 0.5) { near = soilsOfLayer(li); where = "模型ぜんたいの柱では"; }
+    if (near.list.length) {
+      html += "<p><b>" + where + "、こんな土でした：</b></p><ul class=\"soillist\">" + near.list.map((r) => {
+        const sp = C.Pattern.ofSoil(r.soil, l.id);
+        return "<li>" + patSwatch(l.color, S.pattern ? sp : null) + " " + esc(r.soil) + ' <span class="hint">' + Math.round(r.share * 100) + "%</span></li>";
+      }).join("") + "</ul>";
+    } else html += '<p class="hint">この層の資料は、まだありません（まわりから推定した層です）。</p>';
+    html += '<p class="hint">※ 模型の地層は、ボーリングの柱から推定したものです。本当の土は、近くの柱をタップして確かめよう。</p>';
+    openDetail(html);
+  }
+  S.showLayerInfo = showLayerInfo;
 
   // ---------- ボーリング資料の表示 ----------
   function showBore(id) {
