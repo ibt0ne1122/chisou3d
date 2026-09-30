@@ -168,6 +168,7 @@
           ctx.globalAlpha = 0.8;
           ctx.fill();
           ctx.globalAlpha = 1;
+          if (layer.pat && window.CHISOU.Pattern) window.CHISOU.Pattern.fill2d(ctx, layer.pat);
         });
         // 層の名前をいちばん厚い所に書く
         ctx.font = "bold 12px " + font;
@@ -271,6 +272,7 @@
             const y1 = P(b.d, b.elev - s.from).y, y2 = P(b.d, b.elev - s.to).y;
             ctx.fillStyle = s.color;
             ctx.fillRect(top.x - colW / 2, y1, colW, Math.max(1, y2 - y1));
+            if (s.pat && window.CHISOU.Pattern) window.CHISOU.Pattern.fill2d(ctx, s.pat, [top.x - colW / 2, y1, colW, Math.max(1, y2 - y1)]);
             ctx.strokeStyle = "rgba(0,0,0,0.55)";
             ctx.strokeRect(top.x - colW / 2, y1, colW, Math.max(1, y2 - y1));
             if (y2 - y1 >= 12 && s.name) {
@@ -526,6 +528,7 @@
         for (let i = S.length - 1; i >= 0; i--) { const p = P(S[i].d, botF(S[i])); ctx.lineTo(p.x, p.y); }
         ctx.closePath();
         ctx.fillStyle = d.layers[li].color; ctx.globalAlpha = alpha || 0.9; ctx.fill(); ctx.globalAlpha = 1;
+        if (d.layers[li].pat && window.CHISOU.Pattern) window.CHISOU.Pattern.fill2d(ctx, d.layers[li].pat);
         ctx.strokeStyle = "rgba(0,0,0,0.25)"; ctx.stroke();
       };
       // けずられる前の、平らな大地の高さ（今残っている古い地層のいちばん高い所）

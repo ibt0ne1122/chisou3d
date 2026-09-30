@@ -37,7 +37,7 @@
       setTimeout(run, 0); // 1ファイル版：設定がすでに入っている（準備が終わってから始める）
     } else {
       const sc = document.createElement("script");
-      sc.src = entry.file + "?v=20260930221639";
+      sc.src = entry.file + "?v=20260930224347";
       sc.onload = run;
       sc.onerror = () => showError("場所の設定ファイル（" + entry.file + "）を読み込めませんでした。ZIPの場合は「すべて展開」してから開いてください。");
       document.body.appendChild(sc);
@@ -77,7 +77,7 @@
   const S = {
     site: null, frame: null, grid: null, stats: null, model: null, bores: [],
     ve: 3, opacity: 1, peel: 0, visLayers: [], mode: "view", mapType: "std", cardClosed: {},
-    showBores: true, lift: false, alignBores: false, labels: true, showNotes: true, ring: true, hideStrata: false,
+    showBores: true, lift: false, alignBores: false, pattern: true, layerPat: [], labels: true, showNotes: true, ring: true, hideStrata: false,
     teacher: false, sampleOn: true, notes: [], section: null, sectionFlip: false, sectionPts: [], hiddenBores: new Set(), savedOpacity: null, relief: "none",
     textures: {}, clipPlanes: [], noteColor: "#ffd54f", pickIds: [],
   };
@@ -210,6 +210,7 @@
     // 模型（地層の推定）は全部の柱から作り、画面に出す柱だけをしぼる
     S.bores = ok;
     S.allBores = S.bores;
+    S.layerPat = C.Pattern.ofLayers(site.layers, full);
     updateGapUI();
     if (!S.kidOnly) {
       // えらんだ柱（onlySel）はずっと覚えておき、「全部の柱／えらんだ柱だけ」を切りかえる（onlyOn）
@@ -410,6 +411,12 @@
     const st = startAt(s.tops, s.bots);
     return st === 0 ? groundAt(x, z) : st < s.tops.length ? s.tops[st] : S.model.base;
   }
+  // 柄（まじっている物）：柱は土の名前から、模型は層ごとに
+  function patOf(sg) { return S.pattern && sg ? C.Pattern.ofSoil(sg.soil, sg.layer) : null; }
+  function layerPatOf(li) { return S.pattern && !S.hideStrata ? S.layerPat[li] || null : null; }
+  function patSwatch(color, p) {
+    return '<svg class="patsw" viewBox="0 0 22 22" width="22" height="22"><rect width="22" height="22" fill="' + color + '"/>' + (p ? '<rect width="22" height="22" fill="' + C.Pattern.svgFill(p) + '"/>' : "") + "</svg>";
+  }
   function strataColor(li) { return S.hideStrata ? "#b8b0a2" : S.site.layers[li].color; }
 
   // ---------- 作り直し ----------
@@ -470,10 +477,12 @@
   function wallMesh(samples) {
     const L = S.site.layers.length, ve = S.ve, from = 0;
     const terr = S.relief === "terrace" && S.peel === 0;
-    const pos = [], col = [], lines = [];
+    const pos = [], col = [], lines = [], pat = [], puv = [];
     const c = new THREE.Color();
+    let dist = 0;
     for (let i = 0; i < samples.length - 1; i++) {
       const a = samples[i], b = samples[i + 1];
+      const d0 = dist, d1 = (dist += Math.hypot(b.x - a.x, b.z - a.z));
       const sa = startAt(a.tops, a.bots), sb = startAt(b.tops, b.bots);
       for (let li = 0; li < L; li++) {
         let ta = a.tops[li], ba = a.bots[li], tb = b.tops[li], bb = b.bots[li];
@@ -485,10 +494,12 @@
         }
         if (ta - ba < 0.01 && tb - bb < 0.01) continue;
         c.set(strataColor(li));
-        const v = [[a.x, ta, a.z], [b.x, tb, b.z], [b.x, bb, b.z], [a.x, ba, a.z]];
+        const lp = layerPatOf(li), pn = C.Pattern.num(lp), pw = lp && lp.weak ? 1 : 0;
+        const v = [[a.x, ta, a.z], [b.x, tb, b.z], [b.x, bb, b.z], [a.x, ba, a.z]], du = [d0, d1, d1, d0];
         for (const t of [0, 1, 2, 0, 2, 3]) {
           pos.push(v[t][0], v[t][1] * ve, v[t][2]);
           col.push(c.r, c.g, c.b);
+          pat.push(pn, pw); puv.push(du[t], v[t][1] * ve);
         }
         if (!S.hideStrata) lines.push(a.x, ba * ve, a.z, b.x, bb * ve, b.z);
       }
@@ -499,8 +510,10 @@
     const g = new THREE.BufferGeometry();
     g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
     g.setAttribute("color", new THREE.Float32BufferAttribute(col, 3));
+    g.setAttribute("pat", new THREE.Float32BufferAttribute(pat, 2));
+    g.setAttribute("puv", new THREE.Float32BufferAttribute(puv, 2));
     g.computeVertexNormals();
-    const mesh = new THREE.Mesh(g, clipMat(new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide })));
+    const mesh = new THREE.Mesh(g, clipMat(C.Pattern.material3d(new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }), Math.max(6, S.site.half * 0.011))));
     const lg = new THREE.BufferGeometry();
     lg.setAttribute("position", new THREE.Float32BufferAttribute(lines, 3));
     const line = new THREE.LineSegments(lg, clipMat(new THREE.LineBasicMaterial({ color: 0x333333, transparent: true, opacity: 0.55 })));
@@ -620,8 +633,8 @@
     // 柱は全部まとめて1つの形にする（本数が多くても軽く動くように）
     const segsN = S.bores.length > 60 ? 10 : 20;
     const unit = new THREE.CylinderGeometry(1, 1, 1, segsN).toNonIndexed();
-    const up = unit.attributes.position.array, un = unit.attributes.normal.array, nv = up.length / 3;
-    const pos = [], nor = [], col = [], lpos = [], lcol = [];
+    const up = unit.attributes.position.array, un = unit.attributes.normal.array, uu = unit.attributes.uv.array, nv = up.length / 3;
+    const pos = [], nor = [], col = [], lpos = [], lcol = [], pat = [], puv = [];
     const c = new THREE.Color(), pinBlue = new THREE.Color(0x1f5f99), pinOrange = new THREE.Color(0xb85c00);
     if (!matCache.__dot) {
       matCache.__dot = makeLabel("●", { bg: "#e3f0fb", color: "#1f5f99", size: 8, scale: 0.9 }).material;
@@ -634,10 +647,13 @@
       if (!hidden) for (const sg of b.segs) {
         const h = Math.max(0.05, (sg.to - sg.from) * ve), cy = (e - (sg.from + sg.to) / 2) * ve + lift;
         c.set(segColor(sg));
+        const sp = patOf(sg), pn = C.Pattern.num(sp), pw = sp && sp.weak ? 1 : 0;
         for (let v = 0; v < nv; v++) {
-          pos.push(b.x + up[v * 3] * R, cy + up[v * 3 + 1] * h, b.z + up[v * 3 + 2] * R);
+          const y = cy + up[v * 3 + 1] * h;
+          pos.push(b.x + up[v * 3] * R, y, b.z + up[v * 3 + 2] * R);
           nor.push(un[v * 3], un[v * 3 + 1], un[v * 3 + 2]);
           col.push(c.r, c.g, c.b);
+          pat.push(pn, pw); puv.push(uu[v * 2] * 2 * Math.PI * R, y);
         }
       }
       const top = e * ve + lift;
@@ -677,7 +693,9 @@
       g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
       g.setAttribute("normal", new THREE.Float32BufferAttribute(nor, 3));
       g.setAttribute("color", new THREE.Float32BufferAttribute(col, 3));
-      groups.bores.add(new THREE.Mesh(g, clipMat(new THREE.MeshLambertMaterial({ vertexColors: true }))));
+      g.setAttribute("pat", new THREE.Float32BufferAttribute(pat, 2));
+      g.setAttribute("puv", new THREE.Float32BufferAttribute(puv, 2));
+      groups.bores.add(new THREE.Mesh(g, clipMat(C.Pattern.material3d(new THREE.MeshLambertMaterial({ vertexColors: true }), R * 1.1))));
     }
     const lg = new THREE.BufferGeometry();
     lg.setAttribute("position", new THREE.Float32BufferAttribute(lpos, 3));
@@ -2393,20 +2411,23 @@
       const sg = sec.segs.find((g) => p.d <= g.d0 + g.len + 1e-6) || sec.segs[sec.segs.length - 1];
       const t = p.d - sg.d0, x = sg.x + sg.ux * t + o.x, z = sg.z + sg.uz * t + o.z;
       const ex = sg.ux * w / 2, ez = sg.uz * w / 2;
-      const bp = [], bc = [];
+      const bp = [], bc = [], bpat = [], buv = [];
       const e = boreTop(b);
       for (const s2 of b.segs) {
         const top = (e - s2.from) * ve, bot = (e - s2.to) * ve;
         c.set(segColor(s2));
-        const v = [[x - ex, top, z - ez], [x + ex, top, z + ez], [x + ex, bot, z + ez], [x - ex, bot, z - ez]];
-        for (const k of [0, 1, 2, 0, 2, 3]) { bp.push(...v[k]); bc.push(c.r, c.g, c.b); }
+        const sp = patOf(s2), pn = C.Pattern.num(sp), pw = sp && sp.weak ? 1 : 0;
+        const v = [[x - ex, top, z - ez], [x + ex, top, z + ez], [x + ex, bot, z + ez], [x - ex, bot, z - ez]], uq = [0, w, w, 0];
+        for (const k of [0, 1, 2, 0, 2, 3]) { bp.push(...v[k]); bc.push(c.r, c.g, c.b); bpat.push(pn, pw); buv.push(uq[k], v[k][1]); }
         lines.push(x - ex, bot, z - ez, x + ex, bot, z + ez);
       }
       // 柱ごとに1つの形にして、さわると くわしい柱状図が出るように
       const g1 = new THREE.BufferGeometry();
       g1.setAttribute("position", new THREE.Float32BufferAttribute(bp, 3));
       g1.setAttribute("color", new THREE.Float32BufferAttribute(bc, 3));
-      const m1 = new THREE.Mesh(g1, noClip(new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -8, polygonOffsetUnits: -8 })));
+      g1.setAttribute("pat", new THREE.Float32BufferAttribute(bpat, 2));
+      g1.setAttribute("puv", new THREE.Float32BufferAttribute(buv, 2));
+      const m1 = new THREE.Mesh(g1, noClip(C.Pattern.material3d(new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -8, polygonOffsetUnits: -8 }), w * 0.5)));
       m1.renderOrder = 6;
       m1.userData.pick = { type: "cutbore", id: b.id };
       grp.add(m1);
@@ -2534,7 +2555,7 @@
       if (p.off > near || isNaN(b.elev)) continue;
       bores.push({ id: b.id, d: p.d, off: p.off, elev: boreTop(b), depth: b.depth, name: b.name, sample: b.sample, hidden: S.hiddenBores.has(b.id), mark: S.boreMarks[b.id] || null,
         // ボーリングは「わかっている事実」なので、地層をかくしている時も本当の色で
-        segs: b.segs.map((s) => ({ from: s.from, to: s.to, color: segColor(s), name: segName(s) })) });
+        segs: b.segs.map((s) => ({ from: s.from, to: s.to, color: segColor(s), name: segName(s), pat: patOf(s) })) });
     }
     // 近すぎる柱が重なって読めないので、代表（線に近く・深いもの）を選ぶ。最大12本
     const gap = Math.max(40, sec.length / 30);
@@ -2573,7 +2594,7 @@
     };
     const data = {
       samples: sec.samples, length: sec.length, base: S.model.base, bores, landmarks,
-      layers: site.layers.map((l, i) => Object.assign({}, l, { color: strataColor(i) })),
+      layers: site.layers.map((l, i) => Object.assign({}, l, { color: strataColor(i), pat: layerPatOf(i) })),
       ends: [dirName(-sec.segs[0].ux, -sec.segs[0].uz) + "（A側）",
         dirName(sec.segs[sec.segs.length - 1].ux, sec.segs[sec.segs.length - 1].uz) + "（" + LETTERS[sec.pts.length - 1] + "側）"],
       vertices: sec.pts.map((p, i) => ({ d: projectOnSection(p.x, p.z, sec).d, label: LETTERS[i] })),
@@ -2673,7 +2694,8 @@
     const layersHtml = S.site.layers.map((l, i) =>
       S.visLayers.includes(i) ? '<span><i style="background:' + l.color + '"></i>' + originTag(l) + esc(l.short || l.name) + "</span>" : "").join("");
     const grainHtml = ["gravel", "sand", "mud", "ash", "fill"].map((g) => '<span title="' + esc(C.GRAINS[g].desc) + '"><i style="background:' + C.GRAINS[g].color + '"></i>' + C.GRAINS[g].name + "</span>").join("");
-    $("secLegend").innerHTML = (S.colorBy === "grain" ? "<b>柱の色（つぶ）：</b>" + grainHtml + "　<b>模型の地層：</b>" : "<b>地層の色：</b>") + layersHtml +
+    const patHtml = S.pattern ? "　<b>柄（まじっている物）：</b>" + ["dots", "circ", "dash", "vee"].map((id) => "<span>" + patSwatch("#dfe3e0", { id }).replace('width="22" height="22"', 'width="18" height="18"') + esc(C.Pattern.NAMES[id]) + "</span>").join("") : "";
+    $("secLegend").innerHTML = (S.colorBy === "grain" ? "<b>柱の色（つぶ）：</b>" + grainHtml + "　<b>模型の地層：</b>" : "<b>地層の色：</b>") + layersHtml + patHtml +
       '<span class="hint">💧水のはたらき　🌋火山のはたらき　👷人がつくった</span>';
   }
   /** 断面にのっているボーリングを、1本ずつ「見せる／かくす」 */
@@ -2762,6 +2784,8 @@
       const y1 = y0 + s.from * pxm, y2 = y0 + s.to * pxm;
       const L = s.layer ? byId[s.layer] : null;
       svg += '<rect x="' + colX + '" y="' + y1 + '" width="' + colW + '" height="' + Math.max(1, y2 - y1) + '" fill="' + segColor(s) + '" stroke="#333" stroke-width="0.8"/>';
+      const sp = patOf(s);
+      if (sp) svg += '<rect x="' + colX + '" y="' + y1 + '" width="' + colW + '" height="' + Math.max(1, y2 - y1) + '" fill="' + C.Pattern.svgFill(sp) + '" stroke="#333" stroke-width="0.8"/>';
       svg += '<text x="' + (colX - 6) + '" y="' + (y2 + 4) + '" font-size="11" text-anchor="end" fill="#333">' + s.to.toFixed(1) + "</text>";
       const ly = Math.max((y1 + y2) / 2 + 4, lastLabelY + 13);
       lastLabelY = ly;
@@ -3158,10 +3182,18 @@
       const li = document.createElement("li");
       const present = S.visLayers.includes(i);
       const o = C.ORIGINS[l.origin];
-      li.innerHTML = '<span class="sw" style="background:' + l.color + '"></span><div>' + (o ? '<span class="origin" title="' + o.name + 'でできた">' + o.icon + "</span>" : "") + esc(l.name) + (present ? "" : ' <span style="color:#999">（資料なし）</span>') + "<small>" + esc(l.desc || "") + "</small></div>";
+      const lp = layerPatOf(i);
+      li.innerHTML = '<span class="sw" style="background:' + l.color + '">' + (lp ? patSwatch(l.color, lp) : "") + '</span><div>' + (o ? '<span class="origin" title="' + o.name + 'でできた">' + o.icon + "</span>" : "") + esc(l.name) + (present ? "" : ' <span style="color:#999">（資料なし）</span>') +
+        (lp ? '<span class="patnote">柄：' + esc(C.Pattern.NAMES[lp.id]) + "所が多い（資料の約" + Math.round(lp.share * 100) + "%）</span>" : "") + "<small>" + esc(l.desc || "") + "</small></div>";
       li.onclick = () => li.classList.toggle("open");
       ul.appendChild(li);
     });
+    // 柄の凡例
+    const pl = $("patLegend");
+    pl.classList.toggle("hidden", !S.pattern);
+    pl.innerHTML = '<li class="pathead">柄＝まじっている物（色は どの層か）</li>' + ["dots", "circ", "dash", "vee", "alt"].map((id) =>
+      '<li><span class="sw">' + patSwatch("#dfe3e0", { id }) + "</span><div>" + esc(C.Pattern.NAMES[id]) + "</div></li>").join("") +
+      '<li><span class="sw">' + patSwatch("#dfe3e0", { id: "dots", weak: true }) + "</span><div>柄がまばら＝少しまじる（〇〇混り）<small>こい柄は「〇〇質」（かなりまじる）</small></div></li>";
     // つぶの大きさの凡例
     const gl = $("grainLegend");
     gl.innerHTML = ["gravel", "sand", "mud", "ash", "fill"].map((g) => '<li><span class="sw" style="background:' + C.GRAINS[g].color + '"></span><div>' + C.GRAINS[g].name + "<small>" + esc(C.GRAINS[g].desc) + "</small></div></li>").join("");
@@ -3332,6 +3364,15 @@
     chk("chkBores", (v) => { S.showBores = v; applyVisibility(); });
     const setLift = (v) => { S.lift = v; $("chkLift").checked = v; $("qLift").classList.toggle("on", v); buildBores(); };
     chk("chkLift", setLift);
+    // 柄で「まじっている物」を表示（切ると、前と同じ 色だけ）
+    S.pattern = store.get("chisou3d:pattern", true);
+    $("chkPattern").checked = S.pattern;
+    const setPattern = (v) => {
+      S.pattern = !!v; $("chkPattern").checked = S.pattern; store.set("chisou3d:pattern", S.pattern);
+      buildLegend(); buildAll(); if (S.section) openSectionSheet();
+    };
+    S.setPattern = setPattern;
+    chk("chkPattern", setPattern);
     // 柱の高さ：資料の高さ ⇔ 今の地面にそろえる
     const setAlign = (v) => {
       S.alignBores = !!v; store.set("chisou3d:alignBores", S.alignBores);
@@ -4009,6 +4050,7 @@
     if (S.showYato) st.yato = 1;
     if (S.lift) st.lift = 1;
     if (S.alignBores) st.al = 1;
+    if (!S.pattern) st.nopat = 1;
     if (S.gapHide) { st.gh = S.gapHide; if (S.gapModel) st.gm = 1; }
     if (S.ve !== (S.site.defaultExaggeration || 3)) st.vz = S.ve;
     if (S.opacity < 1) st.op = S.opacity;
@@ -4056,6 +4098,7 @@
     if (!$("chkYato").parentElement.classList.contains("hidden")) setChk("chkYato", st.yato);
     setChk("chkLift", st.lift);
     if (!!st.al !== S.alignBores) S.setAlign(!!st.al);
+    if (!st.nopat !== S.pattern) S.setPattern(!st.nopat);
     if ((st.gh || 0) !== S.gapHide || !!st.gm !== S.gapModel) S.setGap(st.gh || 0, !!st.gm);
     if (st.marks) { S.boreMarks = Object.assign({}, st.marks); }
     S.hiddenBores = new Set(st.hid || []);
