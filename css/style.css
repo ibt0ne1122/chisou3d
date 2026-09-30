@@ -472,3 +472,17 @@ body.sheet-full #floatStack { display: none; }
 /* 説明カードは、右の詳しい情報（柱状図など）と重ならないよう左へよける */
 @media (min-width: 761px) { body:has(#detail:not(.hidden)) #floatStack { right: 386px; } }
 #floatStack { z-index: 8; }
+/* ===== 重なり防止（layoutUI が測った値を使う） ===== */
+/* 下のボタンの列：右下の「動かす」とぶつからない幅・位置にする */
+#modebar { max-width: calc(100vw - var(--npW, 0px) - 24px); }
+@media (min-width: 1101px) { #modebar { left: calc((100vw - var(--npW, 0px)) / 2); } }
+@media (max-width: 1100px) { #modebar { max-width: calc(100vw - var(--npW, 0px) - 24px); } }
+/* 左のパネルは、下のボタンの列の上で止める（中はスクロール） */
+#controls { max-height: calc(100vh - var(--mbTop, 94px) - 24px); }
+@media (max-width: 760px) { #controls { max-height: min(60vh, calc(100vh - var(--mbTop, 94px) - 24px)); } }
+/* 説明のバーとヒントは、下のボタンの列の上に。バーが出ているときは、ヒントはさらにその上 */
+.floatbar, body.sheet-open .floatbar { bottom: calc(var(--mbTop, 94px) + 10px); }
+#hint, body.sheet-open #hint { bottom: calc(var(--mbTop, 94px) + var(--fbH, 0px) + 10px); }
+body:has(.floatbar:not(.hidden)) #hint { bottom: calc(var(--mbTop, 94px) + var(--fbH, 0px) + 10px); }
+/* 説明のバー・ヒントは、左のパネルと右の「動かす」のあいだのまん中に */
+.floatbar, #hint { left: calc(var(--lpW, 0px) + (100vw - var(--lpW, 0px) - var(--npW, 0px)) / 2); max-width: calc(100vw - var(--lpW, 0px) - var(--npW, 0px) - 24px); }

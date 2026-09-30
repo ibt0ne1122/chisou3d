@@ -37,7 +37,7 @@
     setTimeout(run, 0); // 1ファイル版：設定がすでに入っている（準備が終わってから始める）
   } else {
     const sc = document.createElement("script");
-    sc.src = entry.file + "?v=20260930005739";
+    sc.src = entry.file + "?v=20260930011033";
     sc.onload = run;
     sc.onerror = () => showError("場所の設定ファイル（" + entry.file + "）を読み込めませんでした。ZIPの場合は「すべて展開」してから開いてください。");
     document.body.appendChild(sc);
@@ -2798,6 +2798,7 @@
     const prev = S.mode;
     S.mode = m;
     if (S.digOn && m !== "view") setDig(false); // ほかのモードにしたら、どこでもボーリングは終わり
+    if (window.innerWidth <= 760 && !$("controls").classList.contains("collapsed")) { $("controls").classList.add("collapsed"); updateViewOffset(); } // スマホ：パネルをとじて模型を見やすく
     if (S.section && !(m === "section" && prev === "section")) clearSection();
     S.sectionPts = [];
     S.pickIds = [];
@@ -3100,6 +3101,33 @@
 
     document.querySelectorAll("[data-view]").forEach((b) => (b.onclick = () => setView(b.dataset.view)));
     document.querySelectorAll("#modebar button[data-mode]").forEach((b) => (b.onclick = () => setMode(b.dataset.mode)));
+    // 画面の下のボタン・左のパネル・説明のバー・「動かす」が重ならないように、実際の位置を測ってすきまを空ける
+    let layoutRaf = 0;
+    const layoutUI = () => {
+      layoutRaf = 0;
+      const root = document.documentElement.style, mb = $("modebar"), np = $("navpad"), vh = window.innerHeight, vw = window.innerWidth;
+      // 右下の「動かす」：その分、下のボタンの列を左によせる
+      const nr = np.getBoundingClientRect(), npShown = nr.width > 0 && getComputedStyle(np).display !== "none";
+      const npW = npShown && nr.top < vh - 20 ? Math.max(0, vw - nr.left + 8) : 0;
+      root.setProperty("--npW", npW + "px");
+      // 左のパネルが開いていて下のほうまであるときは、説明のバーを その右に出す
+      const cr = $("controls").getBoundingClientRect();
+      root.setProperty("--lpW", (cr.width > 0 && !$("controls").classList.contains("collapsed") && cr.bottom > vh * 0.45 && vw > 760 ? cr.right + 8 : 0) + "px");
+      // 下のボタンの列の、上のはし（画面の下からの高さ）
+      const mr = mb.getBoundingClientRect(), mbShown = mr.height > 0 && getComputedStyle(mb).display !== "none";
+      root.setProperty("--mbTop", (mbShown ? Math.max(0, vh - mr.top) : 34) + "px");
+      // 説明のバー（切り口・柱をえらぶ）が出ているときは、ヒントの文をその上にずらす
+      let fh = 0;
+      document.querySelectorAll(".floatbar").forEach((f) => { if (!f.classList.contains("hidden")) fh = Math.max(fh, f.getBoundingClientRect().height + 10); });
+      root.setProperty("--fbH", fh + "px");
+    };
+    const relayout = () => { if (!layoutRaf) layoutRaf = requestAnimationFrame(layoutUI); };
+    S.relayout = relayout;
+    window.addEventListener("resize", relayout);
+    if (window.ResizeObserver) { const ro = new ResizeObserver(relayout); ["modebar", "navpad", "cutBar", "pickBar", "controls"].forEach((id) => $(id) && ro.observe($(id))); }
+    new MutationObserver(relayout).observe(document.body, { attributes: true, attributeFilter: ["class"] });
+    document.querySelectorAll(".floatbar, #controls").forEach((f) => new MutationObserver(relayout).observe(f, { attributes: true, attributeFilter: ["class"] }));
+    relayout();
     // ボタンをたたむ・出す（スマホは はじめから たたんでおく）。えらんだ状態は次も同じ
     const setFold = (id, cls, on, labelOn) => {
       document.body.classList.toggle(cls, on);
@@ -3148,6 +3176,7 @@
       if (!full) store.set("chisou3d:sheetH", h);
       if (secView) secView.resize();
       updateViewOffset();
+      if (S.relayout) S.relayout();
     };
     const sh0 = store.get("chisou3d:sheetH", 0);
     if (sh0) document.documentElement.style.setProperty("--sheetH", Math.min(sh0, maxSheetH()) + "px");
