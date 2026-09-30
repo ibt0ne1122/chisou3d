@@ -37,7 +37,7 @@
       setTimeout(run, 0); // 1ファイル版：設定がすでに入っている（準備が終わってから始める）
     } else {
       const sc = document.createElement("script");
-      sc.src = entry.file + "?v=20260930232211";
+      sc.src = entry.file + "?v=20260930234802";
       sc.onload = run;
       sc.onerror = () => showError("場所の設定ファイル（" + entry.file + "）を読み込めませんでした。ZIPの場合は「すべて展開」してから開いてください。");
       document.body.appendChild(sc);
@@ -3835,6 +3835,15 @@
     $("secStagePrev").onclick = () => stageStep(-1);
     $("secStageNext").onclick = () => stageStep(1);
     // 考えメモ
+    // ワードのリボンのように、上のボタンをしまう／出す（断面図を大きく）
+    const setRibbon = (min) => {
+      $("sectionSheet").classList.toggle("ribbon-min", min);
+      $("secRibbon").textContent = min ? "▼ ボタンを出す" : "▲ ボタンをしまう";
+      store.set("chisou3d:secRibbonMin", min);
+      if (secView) requestAnimationFrame(() => secView.resize());
+    };
+    $("secRibbon").onclick = () => setRibbon(!$("sectionSheet").classList.contains("ribbon-min"));
+    setRibbon(!!store.get("chisou3d:secRibbonMin", false));
     $("secMemoBtn").onclick = () => { $("secMemo").classList.toggle("hidden"); if (secView) secView.resize(); };
     for (const id of ["memoName", "memoPredict", "memoResult"]) $(id).addEventListener("input", saveMemo);
     // たての強調：×1（本当の形）〜自動

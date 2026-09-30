@@ -566,3 +566,10 @@ a.btnlike { display: inline-flex; align-items: center; padding: 6px 12px; border
 .soillist li { display: flex; align-items: center; gap: 6px; padding: 2px 0; font-size: 14px; }
 .soillist .patsw { border: 1px solid rgba(0,0,0,0.3); border-radius: 4px; }
 #detail { z-index: 8; } /* 断面図の上でも、説明が前に出るように */
+
+/* 断面図：上のボタンをしまう（リボン） */
+.ribbon-btn { font-size: 13px; min-height: 30px; padding: 2px 10px; border-radius: 15px; background: #eef4f7; }
+#sectionSheet.ribbon-min .size-btns, #sectionSheet.ribbon-min .sec-offnote { display: none; }
+#sectionSheet.ribbon-min .sheet-tools > *:not(.close) { display: none; }
+#sectionSheet.ribbon-min .sheet-head { padding-top: 4px; padding-bottom: 4px; justify-content: flex-start; gap: 12px; }
+#sectionSheet.ribbon-min .ribbon-btn { background: var(--accent); color: #fff; border-color: var(--accent); }
