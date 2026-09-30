@@ -54,6 +54,28 @@
     return { a, b, c };
   }
 
+  /** 上から順番が下がらない（0,0,1,1,3…）ように各層へ番号をつけ直す。柱と合う厚さが最大になるものをえらぶ */
+  function bestOrder(items, S) {
+    if (!items.length) return [];
+    const n = items.length, dp = [], from = [];
+    for (let i = 0; i < n; i++) {
+      dp.push(new Float64Array(S)); from.push(new Int8Array(S));
+      for (let s = 0; s < S; s++) {
+        const gain = items[i].s === s ? items[i].t : 0;
+        if (i === 0) { dp[i][s] = gain; continue; }
+        let best = -1, bs = 0;
+        for (let p = 0; p <= s; p++) if (dp[i - 1][p] > best) { best = dp[i - 1][p]; bs = p; }
+        dp[i][s] = best + gain; from[i][s] = bs;
+      }
+    }
+    // 同じ点数なら、もとの番号に近いものを
+    let s = 0;
+    for (let k = 1; k < S; k++) if (dp[n - 1][k] > dp[n - 1][s] + 1e-9) s = k;
+    const out = new Array(n);
+    for (let i = n - 1; i >= 0; i--) { out[i] = s; s = from[i][s]; }
+    return out;
+  }
+
   /** 境目の標高を推定する関数：平面＋IDWでの残差補正 */
   function surfaceInterp(points) {
     if (!points.length) return null;
@@ -66,13 +88,24 @@
   /** site の boreholes を、模型の座標・標高つきに整える */
   function prepareBoreholes(list, layers, frame, groundAt) {
     const ids = new Set(layers.map((l) => l.id));
+    const modeOf = {};
+    layers.forEach((l) => (modeOf[l.id] = l.mode));
     return list.map((b) => {
       const loc = frame.toLocal(b.lat, b.lon);
       const demElev = groundAt(loc.x, loc.z);
       const elev = typeof b.elevation === "number" ? b.elevation : demElev;
-      let from = 0;
+      let from = 0, lastSurf = null;
       const segs = (b.logs || []).map((s) => {
-        const seg = { from, to: Number(s.to), layer: ids.has(s.layer) ? s.layer : null, soil: s.soil || "", n: s.n, note: s.note || "" };
+        let layer = ids.has(s.layer) ? s.layer : null, relabeled = null;
+        const mode = layer && modeOf[layer];
+        if (mode === "surface") lastSurf = layer;
+        else if (lastSurf && (mode === "cover" || mode === "valley")) {
+          // 古い地層（ねんど・砂・泥岩など）より下に出てくる「ローム」「沖積層」は、ありえない順番。
+          // 多くは泥岩の中の「凝灰質○○」（大昔の火山灰の うすい層）なので、まわりの古い地層にふくめる
+          relabeled = layer; layer = lastSurf;
+        }
+        const seg = { from, to: Number(s.to), layer, soil: s.soil || "", n: s.n, note: s.note || "" };
+        if (relabeled) seg.relabeled = relabeled;
         from = seg.to;
         return seg;
       });
@@ -155,7 +188,8 @@
 
     // --- ボーリングから観測値を集める ---
     const coverObs = {}; // layerId -> [{x,z,v:厚さ}]
-    const valleyTop = {}, valleyThick = {};
+    const valleyTop = {}, valleyThick = {}, valleyHas = {};
+    const underObs = {}; // 谷の層の下にある cover 層（ローム）：谷の層がある柱で、その下にもあったか（1/0）
     const bndExact = surfIdx.map(() => []); // s番目の地層の「上面」の標高（s>=1）
     const bndApprox = surfIdx.map(() => []);
     for (const b of bores) {
@@ -166,6 +200,12 @@
           (coverObs[l.id] = coverObs[l.id] || []).push({ x: b.x, z: b.z, v: t });
         } else if (l.mode === "valley") {
           const ss = b.segs.filter((s) => s.layer === l.id);
+          (valleyHas[l.id] = valleyHas[l.id] || []).push({ x: b.x, z: b.z, v: ss.length ? 1 : 0 });
+          if (ss.length) {
+            const vi = b.segs.indexOf(ss[0]);
+            for (const c of layers) if (c.mode === "cover" && idx[c.id] > idx[l.id])
+              (underObs[c.id] = underObs[c.id] || []).push({ x: b.x, z: b.z, v: b.segs.some((sg, i) => i > vi && sg.layer === c.id) ? 1 : 0 });
+          }
           if (ss.length) {
             const t = ss.reduce((a, s) => a + (s.to - s.from), 0);
             (valleyTop[l.id] = valleyTop[l.id] || []).push({ x: b.x, z: b.z, v: b.elev - ss[0].from });
@@ -173,22 +213,20 @@
           }
         }
       }
-      // 地層（surface）の境目
-      let prevSurf = -1; // 直前に通った地層の番号(s)
-      let prevWasCover = true;
-      for (const seg of b.segs) {
-        const li = seg.layer == null ? -1 : idx[seg.layer];
-        const isSurf = li >= 0 && layers[li].mode === "surface";
-        if (!isSurf) { if (prevSurf < 0) prevWasCover = true; continue; }
-        const s = surfPos[li];
-        const e = b.elev - seg.from;
+      // 地層（surface）の境目。模型では「上から ねんど→砂→れき→泥岩」の順に1回ずつしか重ならないので、
+      // 柱の中で順番が入れかわる所（うすい砂の層など）は、柱と色が合う厚さがいちばん多くなる並び方をえらぶ
+      const ss = b.segs.filter((sg) => sg.layer != null && layers[idx[sg.layer]].mode === "surface");
+      const asg = bestOrder(ss.map((sg) => ({ s: surfPos[idx[sg.layer]], t: sg.to - sg.from })), surfIdx.length);
+      let prevSurf = -1;
+      ss.forEach((seg, i) => {
+        const s = asg[i], e = b.elev - seg.from;
         if (prevSurf >= 0 && s > prevSurf) {
           for (let k = prevSurf + 1; k <= s; k++) bndExact[k].push({ x: b.x, z: b.z, v: e });
-        } else if (prevSurf < 0 && prevWasCover) {
+        } else if (prevSurf < 0) {
           for (let k = 1; k <= s; k++) bndApprox[k].push({ x: b.x, z: b.z, v: e });
         }
         if (s > prevSurf) prevSurf = s;
-      }
+      });
     }
     const coverI = {}, valleyTopI = {}, valleyThickI = {};
     for (const id in coverObs) {
@@ -204,7 +242,13 @@
         return f ? thick(x, z) * f : 0;
       } : () => 0;
     }
-    for (const id in valleyTop) { valleyTopI[id] = surfaceInterp(valleyTop[id]); valleyThickI[id] = idwFactory(valleyThick[id], 2); }
+    const valleyHasI = {}, underI = {};
+    for (const id in underObs) underI[id] = underObs[id].some((p) => p.v) ? idwFactory(underObs[id], 3) : () => 0;
+    for (const id in valleyTop) {
+      valleyTopI[id] = surfaceInterp(valleyTop[id]); valleyThickI[id] = idwFactory(valleyThick[id], 2);
+      // その層が「ある柱／ない柱」の近くでは、柱のとおりに（ない柱の所には置かない、ある柱の所には必ず置く）
+      valleyHasI[id] = idwFactory(valleyHas[id], 3);
+    }
     const bndI = bndExact.map((pts, s) => (s === 0 ? null : surfaceInterp(pts.length ? pts : bndApprox[s])));
 
     // --- 模型の底の標高 ---
@@ -228,16 +272,26 @@
         const k = j * (n + 1) + i;
         const x = -grid.half + i * step, z = -grid.half + j * step;
         const G = grid.ground[k];
-        let cur = G;
+        let cur = G, fv = 0;
         for (let li = 0; li < L; li++) {
           const l = layers[li];
           if (l.mode === "surface") continue;
           let t = 0;
-          if (l.mode === "cover" && coverI[l.id]) t = Math.max(0, coverI[l.id](x, z));
+          if (l.mode === "cover" && coverI[l.id]) {
+            t = Math.max(0, coverI[l.id](x, z));
+            // 谷（沖積層）の所では、ローム層は川にけずられてないのがふつう。
+            // 「沖積層の下にローム層」があった柱の近くだけ、残す
+            if (fv > 0 && t > 0) t *= 1 - fv * (1 - (underI[l.id] ? underI[l.id](x, z) : 0));
+          }
           if (l.mode === "valley" && valleyTopI[l.id]) {
             const d = G - valleyTopI[l.id](x, z);
-            const f = d <= tol ? 1 : d >= tol + fadeW ? 0 : 1 - (d - tol) / fadeW;
+            const fe = d <= tol ? 1 : d >= tol + fadeW ? 0 : 1 - (d - tol) / fadeW;
+            const h = valleyHasI[l.id](x, z);
+            const fh = h <= 0.35 ? 0 : h >= 0.55 ? 1 : (h - 0.35) / 0.2;
+            const near = h >= 0.95 ? 1 : h <= 0.8 ? 0 : (h - 0.8) / 0.15;
+            const f = fh * Math.max(fe, near);
             t = Math.max(0, valleyThickI[l.id](x, z)) * f;
+            if (t > 0.3) fv = Math.max(fv, f);
           }
           t = Math.min(t, Math.max(0, cur - base));
           tops[li][k] = cur;

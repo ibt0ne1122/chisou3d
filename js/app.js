@@ -37,7 +37,7 @@
       setTimeout(run, 0); // 1ファイル版：設定がすでに入っている（準備が終わってから始める）
     } else {
       const sc = document.createElement("script");
-      sc.src = entry.file + "?v=20260930220009";
+      sc.src = entry.file + "?v=20260930221639";
       sc.onload = run;
       sc.onerror = () => showError("場所の設定ファイル（" + entry.file + "）を読み込めませんでした。ZIPの場合は「すべて展開」してから開いてください。");
       document.body.appendChild(sc);
@@ -2765,7 +2765,7 @@
       svg += '<text x="' + (colX - 6) + '" y="' + (y2 + 4) + '" font-size="11" text-anchor="end" fill="#333">' + s.to.toFixed(1) + "</text>";
       const ly = Math.max((y1 + y2) / 2 + 4, lastLabelY + 13);
       lastLabelY = ly;
-      svg += '<text x="' + (colX + colW + 8) + '" y="' + ly + '" font-size="12" fill="#1f2a33">' + esc(s.soil || (L ? L.short : "")) + (s.n != null && s.n !== "" ? "（N=" + esc(s.n) + "）" : "") + "</text>";
+      svg += '<text x="' + (colX + colW + 8) + '" y="' + ly + '" font-size="12" fill="#1f2a33">' + esc(s.soil || (L ? L.short : "")) + (s.n != null && s.n !== "" ? "（N=" + esc(s.n) + "）" : "") + (s.relabeled ? "＊" : "") + "</text>";
     }
     svg += '<text x="' + (colX - 6) + '" y="' + (y0 + 4) + '" font-size="11" text-anchor="end" fill="#333">0</text>';
     svg += "</svg>";
@@ -2788,6 +2788,7 @@
       (b.source ? "<br>出典：" + esc(b.source) : "") +
       (b.url ? '<br><a href="' + esc(b.url) + '" target="_blank" rel="noopener">元の資料を開く ↗</a>' : "") + "</div>";
     html += svg;
+    if (b.segs.some((s) => s.relabeled)) html += '<p class="hint">＊古い地層より下にあるので、ローム層・沖積層ではなく、まわりの地層（大昔の火山灰などがまじった うすい層）として色をつけています。</p>';
     if (b.image) html += '<a href="' + esc(b.image) + '" target="_blank" rel="noopener"><img class="log-image" src="' + esc(b.image) + '" alt="柱状図の画像"></a>';
     if (!b.sample && b.source) {
       // なぜ調べたの？（ボーリング調査をする理由）
