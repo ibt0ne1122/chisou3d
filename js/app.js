@@ -37,7 +37,7 @@
       setTimeout(run, 0); // 1ファイル版：設定がすでに入っている（準備が終わってから始める）
     } else {
       const sc = document.createElement("script");
-      sc.src = entry.file + "?v=20260930224347";
+      sc.src = entry.file + "?v=20260930230307";
       sc.onload = run;
       sc.onerror = () => showError("場所の設定ファイル（" + entry.file + "）を読み込めませんでした。ZIPの場合は「すべて展開」してから開いてください。");
       document.body.appendChild(sc);
@@ -415,7 +415,7 @@
   function patOf(sg) { return S.pattern && sg ? C.Pattern.ofSoil(sg.soil, sg.layer) : null; }
   function layerPatOf(li) { return S.pattern && !S.hideStrata ? S.layerPat[li] || null : null; }
   function patSwatch(color, p) {
-    return '<svg class="patsw" viewBox="0 0 22 22" width="22" height="22"><rect width="22" height="22" fill="' + color + '"/>' + (p ? '<rect width="22" height="22" fill="' + C.Pattern.svgFill(p) + '"/>' : "") + "</svg>";
+    return '<svg class="patsw" viewBox="0 0 22 22" width="22" height="22"><rect width="22" height="22" fill="' + color + '"/>' + (p ? C.Pattern.svgFills(p).map((f) => '<rect width="22" height="22" fill="' + f + '"/>').join("") : "") + "</svg>";
   }
   function strataColor(li) { return S.hideStrata ? "#b8b0a2" : S.site.layers[li].color; }
 
@@ -2785,7 +2785,7 @@
       const L = s.layer ? byId[s.layer] : null;
       svg += '<rect x="' + colX + '" y="' + y1 + '" width="' + colW + '" height="' + Math.max(1, y2 - y1) + '" fill="' + segColor(s) + '" stroke="#333" stroke-width="0.8"/>';
       const sp = patOf(s);
-      if (sp) svg += '<rect x="' + colX + '" y="' + y1 + '" width="' + colW + '" height="' + Math.max(1, y2 - y1) + '" fill="' + C.Pattern.svgFill(sp) + '" stroke="#333" stroke-width="0.8"/>';
+      if (sp) for (const f of C.Pattern.svgFills(sp)) svg += '<rect x="' + colX + '" y="' + y1 + '" width="' + colW + '" height="' + Math.max(1, y2 - y1) + '" fill="' + f + '" stroke="#333" stroke-width="0.8"/>';
       svg += '<text x="' + (colX - 6) + '" y="' + (y2 + 4) + '" font-size="11" text-anchor="end" fill="#333">' + s.to.toFixed(1) + "</text>";
       const ly = Math.max((y1 + y2) / 2 + 4, lastLabelY + 13);
       lastLabelY = ly;
@@ -3191,8 +3191,9 @@
     // 柄の凡例
     const pl = $("patLegend");
     pl.classList.toggle("hidden", !S.pattern);
-    pl.innerHTML = '<li class="pathead">柄＝まじっている物（色は どの層か）</li>' + ["dots", "circ", "dash", "vee", "alt"].map((id) =>
+    pl.innerHTML = '<li class="pathead">柄＝まじっている物（色は どの層か）</li>' + ["dots", "circ", "dash", "vee"].map((id) =>
       '<li><span class="sw">' + patSwatch("#dfe3e0", { id }) + "</span><div>" + esc(C.Pattern.NAMES[id]) + "</div></li>").join("") +
+      '<li><span class="sw">' + patSwatch("#dfe3e0", { id: "dots", id2: "dash" }) + "</span><div>" + esc(C.Pattern.NAMES.alt) + "<small>2つの柄を重ねる（例：砂・泥岩互層＝点＋横線）</small></div></li>" +
       '<li><span class="sw">' + patSwatch("#dfe3e0", { id: "dots", weak: true }) + "</span><div>柄がまばら＝少しまじる（〇〇混り）<small>こい柄は「〇〇質」（かなりまじる）</small></div></li>";
     // つぶの大きさの凡例
     const gl = $("grainLegend");
