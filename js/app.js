@@ -37,7 +37,7 @@
       setTimeout(run, 0); // 1ファイル版：設定がすでに入っている（準備が終わってから始める）
     } else {
       const sc = document.createElement("script");
-      sc.src = entry.file + "?v=20260930130625";
+      sc.src = entry.file + "?v=20260930131648";
       sc.onload = run;
       sc.onerror = () => showError("場所の設定ファイル（" + entry.file + "）を読み込めませんでした。ZIPの場合は「すべて展開」してから開いてください。");
       document.body.appendChild(sc);
@@ -204,7 +204,13 @@
     S.model = GL.buildModel(site.layers, S.grid, S.bores, { baseElevation: site.baseElevation });
     // 模型（地層の推定）は全部の柱から作り、画面に出す柱だけをしぼる
     S.allBores = S.bores;
-    if (!S.kidOnly) { const so = store.get(key("showOnly"), null); S.showOnly = so && so.length ? new Set(so) : null; }
+    if (!S.kidOnly) {
+      // えらんだ柱（onlySel）はずっと覚えておき、「全部の柱／えらんだ柱だけ」を切りかえる（onlyOn）
+      const so = store.get(key("showOnly"), null);
+      S.onlySel = so && so.length ? new Set(so) : null;
+      S.onlyOn = !!S.onlySel && store.get(key("showOnlyOn"), true);
+      S.showOnly = S.onlyOn ? S.onlySel : null;
+    }
     applyShowOnlyList();
     const m = S.model;
     S.visLayers = site.layers.map((l, i) => i).filter((i) => {
@@ -591,7 +597,9 @@
     const order = S.bores.filter((b) => !isNaN(b.elev)).sort((a, b) =>
       (S.hiddenBores.has(b.id) - S.hiddenBores.has(a.id)) || (b.depth - a.depth));
     for (const b of order) {
-      if (S.hiddenBores.has(b.id) || S.bores.length <= 30 || !placed.some((p) => Math.hypot(p.x - b.x, p.z - b.z) < minD)) {
+      // 「えらんだ柱だけ」のときは、名前を出さず ● の印だけにする（「？」にした柱は名前つき）
+      const dotsOnly = S.showOnly && !S.boreSel;
+      if (S.hiddenBores.has(b.id) || (!dotsOnly && (S.bores.length <= 30 || !placed.some((p) => Math.hypot(p.x - b.x, p.z - b.z) < minD)))) {
         named.add(b.id); placed.push(b);
       }
     }
@@ -690,13 +698,18 @@
     S.bores = S.boreSel || !S.showOnly ? all : all.filter((b) => S.showOnly.has(b.id));
   }
   function updateOnlyBoresUI() {
-    const n = S.showOnly ? S.showOnly.size : 0;
-    $("onlyBoresState").textContent = n ? "✅ えらんだ " + n + " 本だけ表示中" : "全部の柱を表示中（" + (S.allBores || S.bores).length + "本）";
+    const n = S.onlySel ? S.onlySel.size : 0, total = (S.allBores || S.bores).length;
+    $("onlyBoresState").textContent = !n ? "全部の柱を表示中（" + total + "本）" : S.onlyOn ? "✅ えらんだ " + n + " 本だけ表示中" : "全部の柱を表示中（えらんだ " + n + " 本は覚えています）";
+    $("onlySeg").classList.toggle("hidden", !n);
+    $("onlyAll").classList.toggle("on", !S.onlyOn);
+    $("onlySelBtn").classList.toggle("on", !!S.onlyOn && n > 0);
+    $("onlySelBtn").textContent = "えらんだ柱だけ（" + n + "本）";
+    $("onlyBoresPick").textContent = n ? "📍 えらび直す" : "📍 表示する柱をえらぶ";
     $("onlyBoresReset").classList.toggle("hidden", !n);
   }
   function startBoreSelect() {
     if (S.mode !== "view") setMode("view");
-    S.boreSel = new Set(S.showOnly || []);
+    S.boreSel = new Set(S.onlySel || []);
     applyShowOnlyList(); buildBores(); applyVisibility();
     $("selBar").classList.remove("hidden");
     updateSelBar();
@@ -705,8 +718,10 @@
   function updateSelBar() { $("selInfo").textContent = "📍 表示する柱をタップ（" + S.boreSel.size + "本えらび中）"; $("selOk").disabled = !S.boreSel.size; }
   function endBoreSelect(ok) {
     if (ok) {
-      S.showOnly = S.boreSel.size ? new Set(S.boreSel) : null;
-      if (!S.kidOnly) store.set(key("showOnly"), S.showOnly ? [...S.showOnly] : null);
+      S.onlySel = S.boreSel.size ? new Set(S.boreSel) : null;
+      S.onlyOn = !!S.onlySel;
+      S.showOnly = S.onlyOn ? S.onlySel : null;
+      if (!S.kidOnly) { store.set(key("showOnly"), S.onlySel ? [...S.onlySel] : null); store.set(key("showOnlyOn"), S.onlyOn); }
     }
     S.boreSel = null;
     $("selBar").classList.add("hidden");
@@ -714,8 +729,16 @@
     if (S.section) openSectionSheet();
     setHint(modeHint());
   }
+  /** 「全部の柱」と「えらんだ柱だけ」を切りかえる（えらんだ柱は消さない） */
+  function setOnlyOn(on) {
+    if (!S.onlySel || !S.onlySel.size) return;
+    S.onlyOn = on; S.showOnly = on ? S.onlySel : null;
+    if (!S.kidOnly) store.set(key("showOnlyOn"), on);
+    applyShowOnlyList(); buildBores(); updateOnlyBoresUI();
+    if (S.section) openSectionSheet();
+  }
   function clearShowOnly() {
-    S.showOnly = null; store.set(key("showOnly"), null);
+    S.showOnly = null; S.onlySel = null; S.onlyOn = false; store.set(key("showOnly"), null);
     applyShowOnlyList(); buildBores(); updateOnlyBoresUI();
     if (S.section) openSectionSheet();
   }
@@ -3260,7 +3283,9 @@
     chk("chkBasin", setBasin);
     // 表示する柱をえらぶ
     $("onlyBoresPick").onclick = startBoreSelect;
-    $("onlyBoresReset").onclick = clearShowOnly;
+    $("onlyBoresReset").onclick = () => { if (confirm("えらんだ柱を消して、全部の柱を表示にもどしますか？")) clearShowOnly(); };
+    $("onlyAll").onclick = () => setOnlyOn(false);
+    $("onlySelBtn").onclick = () => setOnlyOn(true);
     $("selOk").onclick = () => endBoreSelect(true);
     $("selCancel").onclick = () => endBoreSelect(false);
     $("selAll").onclick = () => { S.boreSel = new Set(S.allBores.map((b) => b.id)); buildBores(); updateSelBar(); };
@@ -3924,7 +3949,7 @@
     if (st.ui) applyKidUi(st.ui);
     if (st.only) {
       // 先生がえらんだ柱だけを見せる（模型の地層の推定は、全部の柱からのまま）
-      S.kidOnly = true; S.showOnly = new Set(st.only);
+      S.kidOnly = true; S.onlySel = new Set(st.only); S.onlyOn = true; S.showOnly = S.onlySel;
       $("onlyBoresBox").classList.add("kid-hide");
       applyShowOnlyList(); updateOnlyBoresUI();
     }
@@ -4068,7 +4093,7 @@
       const keep = /^(mb:view|mb:qNames|help|navpad|ps:地層の色（凡例）)$/;
       boxes().forEach((c) => (c.checked = keep.test(c.dataset.ui))); save();
     };
-    const ids = S.lastPickIds || [], shown = S.showOnly ? S.showOnly.size : 0;
+    const ids = S.lastPickIds || [], shown = S.onlySel ? S.onlySel.size : 0;
     $("shareBoresPicked").disabled = ids.length < 1;
     $("sharePickedN").textContent = ids.length ? "（" + ids.length + "本）" : "（まだえらんでいません）";
     $("shareBoresShown").disabled = !shown;
@@ -4104,7 +4129,7 @@
   async function makeKidLink() {
     const hide = [...$("shareUi").querySelectorAll("[data-ui]")].filter((c) => !c.checked).map((c) => c.dataset.ui);
     const bsel = document.querySelector('[name="shareBores"]:checked').value;
-    const only = bsel === "picked" ? (S.lastPickIds || []) : bsel === "shown" && S.showOnly ? [...S.showOnly] : null;
+    const only = bsel === "picked" ? (S.lastPickIds || []) : bsel === "shown" && S.onlySel ? [...S.onlySel] : null;
     store.set("chisou3d:shareTitle", $("shareTitle").value.trim());
     const st = captureState({ strokes: $("shareStrokes").checked, kid: { lock: $("shareLock").checked ? 1 : 0 }, form: true, ui: hide, only });
     S.shareK = await packState(st);

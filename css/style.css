@@ -521,3 +521,6 @@ button, select, input, label { touch-action: manipulation; }
 #shareTitle { width: 100%; }
 a.btnlike { display: inline-flex; align-items: center; padding: 6px 12px; border: 1px solid var(--line); border-radius: 10px; text-decoration: none; color: var(--accent); background: #fff; min-height: 40px; }
 #sharePresetUrl { word-break: break-all; font-family: monospace; }
+.onlyseg { display: flex; margin: 4px 0; }
+.onlyseg button { flex: 1; font-size: 13px; }
+.onlyseg button:first-of-type { margin-left: 0; }

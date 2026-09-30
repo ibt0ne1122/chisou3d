@@ -6,7 +6,7 @@
 <title>大地のつくり 3D土地模型</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css?v=20260930130625">
+<link rel="stylesheet" href="css/style.css?v=20260930131648">
 </head>
 <body>
 <div id="viewport"></div>
@@ -60,7 +60,8 @@
     <section class="checks">
       <label><input type="checkbox" id="chkBores" checked> ボーリングの柱</label>
       <div id="onlyBoresBox" class="onlybox"><span id="onlyBoresState"></span>
-        <div class="btnrow"><button type="button" id="onlyBoresPick">📍 表示する柱をえらぶ</button><button type="button" id="onlyBoresReset" class="hidden">全部にもどす</button></div></div>
+        <div id="onlySeg" class="seg onlyseg hidden"><button type="button" id="onlyAll">全部の柱</button><button type="button" id="onlySelBtn">えらんだ柱だけ</button></div>
+        <div class="btnrow"><button type="button" id="onlyBoresPick">📍 表示する柱をえらぶ</button><button type="button" id="onlyBoresReset" class="hidden">えらんだのを消す</button></div></div>
       <label><input type="checkbox" id="chkLift"> 柱を地上に引き出す</label>
       <label><input type="checkbox" id="chkRiver"> 川を強調する</label>
       <label><input type="checkbox" id="chkYato"> 谷戸（やと）を表示</label>
@@ -348,7 +349,7 @@
     <label class="toggle"><input type="checkbox" id="shareStrokes"> 先生がかいた予想の線もいっしょに配る</label>
     <details id="shareBoresBox" open><summary><b>📍 見せる柱状図</b></summary>
       <label class="toggle"><input type="radio" name="shareBores" value="all" checked> 全部の柱を見せる</label>
-      <label class="toggle"><input type="radio" name="shareBores" value="shown" id="shareBoresShown"> 今、模型に表示している柱だけ <b id="shareShownN"></b></label>
+      <label class="toggle"><input type="radio" name="shareBores" value="shown" id="shareBoresShown"> 「📍 表示する柱をえらぶ」でえらんだ柱だけ <b id="shareShownN"></b></label>
       <label class="toggle"><input type="radio" name="shareBores" value="picked" id="shareBoresPicked"> 「📍 柱状図を選択」でえらんだ柱だけ <b id="sharePickedN"></b></label>
       <p class="hint">柱をしぼるには、☰パネルの「📍 表示する柱をえらぶ」で柱をえらんでから、この画面を開きます。ほかの柱は、子どもの画面では旗も柱も出ません（模型の地層は全部の資料からの推定のままです）。</p>
     </details>
@@ -464,19 +465,19 @@
 
 <footer id="attribution">出典：<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">国土地理院（地理院タイル・標高タイル）</a> ／ 目印：<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap</a> ／ 地下の地層はボーリング資料からの推定です（<a href="#" id="attrMore">くわしく</a>）</footer>
 
-<script src="lib/three.min.js?v=20260930130625"></script>
-<script src="lib/OrbitControls.js?v=20260930130625"></script>
-<script src="lib/qrcode.js?v=20260930130625"></script>
+<script src="lib/three.min.js?v=20260930131648"></script>
+<script src="lib/OrbitControls.js?v=20260930131648"></script>
+<script src="lib/qrcode.js?v=20260930131648"></script>
 <script>window.CHISOU = { sites: {}, registerSite: function (s) { this.sites[s.id] = s; } };</script>
-<script src="js/geo.js?v=20260930130625"></script>
-<script src="js/geology.js?v=20260930130625"></script>
-<script src="sites/sites.js?v=20260930130625"></script>
-<script src="js/section.js?v=20260930130625"></script>
-<script src="js/boringxml.js?v=20260930130625"></script>
-<script src="js/mvt.js?v=20260930130625"></script>
-<script src="js/yato_yokohama.js?v=20260930130625"></script>
-<script src="js/ngic_bookmarklet.js?v=20260930130625"></script>
-<script src="js/help.js?v=20260930130625"></script>
-<script src="js/app.js?v=20260930130625"></script>
+<script src="js/geo.js?v=20260930131648"></script>
+<script src="js/geology.js?v=20260930131648"></script>
+<script src="sites/sites.js?v=20260930131648"></script>
+<script src="js/section.js?v=20260930131648"></script>
+<script src="js/boringxml.js?v=20260930131648"></script>
+<script src="js/mvt.js?v=20260930131648"></script>
+<script src="js/yato_yokohama.js?v=20260930131648"></script>
+<script src="js/ngic_bookmarklet.js?v=20260930131648"></script>
+<script src="js/help.js?v=20260930131648"></script>
+<script src="js/app.js?v=20260930131648"></script>
 </body>
 </html>
