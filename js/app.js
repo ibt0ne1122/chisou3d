@@ -37,7 +37,7 @@
       setTimeout(run, 0); // 1ファイル版：設定がすでに入っている（準備が終わってから始める）
     } else {
       const sc = document.createElement("script");
-      sc.src = entry.file + "?v=20260930133648";
+      sc.src = entry.file + "?v=20260930211341";
       sc.onload = run;
       sc.onerror = () => showError("場所の設定ファイル（" + entry.file + "）を読み込めませんでした。ZIPの場合は「すべて展開」してから開いてください。");
       document.body.appendChild(sc);
@@ -642,9 +642,9 @@
       }
       let lab;
       if (mk) {
-        lab = makeLabel((mk === SEL_MARK ? "✅ " : "★ ") + shortName(b.name), { bg: mk.c, color: mk.fg, border: "#ffffff", size: 16, bold: true });
+        lab = makeLabel((mk === SEL_MARK ? "✅ " : "★ ") + fullName(b.name), { bg: mk.c, color: mk.fg, border: "#ffffff", size: 16, bold: true });
       } else if (named.has(b.id)) {
-        lab = makeLabel(hidden ? "？" + shortName(b.name) + "（予想中）" : (b.sample ? "" : "🔍") + shortName(b.name), { bg: b.sample ? "#fff1dc" : "#e3f0fb", color: b.sample ? "#8a4500" : "#12497a", size: 13, bold: true });
+        lab = makeLabel(hidden ? "？" + fullName(b.name) + "（予想中）" : (b.sample ? "" : "🔍") + fullName(b.name), { bg: b.sample ? "#fff1dc" : "#e3f0fb", color: b.sample ? "#8a4500" : "#12497a", size: 13, bold: true });
       } else {
         lab = new THREE.Sprite(matCache.__dot); // 名前なしの点は、同じ絵を使い回す
         lab.scale.copy(matCache.__dotScale);
@@ -765,6 +765,8 @@
   }
   /** 旗に出す短い名前（長い名前は、くわしい画面で全部見られる） */
   function shortName(n) { return n.length > 12 ? n.slice(0, 11) + "…" : n; }
+  /** 模型の旗の名前：切らずに、12文字ごとに折り返して全部出す */
+  function fullName(n) { return wrapText(String(n).trim(), 12); }
 
   // ---------- 目印（学校・駅など） ----------
   function buildLabels() {
