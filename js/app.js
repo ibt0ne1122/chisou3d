@@ -37,7 +37,7 @@
       setTimeout(run, 0); // 1ファイル版：設定がすでに入っている（準備が終わってから始める）
     } else {
       const sc = document.createElement("script");
-      sc.src = entry.file + "?v=20260930131648";
+      sc.src = entry.file + "?v=20260930132303";
       sc.onload = run;
       sc.onerror = () => showError("場所の設定ファイル（" + entry.file + "）を読み込めませんでした。ZIPの場合は「すべて展開」してから開いてください。");
       document.body.appendChild(sc);
@@ -728,6 +728,19 @@
     applyShowOnlyList(); buildBores(); applyVisibility(); updateOnlyBoresUI();
     if (S.section) openSectionSheet();
     setHint(modeHint());
+  }
+  /** くわしい柱状図の画面から、えらんだ柱に入れる・外す */
+  function toggleOnlySel(id) {
+    if (S.boreSel) { S.boreSel.has(id) ? S.boreSel.delete(id) : S.boreSel.add(id); buildBores(); updateSelBar(); return; }
+    const sel = S.onlySel ? new Set(S.onlySel) : new Set();
+    const adding = !sel.has(id);
+    adding ? sel.add(id) : sel.delete(id);
+    S.onlySel = sel.size ? sel : null;
+    if (!S.onlySel) S.onlyOn = false; // 全部外したら、全部の柱の表示にもどす
+    S.showOnly = S.onlyOn ? S.onlySel : null;
+    if (!S.kidOnly) { store.set(key("showOnly"), S.onlySel ? [...S.onlySel] : null); store.set(key("showOnlyOn"), !!S.onlyOn); }
+    applyShowOnlyList(); buildBores(); updateOnlyBoresUI();
+    flashHint(adding ? "📍 えらんだ柱に入れました（" + sel.size + "本）" + (S.onlyOn ? "" : "。☰パネルの「えらんだ柱だけ」で、えらんだ柱だけを表示できます") : "えらんだ柱から外しました（" + sel.size + "本）");
   }
   /** 「全部の柱」と「えらんだ柱だけ」を切りかえる（えらんだ柱は消さない） */
   function setOnlyOn(on) {
@@ -2745,11 +2758,14 @@
     }
     if (b.note && !b.sample) html += '<p class="meta">' + esc(b.note) + "</p>";
 
+    const inSel = (S.boreSel || S.onlySel || new Set()).has(id), nSel = (S.boreSel || S.onlySel || new Set()).size;
+    html = html.replace("</h3>", "</h3>" + '<div class="selrow"><button id="dSel" type="button" class="' + (inSel ? "on" : "") + '">' + (inSel ? "✅ えらんだ柱に入っています（押すと外す）" : "📍 えらんだ柱に入れる") + '</button><small>えらんだ柱：' + nSel + "本</small></div>");
     html += '<div class="actions"><button id="dCard">📝 記録カードをつくる</button><button id="dFocus">🎯 近づいて見る</button><button id="dSec">✂️ ここを通る断面</button>' +
       (S.teacher && !b.sample ? '<button id="dEdit">✏️ 編集</button>' : "") + "</div>";
     openDetail(html);
     $("detail").dataset.bore = id;
     $("dCard").onclick = () => makeRecordCard(b);
+    $("dSel").onclick = () => { toggleOnlySel(id); showBore(id); };
     document.querySelectorAll("#detailBody .markrow [data-mc]").forEach((btn) => (btn.onclick = () => { setBoreMark(id, btn.dataset.mc); showBore(id); }));
     if ($("dMarkClear")) $("dMarkClear").onclick = () => {
       if (!confirm("目立たせた柱を、全部もとの色にもどしますか？")) return;

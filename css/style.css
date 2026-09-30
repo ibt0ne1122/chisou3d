@@ -524,3 +524,7 @@ a.btnlike { display: inline-flex; align-items: center; padding: 6px 12px; border
 .onlyseg { display: flex; margin: 4px 0; }
 .onlyseg button { flex: 1; font-size: 13px; }
 .onlyseg button:first-of-type { margin-left: 0; }
+#detail .selrow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 6px 0; }
+#detail .selrow button { font-weight: 700; border: 2px solid #2e7d32; color: #2e7d32; background: #fff; }
+#detail .selrow button.on { background: #2e7d32; color: #fff; }
+#detail .selrow small { color: var(--sub); }
