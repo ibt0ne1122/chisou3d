@@ -6,7 +6,7 @@
 <title>大地のつくり 3D土地模型</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css?v=20260930065535">
+<link rel="stylesheet" href="css/style.css?v=20260930121933">
 </head>
 <body>
 <div id="viewport"></div>
@@ -334,11 +334,20 @@
 <dialog id="shareDialog" class="wide">
   <form method="dialog">
     <h3>🔗 子ども用リンク（いまの画面を配る）</h3>
-    <p class="hint">いまの見え方（カメラの向き・断面の線・「？」にした柱・お気に入りの色・はがした層・川や谷戸の表示）を、そのままリンクにします。ロイロノートやClassroomで配ると、子どもはこの画面から始められます。</p>
+    <p class="hint">いまの見え方（地図・範囲・高さの強調・カメラの向き・断面の線・「？」にした柱・お気に入りの色・はがした層・川や谷戸の表示）を、そのままリンクにします。ロイロノートやClassroomで配ると、子どもはこの画面から始められます。</p>
     <label class="toggle"><input type="checkbox" id="shareLock"> 答え合わせ（模型の地層を見る・大地のでき方）を使えないようにする</label>
     <label class="toggle"><input type="checkbox" id="shareStrokes"> 先生がかいた予想の線もいっしょに配る</label>
+    <details id="shareBoresBox" open><summary><b>📍 見せる柱状図</b></summary>
+      <label class="toggle"><input type="radio" name="shareBores" value="all" checked> 全部の柱を見せる</label>
+      <label class="toggle"><input type="radio" name="shareBores" value="picked" id="shareBoresPicked"> えらんだ柱だけを見せる <b id="sharePickedN"></b></label>
+      <p class="hint" id="sharePickedHint">下のボタンの「📍 柱状図を選択して断面図を作成」で柱をえらんで断面図を作ってから、この画面を開くと、その柱だけを子どもに見せられます（ほかの柱は、旗も柱も出ません。模型の地層はそのままです）。</p>
+    </details>
+    <details id="shareUiBox"><summary><b>🧩 子どもの画面に出すボタン（外したものは出ません）</b></summary>
+      <div class="btnrow"><button type="button" id="shareUiAll">全部出す</button><button type="button" id="shareUiMin">見るだけ（少なく）</button></div>
+      <div id="shareUi"></div>
+    </details>
     <p class="hint">子どもの画面では「先生モード」は出ません。</p>
-    <div class="btnrow"><button type="button" id="shareMake" class="primary">リンクをつくる</button><button type="button" id="shareCopy">📋 コピー</button></div>
+    <div class="btnrow"><button type="button" id="shareMake" class="primary">リンクをつくる</button><button type="button" id="shareCopy">📋 コピー</button><button type="button" id="shareTry">👀 子どもの画面をためす</button></div>
     <textarea id="shareOut" rows="3" readonly spellcheck="false"></textarea>
     <p id="shareFileNote" class="hint warnbox hidden">⚠ いまはパソコンの中のファイルを開いているので、リンクもこのパソコンの中の場所になります。インターネットに公開したアドレスで開いてから作ると、子どもの端末でも開けるリンクになります。</p>
     <hr>
@@ -357,6 +366,24 @@
     <div class="btnrow"><input id="shareFormUrl" type="text" placeholder="https://docs.google.com/forms/d/e/…/viewform?usp=pp_url&entry.…=NAME…" style="flex:1"><button type="button" id="shareFormSave">決める</button></div>
     <p id="shareFormState" class="hint"></p>
     <div class="btnrow end"><button value="cancel">閉じる</button></div>
+  </form>
+</dialog>
+
+<!-- 3Dプリンター用（Bambu Lab A1 mini） -->
+<dialog id="printDialog">
+  <form method="dialog">
+    <h3>🧊 3Dプリンター用のデータ（Bambu Lab A1 mini）</h3>
+    <p class="hint">いま画面に出している模型（範囲・はがした地層）で作ります。できたファイルを Bambu Studio で開くと、そのまま印刷の準備ができます。</p>
+    <label>大きさ（一辺）<select id="prSize"><option value="170" selected>170mm（A1 mini いっぱい）</option><option value="150">150mm</option><option value="120">120mm</option><option value="100">100mm（早く印刷できる）</option></select></label>
+    <label>高さの強調<select id="prVe"></select></label>
+    <label>土台の厚さ<select id="prBase"><option value="2">2mm</option><option value="3" selected>3mm</option><option value="5">5mm</option></select></label>
+    <label>色<select id="prColor"><option value="one">1色（地形だけ）</option><option value="layers">地層ごとに色分け（AMS lite で色をつける）</option></select></label>
+    <label>ファイルの形<select id="prFmt"><option value="3mf" selected>3MF（Bambu Studio 用・おすすめ）</option><option value="stl">STL（ほかのソフト用・1色だけ）</option></select></label>
+    <p id="prInfo" class="hint"></p>
+    <details class="hint"><summary>色分けのしかた（Bambu Studio）</summary>
+      <ol><li>3MFファイルを Bambu Studio で開く</li><li>左の「オブジェクト」の一覧に、地層の名前の部品（ローム層・泥岩など）が出ます</li><li>部品をえらんで、使うフィラメント（1〜4番）をえらぶ。似た地層は同じ色にまとめてもよい</li><li>いちばん上の地層がとてもうすい所は、色が出にくいことがあります</li></ol>
+    </details>
+    <div class="btnrow end"><button value="cancel">やめる</button><button type="button" id="prGo" class="primary">💾 保存する</button></div>
   </form>
 </dialog>
 
@@ -408,18 +435,18 @@
 
 <footer id="attribution">出典：<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">国土地理院（地理院タイル・標高タイル）</a> ／ 目印：<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap</a> ／ 地下の地層はボーリング資料からの推定です（<a href="#" id="attrMore">くわしく</a>）</footer>
 
-<script src="lib/three.min.js?v=20260930065535"></script>
-<script src="lib/OrbitControls.js?v=20260930065535"></script>
+<script src="lib/three.min.js?v=20260930121933"></script>
+<script src="lib/OrbitControls.js?v=20260930121933"></script>
 <script>window.CHISOU = { sites: {}, registerSite: function (s) { this.sites[s.id] = s; } };</script>
-<script src="js/geo.js?v=20260930065535"></script>
-<script src="js/geology.js?v=20260930065535"></script>
-<script src="sites/sites.js?v=20260930065535"></script>
-<script src="js/section.js?v=20260930065535"></script>
-<script src="js/boringxml.js?v=20260930065535"></script>
-<script src="js/mvt.js?v=20260930065535"></script>
-<script src="js/yato_yokohama.js?v=20260930065535"></script>
-<script src="js/ngic_bookmarklet.js?v=20260930065535"></script>
-<script src="js/help.js?v=20260930065535"></script>
-<script src="js/app.js?v=20260930065535"></script>
+<script src="js/geo.js?v=20260930121933"></script>
+<script src="js/geology.js?v=20260930121933"></script>
+<script src="sites/sites.js?v=20260930121933"></script>
+<script src="js/section.js?v=20260930121933"></script>
+<script src="js/boringxml.js?v=20260930121933"></script>
+<script src="js/mvt.js?v=20260930121933"></script>
+<script src="js/yato_yokohama.js?v=20260930121933"></script>
+<script src="js/ngic_bookmarklet.js?v=20260930121933"></script>
+<script src="js/help.js?v=20260930121933"></script>
+<script src="js/app.js?v=20260930121933"></script>
 </body>
 </html>

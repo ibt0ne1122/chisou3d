@@ -37,7 +37,7 @@
     setTimeout(run, 0); // 1ファイル版：設定がすでに入っている（準備が終わってから始める）
   } else {
     const sc = document.createElement("script");
-    sc.src = entry.file + "?v=20260930065535";
+    sc.src = entry.file + "?v=20260930121933";
     sc.onload = run;
     sc.onerror = () => showError("場所の設定ファイル（" + entry.file + "）を読み込めませんでした。ZIPの場合は「すべて展開」してから開いてください。");
     document.body.appendChild(sc);
@@ -1586,35 +1586,160 @@
     if (near) $("digNear").onclick = () => showBore(near.b.id);
   }
 
-  // ---------- 3Dプリンター用のデータ（STL） ----------
-  function exportSTL() {
-    const g = S.grid, n = g.n, N = n + 1, h = g.ground;
-    const sizeMM = 150, k = sizeMM / (2 * g.half), ve = S.ve;
-    let lo = Infinity; for (let i = 0; i < h.length; i++) lo = Math.min(lo, h[i]);
-    const baseMM = 5, zOf = (v) => baseMM + (v - lo) * k * ve;
-    const X = (i) => i * g.step * k, Y = (j) => (n - j) * g.step * k; // 北が上
-    const tris = [];
-    const T = (a, b, c) => tris.push(a, b, c);
-    const P = (i, j, top) => [X(i), Y(j), top ? zOf(h[j * N + i]) : 0];
+  // ---------- 3Dプリンター用のデータ（Bambu Lab A1 mini 向け：3MF／STL） ----------
+  //  いま画面に出している模型（半径・はがした地層・高さの強調）を、そのまま印刷用の形にする。
+  //  A1 mini の造形サイズは 180×180×180mm。3MF は Bambu Studio でそのまま開けて、
+  //  「地層ごとに色分け」にすると、地層が別々の部品になる（AMS lite で色を割り当てられる）。
+  const PRINT_MAX = 180;
+  function openPrintDialog() {
+    const d = $("printDialog");
+    $("prVe").innerHTML = [["now", "今の表示と同じ（×" + S.ve + "）"], ["1", "×1（本当の形）"], ["2", "×2"], ["3", "×3"], ["5", "×5"]].map(([v, t]) => '<option value="' + v + '">' + t + "</option>").join("");
+    const upd = () => {
+      const o = printOpts(), h = o.heightMM;
+      $("prInfo").innerHTML = "できあがり：<b>" + o.sizeMM + "mm × " + o.sizeMM + "mm、高さ 約" + h.toFixed(0) + "mm</b>（" + (o.color ? "地層ごとに色分け・" + o.bandsCount + "色" : "1色") + "）<br>" +
+        (h > PRINT_MAX - 5 ? '<span class="warn">⚠ 高すぎて A1 mini（180mm）に入りません。高さの強調を小さくしてください</span>' : "✅ Bambu Lab A1 mini（180×180×180mm）に入ります") +
+        (S.peel ? "<br>はがした地層は、はがしたままの形で作ります" : "") + (S.section ? "<br>※ 切った模型は、切る前の四角い形で作ります" : "");
+      $("prFmt").querySelector('[value="stl"]').disabled = o.color;
+      if (o.color && $("prFmt").value === "stl") $("prFmt").value = "3mf";
+    };
+    ["prSize", "prVe", "prBase", "prColor", "prFmt"].forEach((id) => ($(id).onchange = upd));
+    upd();
+    $("prGo").onclick = async () => { $("prGo").disabled = true; $("prGo").textContent = "つくっています…"; try { await exportPrint(printOpts()); d.close(); } finally { $("prGo").disabled = false; $("prGo").textContent = "💾 保存する"; } };
+    d.showModal();
+  }
+  /** 印刷の設定と、高さ（mm）の見積もり */
+  function printOpts() {
+    const sizeMM = +$("prSize").value, ve = $("prVe").value === "now" ? S.ve : +$("prVe").value, baseMM = +$("prBase").value, color = $("prColor").value === "layers";
+    const g = S.grid, k = sizeMM / (2 * g.half), top = surfaceHeights();
+    let hi = -Infinity, lo = Infinity; for (let i = 0; i < top.length; i++) { hi = Math.max(hi, top[i]); lo = Math.min(lo, top[i]); }
+    const bottom = color ? S.model.base : lo;
+    const bands = color ? printBands(top).length : 1;
+    return { sizeMM, ve, baseMM, color, fmt: $("prFmt").value, k, top, bottom, heightMM: baseMM + (hi - bottom) * k * ve, bandsCount: bands };
+  }
+  /** 地層ごとの「上の面・下の面」（いまの表面から土台まで、すきまなく重ねる） */
+  function printBands(top) {
+    const m = S.model, L = m.tops.length, M = top.length, out = [];
+    let prev = Float32Array.from(top);
+    for (let li = 0; li < L; li++) {
+      const bot = new Float32Array(M);
+      let maxT = 0;
+      for (let q = 0; q < M; q++) {
+        const b = li === L - 1 ? m.base : Math.max(m.base, Math.min(prev[q], m.bots[li][q]));
+        bot[q] = b; maxT = Math.max(maxT, prev[q] - b);
+      }
+      if (maxT > 0.3) out.push({ li, top: prev, bot });
+      prev = bot;
+    }
+    return out;
+  }
+  /** 上の面と下の面ではさまれた、とじた形（すきまのない立体）を作る */
+  function bandMesh(topArr, botArr, N, stride, P) {
+    const n = Math.floor((N - 1) / stride), W = n + 1, idx = (i, j) => (j * stride) * N + i * stride;
+    const V = [], T = [];
+    for (let j = 0; j < W; j++) for (let i = 0; i < W; i++) V.push(P(i, j, topArr[idx(i, j)]));
+    for (let j = 0; j < W; j++) for (let i = 0; i < W; i++) V.push(P(i, j, botArr[idx(i, j)]));
+    const t = (i, j) => j * W + i, b = (i, j) => W * W + j * W + i;
     for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
-      const a = P(i, j, 1), b = P(i + 1, j, 1), c = P(i, j + 1, 1), d = P(i + 1, j + 1, 1);
-      T(a, c, b); T(b, c, d);
+      T.push(t(i, j), t(i, j + 1), t(i + 1, j), t(i + 1, j), t(i, j + 1), t(i + 1, j + 1)); // 上（外向き）
+      T.push(b(i, j), b(i + 1, j), b(i, j + 1), b(i + 1, j), b(i + 1, j + 1), b(i, j + 1)); // 下
     }
-    const wall = (pts) => { for (let q = 0; q < pts.length - 1; q++) { const [i0, j0] = pts[q], [i1, j1] = pts[q + 1], a = P(i0, j0, 1), b = P(i1, j1, 1), a0 = P(i0, j0, 0), b0 = P(i1, j1, 0); T(a, a0, b); T(b, a0, b0); } };
-    const side = (f) => Array.from({ length: N }, (_, t) => f(t));
-    wall(side((t) => [t, n]));
-    wall(side((t) => [n, n - t]));
-    wall(side((t) => [n - t, 0]));
-    wall(side((t) => [0, t]));
-    const s = sizeMM; T([0, 0, 0], [s, s, 0], [s, 0, 0]); T([0, 0, 0], [0, s, 0], [s, s, 0]);
-    const cnt = tris.length / 3, buf = new ArrayBuffer(84 + cnt * 50), dv = new DataView(buf);
-    for (let q = 0; q < cnt; q++) {
-      const o = 84 + q * 50; let off = o + 12;
-      for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) { dv.setFloat32(off, tris[q * 3 + r][c], true); off += 4; }
+    // まわりのかべ（上から見て時計回りに一周）
+    const ring = [];
+    for (let i = 0; i < n; i++) ring.push([i, 0]);
+    for (let j = 0; j < n; j++) ring.push([n, j]);
+    for (let i = n; i > 0; i--) ring.push([i, n]);
+    for (let j = n; j > 0; j--) ring.push([0, j]);
+    for (let q = 0; q < ring.length; q++) {
+      const [i0, j0] = ring[q], [i1, j1] = ring[(q + 1) % ring.length];
+      T.push(t(i0, j0), t(i1, j1), b(i0, j0), t(i1, j1), b(i1, j1), b(i0, j0));
     }
-    dv.setUint32(80, cnt, true);
-    download("3D土地模型-" + S.site.id + "-高さ×" + ve + ".stl", buf, "model/stl");
-    flashHint("🧊 3Dプリンター用のデータ（STL）を保存しました：一辺 " + sizeMM + "mm、高さ ×" + ve + "（下の厚み " + baseMM + "mm）");
+    return { V, T };
+  }
+  async function exportPrint(o) {
+    const g = S.grid, N = g.n + 1, k = o.k;
+    // 色分けは部品が多くなるので、少しあらくする（1辺 約110点）
+    const stride = o.color ? Math.max(1, Math.round((N - 1) / 110)) : Math.max(1, Math.round((N - 1) / 220));
+    const zOf = (v) => Math.max(0, o.baseMM + (v - o.bottom) * k * o.ve);
+    const P = (i, j, v) => [i * stride * g.step * k, (N - 1 - j * stride) * g.step * k, zOf(v)];
+    const parts = [];
+    if (o.color) {
+      // いちばん下の地層を、土台の厚さの分だけ下にのばす
+      const bands = printBands(o.top);
+      const base = new Float32Array(o.top.length).fill(S.model.base - o.baseMM / (k * o.ve));
+      bands[bands.length - 1] = Object.assign({}, bands[bands.length - 1], { bot: base });
+      for (const bd of bands) { const L = S.site.layers[bd.li]; parts.push(Object.assign(bandMesh(bd.top, bd.bot, N, stride, P), { name: L.short || L.name, color: L.color })); }
+    } else {
+      const base = new Float32Array(o.top.length).fill(o.bottom - o.baseMM / (k * o.ve));
+      parts.push(Object.assign(bandMesh(o.top, base, N, stride, P), { name: S.site.title, color: "#c8b89a" }));
+    }
+    const name = "3D土地模型-" + S.site.title + "-" + o.sizeMM + "mm-高さ×" + o.ve + (o.color ? "-地層色分け" : "");
+    if (o.fmt === "stl") {
+      const p = parts[0], cnt = p.T.length / 3, buf = new ArrayBuffer(84 + cnt * 50), dv = new DataView(buf);
+      for (let q = 0; q < cnt; q++) { let off = 84 + q * 50 + 12; for (let r = 0; r < 3; r++) { const v = p.V[p.T[q * 3 + r]]; for (let c = 0; c < 3; c++) { dv.setFloat32(off, v[c], true); off += 4; } } }
+      dv.setUint32(80, cnt, true);
+      download(name + ".stl", buf, "model/stl");
+    } else {
+      const blob = await make3MF(parts, S.site.title);
+      download(name + ".3mf", blob, "model/3mf");
+    }
+    flashHint("🧊 3Dプリンター用のデータを保存しました（" + o.sizeMM + "mm、高さ約" + o.heightMM.toFixed(0) + "mm）。Bambu Studio で開いてください");
+  }
+  /** 3MF（中身は zip）を作る。部品が複数あるときは「1つの模型の部品」としてまとめる */
+  async function make3MF(parts, title) {
+    const xmlEsc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+    const out = ['<?xml version="1.0" encoding="UTF-8"?>\n<model unit="millimeter" xml:lang="ja-JP" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">\n<metadata name="Title">' + xmlEsc(title) + '</metadata>\n<metadata name="Application">3D土地模型（chisou3d）</metadata>\n<resources>\n<basematerials id="1">'];
+    for (const p of parts) out.push('<base name="' + xmlEsc(p.name) + '" displaycolor="' + p.color + '"/>');
+    out.push("</basematerials>");
+    parts.forEach((p, pi) => {
+      const buf = ['<object id="' + (pi + 2) + '" type="model" name="' + xmlEsc(p.name) + '" pid="1" pindex="' + pi + '"><mesh><vertices>'];
+      for (const v of p.V) buf.push('<vertex x="' + v[0].toFixed(3) + '" y="' + v[1].toFixed(3) + '" z="' + v[2].toFixed(3) + '"/>');
+      buf.push("</vertices><triangles>");
+      for (let q = 0; q < p.T.length; q += 3) buf.push('<triangle v1="' + p.T[q] + '" v2="' + p.T[q + 1] + '" v3="' + p.T[q + 2] + '"/>');
+      buf.push("</triangles></mesh></object>");
+      out.push(buf.join("\n"));
+    });
+    let buildId = 2;
+    if (parts.length > 1) {
+      buildId = parts.length + 2;
+      out.push('<object id="' + buildId + '" type="model" name="' + xmlEsc(title) + '"><components>' + parts.map((p, pi) => '<component objectid="' + (pi + 2) + '"/>').join("") + "</components></object>");
+    }
+    out.push('</resources>\n<build><item objectid="' + buildId + '"/></build>\n</model>');
+    const enc = new TextEncoder();
+    return makeZip([
+      ["[Content_Types].xml", enc.encode('<?xml version="1.0" encoding="UTF-8"?>\n<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/></Types>')],
+      ["_rels/.rels", enc.encode('<?xml version="1.0" encoding="UTF-8"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Target="/3D/3dmodel.model" Id="rel0" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/></Relationships>')],
+      ["3D/3dmodel.model", enc.encode(out.join("\n"))],
+    ]);
+  }
+  /** かんたんな zip 作り（できる端末では圧縮する） */
+  let crcTable = null;
+  function crc32(u8) {
+    if (!crcTable) { crcTable = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; crcTable[n] = c >>> 0; } }
+    let c = 0xffffffff; for (let i = 0; i < u8.length; i++) c = crcTable[(c ^ u8[i]) & 0xff] ^ (c >>> 8);
+    return (c ^ 0xffffffff) >>> 0;
+  }
+  async function deflateRaw(u8) {
+    if (typeof CompressionStream === "undefined") return null;
+    try { return new Uint8Array(await new Response(new Blob([u8]).stream().pipeThrough(new CompressionStream("deflate-raw"))).arrayBuffer()); } catch (e) { return null; }
+  }
+  async function makeZip(files) {
+    const chunks = [], central = []; let offset = 0;
+    const enc = new TextEncoder();
+    for (const [name, data] of files) {
+      const nm = enc.encode(name), crc = crc32(data), comp = await deflateRaw(data), method = comp ? 8 : 0, body = comp || data;
+      const h = new DataView(new ArrayBuffer(30));
+      h.setUint32(0, 0x04034b50, true); h.setUint16(4, 20, true); h.setUint16(6, 0x0800, true); h.setUint16(8, method, true);
+      h.setUint32(14, crc, true); h.setUint32(18, body.length, true); h.setUint32(22, data.length, true); h.setUint16(26, nm.length, true);
+      chunks.push(new Uint8Array(h.buffer), nm, body);
+      const c = new DataView(new ArrayBuffer(46));
+      c.setUint32(0, 0x02014b50, true); c.setUint16(4, 20, true); c.setUint16(6, 20, true); c.setUint16(8, 0x0800, true); c.setUint16(10, method, true);
+      c.setUint32(16, crc, true); c.setUint32(20, body.length, true); c.setUint32(24, data.length, true); c.setUint16(28, nm.length, true); c.setUint32(42, offset, true);
+      central.push(new Uint8Array(c.buffer), nm);
+      offset += 30 + nm.length + body.length;
+    }
+    const csize = central.reduce((a, u) => a + u.length, 0), e = new DataView(new ArrayBuffer(22));
+    e.setUint32(0, 0x06054b50, true); e.setUint16(8, files.length, true); e.setUint16(10, files.length, true); e.setUint32(12, csize, true); e.setUint32(16, offset, true);
+    return new Blob([...chunks, ...central, new Uint8Array(e.buffer)], { type: "model/3mf" });
   }
 
   // ---------- 断面図の予想ワークシート（印刷用） ----------
@@ -3067,7 +3192,7 @@
     // 学習の道具
     $("btnDig").onclick = () => setDig(!S.digOn);
     $("btnSheet").onclick = printWorksheet;
-    $("btnSTL").onclick = exportSTL;
+    $("btnSTL").onclick = openPrintDialog;
     $("qRiver").onclick = () => setRiver(!S.showRivers);
     // 谷戸：この模型の中に谷戸があるときだけボタンを出す
     const setYato = (v) => { S.showYato = v; store.set("chisou3d:yato", v); $("chkYato").checked = v; $("qYato").classList.toggle("on", v); buildYato(); if (S.section) openSectionSheet(); };
@@ -3534,6 +3659,7 @@
       S.mode = "section";
       document.querySelectorAll("#modebar button[data-mode]").forEach((b) => b.classList.toggle("active", b.dataset.mode === "section"));
       $("pickBar").classList.add("hidden");
+      S.lastPickIds = S.pickIds.slice(); // 子ども用リンクで「えらんだ柱だけ」に使う
       S.pickIds = [];
       S.sectionPts = pts;
       makeSection(pts.slice());
@@ -3685,6 +3811,13 @@
     if (S.showRivers) st.riv = 1;
     if (S.showYato) st.yato = 1;
     if (S.lift) st.lift = 1;
+    if (S.ve !== (S.site.defaultExaggeration || 3)) st.vz = S.ve;
+    if (S.opacity < 1) st.op = S.opacity;
+    if (S.hazard && S.hazard !== "none") st.hz = S.hazard;
+    if (S.showBasin) st.basin = 1;
+    if (S.boreNames === false) st.nobn = 1;
+    if (o.only && o.only.length) st.only = o.only;
+    if (o.ui && o.ui.length) st.ui = o.ui;
     if (o.strokes && secView && secView.strokes.length) st.strokes = packStrokes(secView.strokes);
     if (o.memo) st.memo = { name: $("memoName").value, predict: $("memoPredict").value, result: $("memoResult").value };
     if (o.kid) st.kid = o.kid;
@@ -3706,6 +3839,17 @@
         $("secStage").disabled = true;
       }
     }
+    if (st.ui) applyKidUi(st.ui);
+    if (st.only) {
+      // 先生がえらんだ柱だけを見せる（模型の地層の推定は、全部の柱からのまま）
+      const only = new Set(st.only);
+      S.bores = S.bores.filter((b) => only.has(b.id));
+    }
+    if (st.vz) { $("veRange").value = st.vz; $("veRange").dispatchEvent(new Event("input")); }
+    if (st.op) { $("opacityRange").value = st.op; $("opacityRange").dispatchEvent(new Event("input")); }
+    if (st.hz) await setHazard(st.hz);
+    if (st.basin) setChk("chkBasin", 1);
+    if (st.nobn && $("qNames").classList.contains("on")) $("qNames").click();
     if (st.map && st.map !== S.mapType) await setMap(st.map);
     if (st.relief && st.relief !== S.relief) setRelief(st.relief);
     setChk("chkRiver", st.riv);
@@ -3787,10 +3931,68 @@
     $("shareFormState").textContent = S.formCfg ? "✅ 送り先のフォームが決まっています" : "（まだ決まっていません。下の手順でフォームを作って、URLをはりつけてください）";
     $("shareOut").value = "";
     $("shareFileNote").classList.toggle("hidden", location.protocol !== "file:");
+    buildShareUi();
     $("shareDialog").showModal();
   }
+  /** 子どもの画面で「出す・出さない」をえらべるもの（キー → 画面の部品） */
+  function kidUiTargets() {
+    const out = [];
+    const add = (group, key, label, els) => { if (els.length) out.push({ group, key, label: label.replace(/\s+/g, " ").trim(), els }); };
+    document.querySelectorAll("#modebar > button").forEach((b) => {
+      if (b.id === "mbFold" || b.classList.contains("teacher-only")) return;
+      add("下のボタン", "mb:" + (b.dataset.mode || b.id), b.textContent, [b]);
+    });
+    add("左のパネル", "panel", "☰ パネル全体（外すと、パネルのボタンごと出ません）", [$("controls")]);
+    document.querySelectorAll("#controls .panel-body > section").forEach((sec) => {
+      const h = sec.querySelector("h2");
+      if (sec.classList.contains("checks")) {
+        sec.querySelectorAll("label").forEach((lb) => { const i = lb.querySelector("input"); if (i && i.id) add("パネルの中（表示の切りかえ）", "ck:" + i.id, lb.textContent, [lb]); });
+        return;
+      }
+      if (!h) return;
+      const t = h.textContent.replace(/×[\d.]+/, "").trim();
+      if (t === "学習の道具") { sec.querySelectorAll("button").forEach((b) => add("パネルの中（学習の道具）", "tl:" + b.id, b.textContent, [b])); return; }
+      if (t === "その他") { add("パネルの中", "ps:その他", "その他（画面を保存・メモ一覧）", [sec]); return; }
+      add("パネルの中", "ps:" + t, t, [sec]);
+    });
+    add("右上・右下", "help", "？ 使い方", [$("btnHelp")]);
+    add("右上・右下", "sources", "📚 根拠", [$("btnSources")]);
+    add("右上・右下", "navpad", "🎮 動かすボタン", [$("navpad")]);
+    add("断面図の中", "sh:secStage", "🎬 大地のでき方", [$("secStage").parentElement]);
+    add("断面図の中", "sh:secMemoBtn", "📝 考えメモ", [$("secMemoBtn")]);
+    add("断面図の中", "sh:secSave", "📷 保存", [$("secSave")]);
+    return out;
+  }
+  function applyKidUi(hide) {
+    const set = new Set(hide);
+    for (const t of kidUiTargets()) if (set.has(t.key)) t.els.forEach((e) => e.classList.add("kid-hide"));
+    if (S.relayout) S.relayout();
+  }
+  function buildShareUi() {
+    const saved = new Set(store.get("chisou3d:kidUiHide", []));
+    let html = "", grp = "";
+    for (const t of kidUiTargets()) {
+      if (t.group !== grp) { html += (grp ? "</div>" : "") + '<div class="ui-group"><b>' + esc(t.group) + "</b>"; grp = t.group; }
+      html += '<label class="toggle"><input type="checkbox" data-ui="' + esc(t.key) + '"' + (saved.has(t.key) ? "" : " checked") + "> " + esc(t.label) + "</label>";
+    }
+    $("shareUi").innerHTML = html + (grp ? "</div>" : "");
+    const boxes = () => $("shareUi").querySelectorAll("[data-ui]");
+    const save = () => store.set("chisou3d:kidUiHide", [...boxes()].filter((c) => !c.checked).map((c) => c.dataset.ui));
+    boxes().forEach((c) => (c.onchange = save));
+    $("shareUiAll").onclick = () => { boxes().forEach((c) => (c.checked = true)); save(); };
+    $("shareUiMin").onclick = () => {
+      const keep = /^(mb:view|mb:qNames|help|navpad|ps:地層の色（凡例）)$/;
+      boxes().forEach((c) => (c.checked = keep.test(c.dataset.ui))); save();
+    };
+    const ids = S.lastPickIds || [];
+    $("shareBoresPicked").disabled = ids.length < 1;
+    $("sharePickedN").textContent = ids.length ? "（" + ids.length + "本）" : "（まだえらんでいません）";
+    if (!ids.length) document.querySelector('[name="shareBores"][value="all"]').checked = true;
+  }
   async function makeKidLink() {
-    const st = captureState({ strokes: $("shareStrokes").checked, kid: { lock: $("shareLock").checked ? 1 : 0 }, form: true });
+    const hide = [...$("shareUi").querySelectorAll("[data-ui]")].filter((c) => !c.checked).map((c) => c.dataset.ui);
+    const only = document.querySelector('[name="shareBores"]:checked').value === "picked" ? (S.lastPickIds || []) : null;
+    const st = captureState({ strokes: $("shareStrokes").checked, kid: { lock: $("shareLock").checked ? 1 : 0 }, form: true, ui: hide, only });
     $("shareOut").value = baseUrl() + "#k=" + (await packState(st));
     $("shareOut").select();
   }
@@ -3798,6 +4000,7 @@
     S.formCfg = store.get("chisou3d:formCfg", null);
     $("btnShare").onclick = openShareDialog;
     $("shareMake").onclick = makeKidLink;
+    $("shareTry").onclick = async () => { await makeKidLink(); window.open($("shareOut").value, "_blank"); };
     $("shareCopy").onclick = async () => {
       if (!$("shareOut").value) await makeKidLink();
       try { await navigator.clipboard.writeText($("shareOut").value); flashHint("📋 リンクをコピーしました"); } catch (e) { $("shareOut").select(); document.execCommand("copy"); flashHint("📋 リンクをコピーしました"); }

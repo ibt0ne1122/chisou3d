@@ -501,3 +501,14 @@ button, select, input, label { touch-action: manipulation; }
 #cutGuideBar input[type=range] { width: 150px; height: 32px; accent-color: #e53935; }
 #cutGuideBar b { min-width: 5.5em; }
 #cutGo { background: #e53935; border-color: #e53935; color: #fff; }
+#printDialog label { display: block; margin: 6px 0; }
+#printDialog select { width: 100%; }
+#prInfo .warn { color: #c62828; font-weight: 700; }
+/* 子どもの画面で出さないもの */
+.kid-hide { display: none !important; }
+#shareUi .ui-group { margin: 6px 0; padding: 4px 8px; background: #f5f8fa; border-radius: 8px; }
+#shareUi .ui-group > b { display: block; font-size: 13px; color: var(--sub); }
+#shareUi label.toggle { display: inline-flex; margin: 2px 8px 2px 0; font-size: 14px; }
+#shareDialog label.toggle { display: flex !important; align-items: center; gap: 8px; margin: 4px 0; }
+#shareDialog label.toggle input { margin: 0; flex: 0 0 auto; width: 20px; height: 20px; }
+#shareUi label.toggle { display: inline-flex !important; }
