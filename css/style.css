@@ -455,3 +455,20 @@ body.sheet-full #floatStack { display: none; }
 .geo-list li { display: flex; gap: 6px; align-items: flex-start; margin: 3px 0; }
 .geo-list i { flex: 0 0 16px; height: 14px; margin-top: 3px; border-radius: 3px; border: 1px solid rgba(0,0,0,0.25); display: inline-block; }
 @media (max-width: 760px) { #floatStack { top: 64px; right: 84px; width: calc(100vw - 100px); } .fcard { max-height: 36vh; } }
+/* 学習の道具 */
+.btnrow.tools { flex-wrap: wrap; }
+.btnrow.tools button { flex: 1 1 45%; font-size: 13px; }
+#btnDig.on { background: #ffebee; border-color: #c62828; color: #b71c1c; font-weight: 700; }
+#notePhotoPrev img { max-width: 100%; max-height: 160px; border-radius: 8px; margin-top: 4px; }
+/* 流れる水の実験 */
+#labBox { position: fixed; inset: 0; z-index: 40; background: rgba(20,30,40,0.45); display: grid; place-items: center; padding: 10px; }
+#labBox.hidden { display: none; }
+.lab-card { background: var(--panel); border-radius: 14px; box-shadow: var(--shadow); padding: 10px 12px; width: min(760px, 100%); max-height: 100%; overflow-y: auto; }
+.lab-card canvas { width: 100%; height: auto; border-radius: 8px; display: block; background: #f4f8fb; }
+.lab-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; margin: 6px 0; }
+.lab-legend i { display: inline-block; width: 14px; height: 12px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; }
+.lab-msg { font-size: 15px; min-height: 2.6em; margin: 4px 0; }
+.lab-card .btnrow button.on { background: #e3f0fb; border-color: #1f5f99; }
+/* 説明カードは、右の詳しい情報（柱状図など）と重ならないよう左へよける */
+@media (min-width: 761px) { body:has(#detail:not(.hidden)) #floatStack { right: 386px; } }
+#floatStack { z-index: 8; }

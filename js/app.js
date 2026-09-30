@@ -37,7 +37,7 @@
     setTimeout(run, 0); // 1ファイル版：設定がすでに入っている（準備が終わってから始める）
   } else {
     const sc = document.createElement("script");
-    sc.src = entry.file + "?v=20260930002815";
+    sc.src = entry.file + "?v=20260930005739";
     sc.onload = run;
     sc.onerror = () => showError("場所の設定ファイル（" + entry.file + "）を読み込めませんでした。ZIPの場合は「すべて展開」してから開いてください。");
     document.body.appendChild(sc);
@@ -225,7 +225,7 @@
     const fill = new THREE.DirectionalLight(0xffffff, 0.18);
     fill.position.set(0.7, 0.3, -0.5);
     scene.add(fill);
-    for (const g of ["walls", "bores", "labels", "notes", "ring", "section", "markers", "rivers", "yato"]) {
+    for (const g of ["walls", "bores", "labels", "notes", "ring", "section", "markers", "rivers", "yato", "lore", "dig"]) {
       groups[g] = new THREE.Group();
       scene.add(groups[g]);
     }
@@ -383,6 +383,8 @@
     buildLabels();
     buildNotes();
     buildRing();
+    buildLore();
+    buildDig();
     if (S.section) buildSectionRibbon();
     updateMarkers();
   }
@@ -1134,7 +1136,7 @@
       const top = y + 60;
       const grp = new THREE.Group();
       grp.add(pinLine(nt.x, nt.z, y, top, 0x8a6d00));
-      const txt = wrapText(nt.text, 14) + (nt.author ? "\n― " + nt.author : "");
+      const txt = (nt.photo ? "📷 " : "") + wrapText(nt.text, 14) + (nt.author ? "\n― " + nt.author : "");
       const lab = makeLabel(txt, { bg: nt.color || "#ffd54f", border: "rgba(0,0,0,0.3)", size: 13 });
       lab.position.set(nt.x, top, nt.z);
       lab.userData.pick = { type: "note", id: nt.id };
@@ -1351,7 +1353,9 @@
     S.hazard = type;
     $("hazardSelect").value = type;
     S.hazardCanvas = S.hazardCanvas || {};
-    if (type !== "none" && !S.hazardCanvas[type]) {
+    if (type === "lore") await loadLore();
+    buildLore();
+    if (type !== "none" && !C.HAZARDS[type].lore && !S.hazardCanvas[type]) {
       const hz = C.HAZARDS[type];
       flashHint("防災の情報を読み込み中…");
       let zoom = hz.zoom;
@@ -1374,6 +1378,7 @@
     if (type === "none") box.classList.add("hidden");
     else {
       box.innerHTML = "<b>" + esc(C.HAZARDS[type].name) + "</b><br>" + esc(C.HAZARDS[type].legend) +
+        (type === "lore" ? "<br>" + loreSummary() : "") +
         '<br>谷の底（沖積層）や急な坂と、くらべてみよう。<br><a href="https://disaportal.gsi.go.jp/" target="_blank" rel="noopener">ハザードマップポータルサイト ↗</a>';
       box.classList.remove("hidden");
     }
@@ -1412,6 +1417,173 @@
     texMat.map = tex;
     texMat.needsUpdate = true;
   }
+  // ---------- 自然災害伝承碑（国土地理院） ----------
+  async function loadLore() {
+    if (S.lore && S.lore.site === S.site.id + S.site.half) return;
+    flashHint("自然災害伝承碑を読み込み中…");
+    const z = 7, c = S.site.center, n = Math.pow(2, z);
+    const tx = (lon) => Math.floor(((lon + 180) / 360) * n), ty = (lat) => Math.floor(((1 - Math.log(Math.tan((lat * Math.PI) / 180) + 1 / Math.cos((lat * Math.PI) / 180)) / Math.PI) / 2) * n);
+    const d = 0.2, tiles = new Set();
+    for (const la of [c.lat - d, c.lat + d]) for (const lo of [c.lon - d, c.lon + d]) tiles.add(tx(lo) + "/" + ty(la));
+    const all = [];
+    for (const t of tiles) {
+      try {
+        const res = await fetch(C.LORE_URL.replace("{z}", z).replace("{x}/{y}", t));
+        if (!res.ok) continue;
+        const j = await res.json();
+        for (const f of j.features || []) {
+          const [lon, lat] = f.geometry.coordinates, p = S.frame.toLocal(lat, lon), pr = f.properties || {};
+          all.push({ id: pr.ID || lat + "," + lon, x: p.x, z: p.z, dist: Math.hypot(p.x, p.z), name: pr.LoreName || "伝承碑", kind: pr.DisasterKind || "", dname: String(pr.DisasterName || "").replace(/<br>/g, " "), info: pr.DisasterInfo || "", addr: pr.Address || "", img: pr.Image || "" });
+        }
+      } catch (e) { /* つながらない */ }
+    }
+    const seen = new Set();
+    S.lore = { site: S.site.id + S.site.half, list: all.filter((a) => (seen.has(a.id) ? false : seen.add(a.id))).sort((a, b) => a.dist - b.dist) };
+  }
+  function loreInside() { const h = S.site.half; return S.lore ? S.lore.list.filter((a) => Math.abs(a.x) < h && Math.abs(a.z) < h) : []; }
+  function loreSummary() {
+    if (!S.lore || !S.lore.list.length) return "（読み込めなかったか、近くに石碑がありません）";
+    const inside = loreInside();
+    if (inside.length) return "模型の中に <b>" + inside.length + "か所</b>あります。旗をタップすると説明が出ます。";
+    const nb = S.lore.list.slice(0, 3).map((a) => esc(a.name) + "（" + esc(a.kind) + "・約" + (a.dist / 1000).toFixed(1) + "km先）").join("、");
+    return "模型の範囲にはありません。いちばん近いのは：" + nb;
+  }
+  function buildLore() {
+    if (!groups.lore) return;
+    disposeGroup(groups.lore);
+    if (S.hazard !== "lore") return;
+    for (const a of loreInside()) {
+      const y = groundAt(a.x, a.z) * S.ve, top = y + 55, grp = new THREE.Group();
+      grp.add(pinLine(a.x, a.z, y, top, 0x6a1b9a));
+      const lab = makeLabel("🪦 " + a.name + (a.kind ? "（" + a.kind + "）" : ""), { bg: "#f3e5f5", border: "#6a1b9a", size: 13 });
+      lab.position.set(a.x, top, a.z); lab.userData.pick = { type: "lore", id: a.id };
+      grp.add(lab); groups.lore.add(grp);
+    }
+  }
+  function showLore(id) {
+    const a = S.lore && S.lore.list.find((x) => x.id === id);
+    if (!a) return;
+    openDetail("<h3>🪦 " + esc(a.name) + "</h3>" +
+      '<div class="meta">' + esc(a.dname) + (a.kind ? "（" + esc(a.kind) + "）" : "") + "<br>" + esc(a.addr) + "</div>" +
+      "<p>" + esc(a.info) + "</p>" +
+      (/^https:\/\//.test(a.img) ? '<a href="' + esc(a.img) + '" target="_blank" rel="noopener"><img class="log-image" src="' + esc(a.img) + '" alt="石碑の写真"></a>' : "") +
+      '<p class="meta">出典：国土地理院「自然災害伝承碑」</p>');
+  }
+
+  // ---------- どこでもボーリング（タップした所の地下を、模型から推定） ----------
+  function setDig(on) {
+    S.digOn = on;
+    $("btnDig").classList.toggle("on", on);
+    if (on) {
+      if (S.mode !== "view") setMode("view");
+      const el = fcard("digCard", "⛏ どこでもボーリング");
+      el.querySelector(".fc-body").innerHTML = '<p><b>模型をタップ</b>すると、その場所の地下の<b>推定の柱状図</b>が出ます。自分の家や公園の下を調べてみよう。</p><p class="hint">終わるときは ✕ を押します。</p>';
+      el.querySelector(".fc-x").onclick = () => setDig(false);
+      S.cardClosed.digCard = false; showCard("digCard", true);
+      setHint("⛏ 模型の好きな所をタップしてください");
+    } else { showCard("digCard", false); S.dig = null; buildDig(); setHint(modeHint()); }
+  }
+  function buildDig() {
+    if (!groups.dig) return;
+    disposeGroup(groups.dig);
+    if (!S.dig) return;
+    const y = groundAt(S.dig.x, S.dig.z) * S.ve;
+    groups.dig.add(pinLine(S.dig.x, S.dig.z, y, y + 70, 0xc62828));
+    const lab = makeLabel("⛏ ここ", { bg: "#ffebee", border: "#c62828", size: 14, bold: true });
+    lab.position.set(S.dig.x, y + 70, S.dig.z); groups.dig.add(lab);
+  }
+  function digAt(p) {
+    S.dig = p; buildDig();
+    const s = GL.sampleModel(S.model, p.x, p.z), layers = S.site.layers, g = groundAt(p.x, p.z);
+    const segs = [];
+    layers.forEach((l, li) => { const top = Math.min(s.tops[li], g), bot = s.bots[li]; if (top - bot > 0.05) segs.push({ l, top, bot }); });
+    segs.sort((a, b) => b.top - a.top);
+    const bottom = Math.max(S.model.base, g - 60), depth = Math.max(1, g - bottom);
+    const W = 320, colX = 70, colW = 56, pxm = Math.min(14, Math.max(4, 380 / depth)), y0 = 22;
+    let svg = '<svg viewBox="0 0 ' + W + " " + (depth * pxm + 40) + '" width="100%" style="max-width:' + W + 'px">' +
+      '<text x="4" y="12" font-size="11" fill="#5a6873">深さ(m)</text><text x="' + (colX + colW + 8) + '" y="12" font-size="11" fill="#5a6873">地層（推定）</text>';
+    let lastY = -99;
+    for (const sg of segs) {
+      const a = Math.max(0, g - sg.top), b = Math.min(depth, g - sg.bot);
+      if (b <= a) continue;
+      const y1 = y0 + a * pxm, y2 = y0 + b * pxm, ly = Math.max((y1 + y2) / 2 + 4, lastY + 13); lastY = ly;
+      svg += '<rect x="' + colX + '" y="' + y1 + '" width="' + colW + '" height="' + Math.max(1, y2 - y1) + '" fill="' + sg.l.color + '" stroke="#333" stroke-width="0.8" stroke-dasharray="4 2"/>' +
+        '<text x="' + (colX - 6) + '" y="' + (y2 + 4) + '" font-size="11" text-anchor="end" fill="#333">' + b.toFixed(0) + "</text>" +
+        '<text x="' + (colX + colW + 8) + '" y="' + ly + '" font-size="12" fill="#1f2a33">' + esc(sg.l.short || sg.l.name) + "</text>";
+    }
+    svg += "</svg>";
+    let near = null;
+    for (const b of S.bores) { const dd = Math.hypot(b.x - p.x, b.z - p.z); if (!near || dd < near.d) near = { b, d: dd }; }
+    const trust = !near ? "資料なし" : near.d < 100 ? "わりと近くに本物の資料があります" : near.d < 300 ? "少しはなれた資料から推定しています" : "資料が遠いので、あまり確かではありません";
+    openDetail("<h3>⛏ ここの地下は？（推定）</h3>" +
+      '<div class="warnbox">⚠ これは本物のボーリングではありません。まわりのボーリング資料から<b>推定した</b>柱状図です（点線のわく）。</div>' +
+      '<div class="meta">地面の標高：<b>' + g.toFixed(1) + "m</b><br>" +
+      (near ? "いちばん近い本物の資料：" + esc(near.b.name) + "（約" + Math.round(near.d) + "m）<br>" : "") + "たしからしさ：" + trust + "</div>" + svg +
+      (near ? '<div class="actions"><button id="digNear">🔍 近くの本物の柱状図を見る</button></div>' : ""));
+    if (near) $("digNear").onclick = () => showBore(near.b.id);
+  }
+
+  // ---------- 3Dプリンター用のデータ（STL） ----------
+  function exportSTL() {
+    const g = S.grid, n = g.n, N = n + 1, h = g.ground;
+    const sizeMM = 150, k = sizeMM / (2 * g.half), ve = S.ve;
+    let lo = Infinity; for (let i = 0; i < h.length; i++) lo = Math.min(lo, h[i]);
+    const baseMM = 5, zOf = (v) => baseMM + (v - lo) * k * ve;
+    const X = (i) => i * g.step * k, Y = (j) => (n - j) * g.step * k; // 北が上
+    const tris = [];
+    const T = (a, b, c) => tris.push(a, b, c);
+    const P = (i, j, top) => [X(i), Y(j), top ? zOf(h[j * N + i]) : 0];
+    for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+      const a = P(i, j, 1), b = P(i + 1, j, 1), c = P(i, j + 1, 1), d = P(i + 1, j + 1, 1);
+      T(a, c, b); T(b, c, d);
+    }
+    const wall = (pts) => { for (let q = 0; q < pts.length - 1; q++) { const [i0, j0] = pts[q], [i1, j1] = pts[q + 1], a = P(i0, j0, 1), b = P(i1, j1, 1), a0 = P(i0, j0, 0), b0 = P(i1, j1, 0); T(a, a0, b); T(b, a0, b0); } };
+    const side = (f) => Array.from({ length: N }, (_, t) => f(t));
+    wall(side((t) => [t, n]));
+    wall(side((t) => [n, n - t]));
+    wall(side((t) => [n - t, 0]));
+    wall(side((t) => [0, t]));
+    const s = sizeMM; T([0, 0, 0], [s, s, 0], [s, 0, 0]); T([0, 0, 0], [0, s, 0], [s, s, 0]);
+    const cnt = tris.length / 3, buf = new ArrayBuffer(84 + cnt * 50), dv = new DataView(buf);
+    for (let q = 0; q < cnt; q++) {
+      const o = 84 + q * 50; let off = o + 12;
+      for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) { dv.setFloat32(off, tris[q * 3 + r][c], true); off += 4; }
+    }
+    dv.setUint32(80, cnt, true);
+    download("3D土地模型-" + S.site.id + "-高さ×" + ve + ".stl", buf, "model/stl");
+    flashHint("🧊 3Dプリンター用のデータ（STL）を保存しました：一辺 " + sizeMM + "mm、高さ ×" + ve + "（下の厚み " + baseMM + "mm）");
+  }
+
+  // ---------- 断面図の予想ワークシート（印刷用） ----------
+  function printWorksheet() {
+    if (!secView || !secView.data || $("sectionSheet").classList.contains("hidden")) {
+      flashHint("🖨 先に「✂️ 断面図を作成」で断面図をつくってから押してください");
+      return;
+    }
+    // 印刷用に、大きな断面図を別にかく（予想の線・答え・大地のでき方は入れない。たては図いっぱいに強調）
+    const off = document.createElement("canvas"); off.width = 2400; off.height = 1100;
+    const v = new C.SectionView(off, { site: S.site });
+    Object.assign(v, { data: secView.data, strokes: [], dpr: 2, reversed: secView.reversed, showBores: true, showNames: secView.showNames, connect: false, showModel: false, stage: 0, veFixed: 0, hScale: 1, zoom: 1, pan: 0.5 });
+    v.draw();
+    const img = off.toDataURL("image/png");
+    const legend = S.site.layers.map((l) => '<span><i style="background:' + l.color + '"></i>' + esc(l.short || l.name) + "</span>").join("");
+    const html = '<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>断面図の予想ワークシート</title><style>' +
+      'body{font-family:"BIZ UDPGothic",sans-serif;margin:16mm;color:#222}h1{font-size:20px;margin:0 0 6px}.row{display:flex;gap:16px;font-size:14px;margin-bottom:8px}.row span{flex:1;border-bottom:1px solid #333;padding-bottom:2px}' +
+      'img{width:100%;border:1px solid #999}.lg{font-size:12px;margin:6px 0}.lg span{margin-right:10px;white-space:nowrap}.lg i{display:inline-block;width:14px;height:10px;margin-right:3px;border:1px solid #555}' +
+      '.box{border:1px solid #333;min-height:28mm;margin-top:6px;padding:4px;font-size:13px}@media print{button{display:none}}</style></head><body>' +
+      "<h1>断面図の予想ワークシート　" + esc(S.site.title) + "</h1>" +
+      '<div class="row"><span>　年　組　名前</span><span>断面 ' + esc($("secInfo").textContent) + "</span></div>" +
+      "<p style=\"font-size:14px;margin:4px 0\">① 柱と柱の<b>同じ地層</b>を、色えんぴつで線でつないで、地層の広がりを予想しよう。</p>" +
+      '<img src="' + img + '"><div class="lg">地層の色：' + legend + "</div>" +
+      '<div class="box">② そう考えた理由（どの柱の、どの層を手がかりにした？）</div>' +
+      '<div class="box">③ 答え合わせで分かったこと（予想と同じ所・ちがった所）</div>' +
+      '<p style="font-size:11px;color:#666">出典：国土地理院（地形）／国土地盤情報データベース（ボーリング柱状図）。地下の地層はボーリング資料からの推定です。</p>' +
+      '<button onclick="print()">🖨 印刷する</button></body></html>';
+    const w = window.open("", "_blank");
+    if (w) { w.document.write(html); w.document.close(); setTimeout(() => { try { w.print(); } catch (e) { /* 手で印刷 */ } }, 600); }
+    else download("断面図ワークシート-" + stamp() + ".html", html, "text/html");
+  }
+
   // ---------- 流域・分水界（雨水がどこへ流れるか） ----------
   //  模型の標高から、1マスごとに「いちばん急に下る となりのマス」へ水が流れるとして計算する。
   //  くぼ地は先に水でうめて（あふれる所まで高くして）、必ず模型のはしまで流れ出るようにする。
@@ -1664,7 +1836,7 @@
   function shown(o) { for (let p = o; p; p = p.parent) if (!p.visible) return false; return true; }
   function clippedAway(pt) { return S.clipPlanes.some((pl) => pl.distanceToPoint(pt) < -1); }
   function pickObject() {
-    const hits = raycaster.intersectObjects([groups.section, groups.bores, groups.notes, groups.yato], true);
+    const hits = raycaster.intersectObjects([groups.section, groups.bores, groups.notes, groups.yato, groups.lore], true);
     for (const h of hits) {
       const onCut = h.object.userData.pick && h.object.userData.pick.type === "cutbore"; // 切り口の上の柱は、切られない
       if (!shown(h.object) || (!onCut && clippedAway(h.point))) continue;
@@ -1680,6 +1852,8 @@
   function handleTap(e) {
     rayFrom(e);
     const obj = pickObject();
+    if (obj && obj.type === "lore") return showLore(obj.id);
+    if (S.digOn && (S.mode === "view" || S.mode === "dig") && !(obj && obj.type === "bore")) { const p = pickGround(); if (p) digAt(p); return; }
     if (obj && obj.type === "cutbore") return showBore(obj.id); // 切り口の本物の柱 → くわしい柱状図
     if (obj && obj.type === "bore" && S.mode === "cut") return showBore(obj.id);
     if (S.mode === "view") {
@@ -2373,6 +2547,8 @@
     noteTarget = p;
     $("noteText").value = "";
     $("noteAuthor").value = store.get("chisou3d:author", "");
+    $("notePhoto").value = ""; $("notePhotoPrev").innerHTML = "";
+    $("notePhoto").dispatchEvent(new Event("change"));
     $("noteDialog").showModal();
     setTimeout(() => $("noteText").focus(), 50);
   }
@@ -2380,6 +2556,7 @@
     const nt = S.notes.find((n) => n.id === id);
     if (!nt) return;
     openDetail('<h3>📝 気づきメモ</h3><p style="font-size:17px;white-space:pre-wrap;background:' + esc(nt.color) + ';padding:10px;border-radius:8px">' + esc(nt.text) + "</p>" +
+      (nt.photo && /^data:image\/(jpeg|png);/.test(nt.photo) ? '<img class="log-image" src="' + nt.photo + '" alt="写真">' : "") +
       '<div class="meta">' + (nt.author ? esc(nt.author) + "　" : "") + esc(new Date(nt.time).toLocaleString("ja-JP")) + "</div>" +
       '<div class="actions"><button id="nDel" class="danger">このメモを消す</button></div>');
     $("nDel").onclick = () => {
@@ -2620,6 +2797,7 @@
   function setMode(m) {
     const prev = S.mode;
     S.mode = m;
+    if (S.digOn && m !== "view") setDig(false); // ほかのモードにしたら、どこでもボーリングは終わり
     if (S.section && !(m === "section" && prev === "section")) clearSection();
     S.sectionPts = [];
     S.pickIds = [];
@@ -2818,6 +2996,11 @@
     // 流域・分水界
     const setBasin = (v) => { S.showBasin = v; $("chkBasin").checked = v; if (v) S.cardClosed.basinCard = false; applyTexture(); basinCard(v); };
     chk("chkBasin", setBasin);
+    // 学習の道具
+    $("btnDig").onclick = () => setDig(!S.digOn);
+    $("btnLab").onclick = () => C.FlowLab.open();
+    $("btnSheet").onclick = printWorksheet;
+    $("btnSTL").onclick = exportSTL;
     $("qRiver").onclick = () => setRiver(!S.showRivers);
     // 谷戸：この模型の中に谷戸があるときだけボタンを出す
     const setYato = (v) => { S.showYato = v; store.set("chisou3d:yato", v); $("chkYato").checked = v; $("qYato").classList.toggle("on", v); buildYato(); if (S.section) openSectionSheet(); };
@@ -3257,14 +3440,38 @@
       b.onclick = () => { S.noteColor = c; $("noteColors").querySelectorAll("button").forEach((x) => x.classList.toggle("active", x === b)); };
       $("noteColors").appendChild(b);
     });
+    // 写真つきメモ：写真は小さくしてから保存する（長い辺 900px）
+    let notePhotoData = null;
+    $("notePhoto").onchange = () => {
+      const f = $("notePhoto").files[0];
+      notePhotoData = null; $("notePhotoPrev").innerHTML = "";
+      if (!f) return;
+      const img = new Image(), url = URL.createObjectURL(f);
+      img.onload = () => {
+        const k = Math.min(1, 900 / Math.max(img.width, img.height)), cv = document.createElement("canvas");
+        cv.width = Math.round(img.width * k); cv.height = Math.round(img.height * k);
+        cv.getContext("2d").drawImage(img, 0, 0, cv.width, cv.height);
+        notePhotoData = cv.toDataURL("image/jpeg", 0.72);
+        $("notePhotoPrev").innerHTML = '<img src="' + notePhotoData + '" alt="">';
+        URL.revokeObjectURL(url);
+      };
+      img.src = url;
+    };
     $("noteDialog").addEventListener("close", () => {
       if ($("noteDialog").returnValue !== "ok" || !noteTarget) return;
       const text = $("noteText").value.trim();
       if (!text) return;
       const author = $("noteAuthor").value.trim();
       store.set("chisou3d:author", author);
-      S.notes.push({ id: "n" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), x: noteTarget.x, z: noteTarget.z, text, author, color: S.noteColor, time: Date.now() });
+      const nt = { id: "n" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), x: noteTarget.x, z: noteTarget.z, text, author, color: S.noteColor, time: Date.now() };
+      if (notePhotoData) nt.photo = notePhotoData;
+      S.notes.push(nt);
       store.set(key("notes"), S.notes);
+      if (nt.photo && JSON.stringify(store.get(key("notes"), [])).indexOf(nt.id) < 0) {
+        // 端末の保存場所がいっぱい：写真なしで保存し直す
+        delete nt.photo; store.set(key("notes"), S.notes);
+        alert("この端末の保存場所がいっぱいで、写真を保存できませんでした。メモの文字だけ保存しました。（「メモを書き出す」で保存してから古いメモを消すと、あきができます）");
+      }
       buildNotes();
     });
     $("btnNotesList").onclick = showNotesList;

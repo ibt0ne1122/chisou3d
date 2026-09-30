@@ -6,7 +6,7 @@
 <title>大地のつくり 3D土地模型</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css?v=20260930002815">
+<link rel="stylesheet" href="css/style.css?v=20260930005739">
 </head>
 <body>
 <div id="viewport"></div>
@@ -68,6 +68,16 @@
       <div id="markCats"></div>
       <label><input type="checkbox" id="chkNotes" checked> 気づきメモ</label>
       <label><input type="checkbox" id="chkRing" checked> 半径の円</label>
+    </section>
+    <section>
+      <h2>学習の道具</h2>
+      <div class="btnrow tools">
+        <button id="btnDig" type="button">⛏ どこでもボーリング</button>
+        <button id="btnLab" type="button">🧪 流れる水の実験</button>
+        <button id="btnSheet" type="button">🖨 断面図ワークシート</button>
+        <button id="btnSTL" type="button">🧊 3Dプリンター用</button>
+      </div>
+      <p class="hint">写真つきのメモは「📝 気づきメモ」で置けます（地層の写真など）。</p>
     </section>
     <section>
       <h2>見る向き</h2>
@@ -263,6 +273,8 @@
     <h3>📝 気づきメモ</h3>
     <label>気づいたこと・考えたこと<textarea id="noteText" rows="4" placeholder="例：向こうの丘にも同じ砂の層がある！"></textarea></label>
     <label>名前・班（なくてもよい）<input id="noteAuthor" type="text"></label>
+    <label>📷 写真（なくてもよい：地層の写真・観察の写真など）<input id="notePhoto" type="file" accept="image/*"></label>
+    <div id="notePhotoPrev"></div>
     <div class="colors" id="noteColors"></div>
     <div class="btnrow end">
       <button value="cancel">やめる</button>
@@ -389,18 +401,19 @@
 
 <footer id="attribution">出典：<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">国土地理院（地理院タイル・標高タイル）</a> ／ 目印：<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap</a> ／ 地下の地層はボーリング資料からの推定です（<a href="#" id="attrMore">くわしく</a>）</footer>
 
-<script src="lib/three.min.js?v=20260930002815"></script>
-<script src="lib/OrbitControls.js?v=20260930002815"></script>
+<script src="lib/three.min.js?v=20260930005739"></script>
+<script src="lib/OrbitControls.js?v=20260930005739"></script>
 <script>window.CHISOU = { sites: {}, registerSite: function (s) { this.sites[s.id] = s; } };</script>
-<script src="js/geo.js?v=20260930002815"></script>
-<script src="js/geology.js?v=20260930002815"></script>
-<script src="sites/sites.js?v=20260930002815"></script>
-<script src="js/section.js?v=20260930002815"></script>
-<script src="js/boringxml.js?v=20260930002815"></script>
-<script src="js/mvt.js?v=20260930002815"></script>
-<script src="js/yato_yokohama.js?v=20260930002815"></script>
-<script src="js/ngic_bookmarklet.js?v=20260930002815"></script>
-<script src="js/help.js?v=20260930002815"></script>
-<script src="js/app.js?v=20260930002815"></script>
+<script src="js/geo.js?v=20260930005739"></script>
+<script src="js/geology.js?v=20260930005739"></script>
+<script src="sites/sites.js?v=20260930005739"></script>
+<script src="js/section.js?v=20260930005739"></script>
+<script src="js/boringxml.js?v=20260930005739"></script>
+<script src="js/mvt.js?v=20260930005739"></script>
+<script src="js/yato_yokohama.js?v=20260930005739"></script>
+<script src="js/ngic_bookmarklet.js?v=20260930005739"></script>
+<script src="js/flowlab.js?v=20260930005739"></script>
+<script src="js/help.js?v=20260930005739"></script>
+<script src="js/app.js?v=20260930005739"></script>
 </body>
 </html>

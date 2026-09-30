@@ -202,7 +202,12 @@
     dosha: { name: "土砂災害警戒区域（がけ崩れ・土石流・地すべり）",
       urls: [DISA + "05_kyukeishakeikaikuiki/{z}/{x}/{y}.png", DISA + "05_dosekiryukeikaikuiki/{z}/{x}/{y}.png", DISA + "05_jisuberikeikaikuiki/{z}/{x}/{y}.png"], zoom: 16,
       legend: "黄色・赤：がけ崩れや土石流などの危険がある区域" },
+    swale: { name: "明治期の低湿地（昔、田んぼや沼だった所）", urls: [GSI + "swale/{z}/{x}/{y}.png"], zoom: 16,
+      legend: "色のついた所：明治時代（約130年前）の地図で、田んぼ・沼・湿地だった所。今は家が建っていても、地面がやわらかく、水がたまりやすいことがあります" },
+    lore: { name: "自然災害伝承碑（昔の災害を伝える石碑）", lore: true,
+      legend: "昔の洪水・地震・土砂災害などを、後の人に伝えるために建てられた石碑です（国土地理院）" },
   };
+  C.LORE_URL = GSI + "disaster_lore_all/{z}/{x}/{y}.geojson";
   C.DEM_SOURCES = [
     { name: "5mメッシュ(レーザ)", url: GSI + "dem5a_png/{z}/{x}/{y}.png", zoom: 15 },
     { name: "5mメッシュ(写真)", url: GSI + "dem5b_png/{z}/{x}/{y}.png", zoom: 15 },
