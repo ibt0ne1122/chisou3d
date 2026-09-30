@@ -439,3 +439,19 @@ body:not(.np-folded) #npFold { justify-self: end; width: 44px; }
 /* とじた「🎮 動かす」は、下のボタンと同じ高さ（画面の下）にならべる */
 body.np-folded #navpad { bottom: 34px !important; right: 12px !important; }
 body.np-folded #npFold { min-height: 48px; }
+/* 地図の横に出す小さな説明カード（✕でとじる） */
+#floatStack { position: fixed; top: 72px; right: 100px; z-index: 6; display: flex; flex-direction: column; gap: 8px; width: min(340px, calc(100vw - 120px)); pointer-events: none; }
+body.sheet-full #floatStack { display: none; }
+.fcard { pointer-events: auto; background: var(--panel); border-radius: 12px; box-shadow: var(--shadow); padding: 8px 10px; font-size: 13px; line-height: 1.5; max-height: 45vh; overflow-y: auto; }
+.fcard.hidden { display: none; }
+.fc-head { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+.fc-head b { font-size: 14px; }
+.fc-x { margin-left: auto; min-width: 36px; min-height: 36px; padding: 0; font-size: 16px; font-weight: 700; border-radius: 999px; }
+.fcard p { margin: 4px 0; }
+.fc-src { font-size: 11px; color: var(--sub); }
+.cmp-row { display: flex; align-items: center; gap: 8px; font-weight: 700; }
+.cmp-row input { flex: 1; height: 32px; accent-color: var(--accent); }
+.geo-list { list-style: none; padding: 0; margin: 4px 0; }
+.geo-list li { display: flex; gap: 6px; align-items: flex-start; margin: 3px 0; }
+.geo-list i { flex: 0 0 16px; height: 14px; margin-top: 3px; border-radius: 3px; border: 1px solid rgba(0,0,0,0.25); display: inline-block; }
+@media (max-width: 760px) { #floatStack { top: 64px; right: 84px; width: calc(100vw - 100px); } .fcard { max-height: 36vh; } }

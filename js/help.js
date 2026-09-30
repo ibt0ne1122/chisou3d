@@ -27,6 +27,7 @@
     "#chkAutoMarks": "駅・学校・公園・公共施設などの目印を地図の上に出します",
     "#btnXml": "国土地盤情報データベースなどでダウンロードした柱状図のXMLファイル（ボーリング交換用データ）を読み込みます。何本でもまとめて選べます",
     "#colorBySelect": "ボーリングの柱の色を「つぶの大きさ（れき・砂・どろ・火山灰）」に切りかえると、場所がちがっても同じ特ちょうの層を見つけやすくなります",
+    "#chkBasin": "雨がふったとき、水がどこへ流れて、どの川に集まるか（流域）と、その境目（分水界）を色分けします。学校にふった雨の通り道も矢印で出ます",
     "#hazardSelect": "大雨で水につかる想定の場所や、がけ崩れなどの危険がある区域を重ねます（国土地理院 重ねるハザードマップ）",
     "#secStage": "この断面の大地が、どんな順番でできたと考えられるかを、時間の流れにそって見ます（ボーリング資料からの推定）",
     "#secMemoBtn": "予想とその理由、答え合わせで分かったことを書くメモを開きます。保存すると断面図といっしょに画像になります",
@@ -331,7 +332,9 @@
 <li>昔の航空写真：国土地理院（1945〜1950年ごろ・1961〜1969年ごろ・1974〜1978年ごろ）</li>
 <li>まわりの目印（駅・学校・公園・公共施設）：${site.mapMarks ? '国土地理院の地図情報（地図の注記）から取り出したもの' : '<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap contributors</a>'}</li>
 <li>川の線：<a href="https://github.com/gsi-cyberjapan/experimental_rvrcl" target="_blank" rel="noopener">国土地理院「河川中心線」</a>（読めないときは、①の地形から水が流れる道を計算して表示）</li>
-<li>谷戸（やと）の線と名前：<a href="https://yato.midoriit.com/" target="_blank" rel="noopener">谷戸のヨコハマ</a>（小池 隆／合同会社ミドリアイティ、<a href="http://linkdata.org/work/rdf1s8246i" target="_blank" rel="noopener">LinkData</a>、パブリックドメイン）</li></ul>`;
+<li>谷戸（やと）の線と名前：<a href="https://yato.midoriit.com/" target="_blank" rel="noopener">谷戸のヨコハマ</a>（小池 隆／合同会社ミドリアイティ、<a href="http://linkdata.org/work/rdf1s8246i" target="_blank" rel="noopener">LinkData</a>、パブリックドメイン）</li>
+<li>地質図：<a href="https://gbank.gsj.jp/seamless/" target="_blank" rel="noopener">産総研 地質調査総合センター「20万分の1日本シームレス地質図V2」</a>（CC BY 4.0）</li>
+<li>流域・分水界：国土地理院の標高データから、このアプリで計算したおおよその流れ</li></ul>`;
       html += `<h4>③ 地下の地層（ボーリング資料）</h4>`;
       const real = S.bores.filter((b) => !b.sample), fake = S.bores.filter((b) => b.sample);
       if (real.length) {

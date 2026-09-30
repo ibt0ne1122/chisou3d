@@ -37,7 +37,7 @@
     setTimeout(run, 0); // 1ファイル版：設定がすでに入っている（準備が終わってから始める）
   } else {
     const sc = document.createElement("script");
-    sc.src = entry.file + "?v=20260929223953";
+    sc.src = entry.file + "?v=20260930002815";
     sc.onload = run;
     sc.onerror = () => showError("場所の設定ファイル（" + entry.file + "）を読み込めませんでした。ZIPの場合は「すべて展開」してから開いてください。");
     document.body.appendChild(sc);
@@ -54,7 +54,7 @@
   // ---------- 状態 ----------
   const S = {
     site: null, frame: null, grid: null, stats: null, model: null, bores: [],
-    ve: 3, opacity: 1, peel: 0, visLayers: [], mode: "view", mapType: "std",
+    ve: 3, opacity: 1, peel: 0, visLayers: [], mode: "view", mapType: "std", cardClosed: {},
     showBores: true, lift: false, labels: true, showNotes: true, ring: true, hideStrata: false,
     teacher: false, sampleOn: true, notes: [], section: null, sectionFlip: false, sectionPts: [], hiddenBores: new Set(), savedOpacity: null, relief: "none",
     textures: {}, clipPlanes: [], noteColor: "#ffd54f", pickIds: [],
@@ -1164,39 +1164,124 @@
   }
 
   // ---------- 地図の画像 ----------
+  /** 地図の画像を1つ読み込む（読み込めたら true） */
+  async function ensureMapCanvas(type, quiet) {
+    S.mapCanvas = S.mapCanvas || {};
+    if (S.mapCanvas[type]) return true;
+    const mt = C.MAP_TYPES[type];
+    if (mt.local) { S.mapCanvas[type] = localReliefCanvas(); return true; }
+    let done = 0;
+    const hideLater = quiet || $("loading").classList.contains("hidden");
+    if (!hideLater) setLoading("地図を読み込み中…");
+    // 広い範囲では、画像が大きくなりすぎないようにズームを下げる
+    let zoom = mt.zoom;
+    const mpp = (zz) => (156543.03392804097 * Math.cos((S.site.center.lat * Math.PI) / 180)) / Math.pow(2, zz);
+    while (zoom > 12 && (2 * S.site.half) / mpp(zoom) > 4096) zoom--;
+    const r = await GEO.loadMapCanvas(S.frame, S.site.half, zoom, mt.url, () => {
+      done++;
+      if (!hideLater) setLoading("地図を読み込み中…（" + done + "枚）");
+    }, !!mt.under);
+    if (!r.ok) return false;
+    S.mapCanvas[type] = r.canvas;
+    return true;
+  }
   async function setMap(type) {
     const prev = S.mapType && S.mapCanvas && S.mapCanvas[S.mapType] ? S.mapType : null;
+    const mt = C.MAP_TYPES[type];
+    if (mt.geology && !prev) flashHint("地質図を読み込み中…");
+    let ok = await ensureMapCanvas(type);
+    if (ok && mt.under) ok = await ensureMapCanvas(mt.under);
+    if (!ok) {
+      if (prev && prev !== type) {
+        flashHint("「" + mt.name + "」はこの場所では読み込めませんでした。前の地図にもどします。");
+        $("mapSelect").value = prev;
+        return;
+      }
+      flashHint("地図の画像を読み込めませんでした。「高さで色分け」に切りかえます。");
+      return setMap("local");
+    }
+    if (S.mapType !== type) S.cardClosed.cmpCard = S.cardClosed.geoCard = false; // えらび直したら、説明をまた出す
     S.mapType = type;
     store.set("chisou3d:map2", type);
     $("mapSelect").value = type;
-    S.mapCanvas = S.mapCanvas || {};
-    if (!S.mapCanvas[type]) {
-      const mt = C.MAP_TYPES[type];
-      if (mt.local) S.mapCanvas[type] = localReliefCanvas();
-      else {
-        let done = 0;
-        const hideLater = $("loading").classList.contains("hidden");
-        if (!hideLater) setLoading("地図を読み込み中…");
-        // 広い範囲では、画像が大きくなりすぎないようにズームを下げる
-        let zoom = mt.zoom;
-        const mpp = (zz) => (156543.03392804097 * Math.cos((S.site.center.lat * Math.PI) / 180)) / Math.pow(2, zz);
-        while (zoom > 12 && (2 * S.site.half) / mpp(zoom) > 4096) zoom--;
-        const r = await GEO.loadMapCanvas(S.frame, S.site.half, zoom, mt.url, () => {
-          done++;
-          if (!hideLater) setLoading("地図を読み込み中…（" + done + "枚）");
-        });
-        if (!r.ok) {
-          if (prev) {
-            flashHint("「" + mt.name + "」はこの場所では読み込めませんでした。前の地図にもどします。");
-            return setMap(prev);
-          }
-          flashHint("地図の画像を読み込めませんでした。「高さで色分け」に切りかえます。");
-          return setMap("local");
-        }
-        S.mapCanvas[type] = r.canvas;
-      }
-    }
     applyTexture();
+    updateMapCards();
+  }
+  // ---------- 地図の横に出す小さな説明（✕でとじられる） ----------
+  function fcard(id, title) {
+    let el = $(id);
+    if (!el) {
+      el = document.createElement("div");
+      el.id = id; el.className = "fcard";
+      el.innerHTML = '<div class="fc-head"><b></b><button type="button" class="fc-x" aria-label="とじる" title="とじる">✕</button></div><div class="fc-body"></div>';
+      el.querySelector(".fc-x").onclick = () => { S.cardClosed[id] = true; el.classList.add("hidden"); };
+      $("floatStack").appendChild(el);
+    }
+    el.querySelector(".fc-head b").textContent = title;
+    return el;
+  }
+  function showCard(id, on) {
+    const el = $(id); if (!el) return;
+    el.classList.toggle("hidden", !on || !!S.cardClosed[id]);
+  }
+  /** 地図の種類に合わせて、「昔と今をくらべる」・「地質図の説明」を出す */
+  function updateMapCards() {
+    const mt = C.MAP_TYPES[S.mapType] || {};
+    const old = mt.group === "昔の写真";
+    if (old) {
+      const el = fcard("cmpCard", "🕰 昔と今をくらべる");
+      if (!el.dataset.ready) {
+        el.dataset.ready = 1;
+        el.querySelector(".fc-body").innerHTML = '<div class="cmp-row"><span>昔</span><input type="range" id="cmpRange" min="0" max="100" value="0"><span>今</span></div><p class="hint" id="cmpNote"></p>';
+        let raf = 0;
+        $("cmpRange").oninput = async () => {
+          if (!S.mapCanvas.photo) { $("cmpNote").textContent = "今の航空写真を読み込み中…"; if (!(await ensureMapCanvas("photo", true))) { $("cmpNote").textContent = "今の航空写真を読み込めませんでした"; return; } }
+          S.compare = +$("cmpRange").value / 100;
+          if (!raf) raf = requestAnimationFrame(() => { raf = 0; applyTexture(); });
+          $("cmpNote").textContent = "";
+        };
+      }
+      $("cmpNote").textContent = "つまみを右へ動かすと、今の航空写真が重なっていきます。家が建つ前の、谷や台地の形をさがそう。";
+      $("cmpRange").value = Math.round((S.compare || 0) * 100);
+    } else S.compare = 0;
+    showCard("cmpCard", old);
+    if (mt.geology) geologyCard(); else showCard("geoCard", false);
+  }
+  /** 地質図の説明：模型の範囲の何か所かで「ここは何の地層か」を産総研に聞いて、一覧にする */
+  async function geologyCard() {
+    const el = fcard("geoCard", "🪨 地質図（地面の下は何？）");
+    showCard("geoCard", true);
+    const body = el.querySelector(".fc-body");
+    const src = '<p class="fc-src">出典：<a href="https://gbank.gsj.jp/seamless/" target="_blank" rel="noopener">産総研 地質調査総合センター「20万分の1日本シームレス地質図V2」↗</a>。' +
+      "地質図は広い範囲をまとめてかいた図なので、模型（ボーリングからの推定）と細かい所はちがうことがあります。</p>";
+    if (S.geoLegend && S.geoLegend.site === S.site.id + S.site.half) { body.innerHTML = S.geoLegend.html + src; return; }
+    body.innerHTML = '<p class="hint">この場所の地質を調べています…</p>' + src;
+    const h = S.site.half, pts = [[0, 0]];
+    for (const fx of [-0.6, 0, 0.6]) for (const fz of [-0.6, 0, 0.6]) if (fx || fz) pts.push([fx * h, fz * h]);
+    const seen = new Map();
+    await Promise.all(pts.map(async ([x, z], i) => {
+      const ll = S.frame.toLatLon(x, z);
+      try {
+        const res = await fetch(C.GEOLOGY_LEGEND + "?point=" + ll.lat.toFixed(6) + "," + ll.lon.toFixed(6));
+        if (!res.ok) return;
+        const j = await res.json(), d = Array.isArray(j) ? j[0] : j;
+        if (!d) return;
+        const age = d.formationAge_ja || d.formationAge || "", rock = d.lithology_ja || d.lithology || "", grp = d.group_ja || d.group || "";
+        const k = (d.symbol || "") + age + rock;
+        if (!k.trim()) return;
+        const color = d.r != null ? "rgb(" + d.r + "," + d.g + "," + d.b + ")" : d.color || "#ccc";
+        if (!seen.has(k)) seen.set(k, { age, rock, grp, color, center: i === 0 });
+        else if (i === 0) seen.get(k).center = true;
+      } catch (e) { /* つながらないときは、下の説明だけ出す */ }
+    }));
+    let html;
+    if (seen.size) {
+      html = '<ul class="geo-list">' + Array.from(seen.values()).sort((a, b) => b.center - a.center).map((v) =>
+        '<li><i style="background:' + v.color + '"></i><span>' + (v.center ? "<b>🏫 学校のあたり：</b>" : "") + esc(v.age) + (v.rock ? "の <b>" + esc(v.rock) + "</b>" : "") + (v.grp ? "<small>（" + esc(v.grp) + "）</small>" : "") + "</span></li>").join("") + "</ul>";
+    } else html = '<p class="hint">色ごとの説明を読み込めませんでした。出典のサイトで、地図をタップすると調べられます。</p>';
+    html += '<p class="hint">「〇〇紀・〇〇世」は、その地層ができた時代です。模型の「泥岩」「ローム層」などと見くらべてみよう。</p>';
+    S.geoLegend = { site: S.site.id + S.site.half, html };
+    body.innerHTML = html + src;
   }
 
   // ---------- 凹凸の見せ方 ----------
@@ -1295,20 +1380,31 @@
   }
   function applyTexture() {
     if (!S.mapCanvas || !S.mapCanvas[S.mapType]) return;
-    const base = S.mapCanvas[S.mapType];
+    const mt = C.MAP_TYPES[S.mapType] || {};
+    let base = S.mapCanvas[S.mapType];
     let canvas = base;
     const hz = S.hazard && S.hazard !== "none" && S.hazardCanvas && S.hazardCanvas[S.hazard];
     const lines = S.showRivers && S.rivers || S.showYato && yatoList().length;
-    if (["color", "contour", "terrace"].includes(S.relief) || hz || lines) {
-      canvas = document.createElement("canvas");
+    const under = mt.under && S.mapCanvas[mt.under];
+    const cmp = S.compare > 0 && mt.group === "昔の写真" && S.mapCanvas.photo;
+    if (["color", "contour", "terrace"].includes(S.relief) || hz || lines || under || cmp || S.showBasin) {
+      if (under) base = under; // 地質図を、航空写真の上にすかして重ねる
+      // 同じ大きさなら、前のキャンバスを使い回す（つまみを動かしたとき軽くするため）
+      canvas = S.texCanvas && S.texCanvas.width === base.width && S.texCanvas.height === base.height ? S.texCanvas : document.createElement("canvas");
       canvas.width = base.width; canvas.height = base.height;
+      S.texCanvas = canvas;
       const ctx = canvas.getContext("2d");
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(base, 0, 0);
       ctx.imageSmoothingEnabled = true;
+      if (under) { ctx.globalAlpha = mt.alpha || 0.55; ctx.drawImage(S.mapCanvas[S.mapType], 0, 0, canvas.width, canvas.height); ctx.globalAlpha = 1; }
+      if (cmp) { ctx.globalAlpha = S.compare; ctx.drawImage(S.mapCanvas.photo, 0, 0, canvas.width, canvas.height); ctx.globalAlpha = 1; }
+      if (S.showBasin) drawBasinOnMap(ctx, canvas.width, canvas.height);
       if (["color", "contour", "terrace"].includes(S.relief)) ctx.drawImage(reliefOverlay(S.relief), 0, 0, canvas.width, canvas.height);
       if (hz) { ctx.globalAlpha = 0.75; ctx.drawImage(hz, 0, 0, canvas.width, canvas.height); ctx.globalAlpha = 1; }
       if (lines) drawLinesOnMap(ctx, canvas.width, canvas.height);
     }
+    if (S.curTex && S.curTex.image === canvas) { S.curTex.needsUpdate = true; return; }
     if (S.curTex) S.curTex.dispose();
     const tex = new THREE.CanvasTexture(canvas);
     tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
@@ -1316,6 +1412,109 @@
     texMat.map = tex;
     texMat.needsUpdate = true;
   }
+  // ---------- 流域・分水界（雨水がどこへ流れるか） ----------
+  //  模型の標高から、1マスごとに「いちばん急に下る となりのマス」へ水が流れるとして計算する。
+  //  くぼ地は先に水でうめて（あふれる所まで高くして）、必ず模型のはしまで流れ出るようにする。
+  function computeBasins() {
+    if (S.basin && S.basin.site === S.site.id && S.basin.half === S.site.half) return S.basin;
+    const g = S.grid, N = g.n + 1, M = N * N, h = g.ground;
+    const f = new Float64Array(M), done = new Uint8Array(M);
+    // 小さい順に取り出せる入れもの（ヒープ）
+    const hk = new Int32Array(M), hv = new Float64Array(M); let hn = 0;
+    const push = (k, v) => { let i = hn++; while (i > 0) { const p = (i - 1) >> 1; if (hv[p] <= v) break; hk[i] = hk[p]; hv[i] = hv[p]; i = p; } hk[i] = k; hv[i] = v; };
+    const pop = () => { const k = hk[0], lk = hk[--hn], lv = hv[hn]; let i = 0; for (;;) { let c = 2 * i + 1; if (c >= hn) break; if (c + 1 < hn && hv[c + 1] < hv[c]) c++; if (hv[c] >= lv) break; hk[i] = hk[c]; hv[i] = hv[c]; i = c; } hk[i] = lk; hv[i] = lv; return k; };
+    for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) if (i === 0 || j === 0 || i === N - 1 || j === N - 1) { const k = j * N + i; f[k] = h[k]; done[k] = 1; push(k, f[k]); }
+    const DI = [1, -1, 0, 0, 1, 1, -1, -1], DJ = [0, 0, 1, -1, 1, -1, 1, -1];
+    while (hn) {
+      const k = pop(), i = k % N, j = (k - i) / N;
+      for (let q = 0; q < 8; q++) {
+        const ii = i + DI[q], jj = j + DJ[q];
+        if (ii < 0 || jj < 0 || ii >= N || jj >= N) continue;
+        const kk = jj * N + ii; if (done[kk]) continue;
+        done[kk] = 1; f[kk] = Math.max(h[kk], f[k] + 1e-4); push(kk, f[kk]);
+      }
+    }
+    // 流れる先（いちばん急に下るとなり）
+    const to = new Int32Array(M).fill(-1);
+    for (let j = 1; j < N - 1; j++) for (let i = 1; i < N - 1; i++) {
+      const k = j * N + i; let best = 0;
+      for (let q = 0; q < 8; q++) { const kk = (j + DJ[q]) * N + i + DI[q], sl = (f[k] - f[kk]) / (q < 4 ? 1 : 1.4142); if (sl > best) { best = sl; to[k] = kk; } }
+    }
+    // 低い順に、流れ出る出口（模型のはし）の番号をつける＝同じ番号が同じ流域
+    const order = Array.from({ length: M }, (_, k) => k).sort((a, b) => f[a] - f[b]);
+    const lab = new Int32Array(M), acc = new Float32Array(M);
+    for (const k of order) lab[k] = to[k] < 0 ? k : lab[to[k]];
+    for (let o = M - 1; o >= 0; o--) { const k = order[o]; acc[k] += 1; if (to[k] >= 0) acc[to[k]] += acc[k]; }
+    // 大きい流域だけ色をつける（小さいものは、模型のはしの斜面など）
+    const area = new Map(); for (let k = 0; k < M; k++) area.set(lab[k], (area.get(lab[k]) || 0) + 1);
+    const big = Array.from(area.entries()).filter(([, a]) => a >= M * 0.03).sort((a, b) => b[1] - a[1]).slice(0, 7);
+    const color = new Map(big.map(([l], idx) => [l, idx]));
+    // 学校（まん中）にふった雨の通り道
+    const c0 = Math.round((N - 1) / 2), path = [];
+    for (let k = c0 * N + c0, guard = 0; k >= 0 && guard < M; k = to[k], guard++) path.push(k);
+    S.basin = { site: S.site.id, half: S.site.half, N, lab, acc, color, big, path, M };
+    return S.basin;
+  }
+  const BASIN_COLORS = ["#e4572e", "#2e86ab", "#76b041", "#f1a208", "#9b5de5", "#00a6a6", "#d81159"];
+  function drawBasinOnMap(ctx, W, H) {
+    const b = computeBasins(), N = b.N, size = 1024;
+    if (!b.cv) {
+      const cv = document.createElement("canvas"); cv.width = cv.height = size;
+      const c = cv.getContext("2d"), img = c.createImageData(size, size);
+      const cell = (x, y) => Math.min(N - 1, Math.round((y / (size - 1)) * (N - 1))) * N + Math.min(N - 1, Math.round((x / (size - 1)) * (N - 1)));
+      const rgb = BASIN_COLORS.map((hx) => [1, 3, 5].map((p) => parseInt(hx.substr(p, 2), 16)));
+      const streamMin = b.M * 0.008;
+      for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+        const k = cell(x, y), ci = b.color.get(b.lab[k]), o = (y * size + x) * 4;
+        let r = 0, gg = 0, bb = 0, a = 0;
+        if (ci != null) { [r, gg, bb] = rgb[ci]; a = 70; }
+        // 分水界：となりと流域がちがう所（色のついた流域どうしの境目）
+        const kr = cell(Math.min(size - 1, x + 2), y), kd = cell(x, Math.min(size - 1, y + 2));
+        if (ci != null && (b.lab[kr] !== b.lab[k] && b.color.has(b.lab[kr]) || b.lab[kd] !== b.lab[k] && b.color.has(b.lab[kd]))) { r = 60; gg = 20; bb = 10; a = 235; }
+        // 水が集まって流れる道
+        else if (b.acc[k] > streamMin) { r = 20; gg = 90; bb = 230; a = 200; }
+        img.data[o] = r; img.data[o + 1] = gg; img.data[o + 2] = bb; img.data[o + 3] = a;
+      }
+      c.putImageData(img, 0, 0);
+      b.cv = cv;
+    }
+    ctx.drawImage(b.cv, 0, 0, W, H);
+    // 学校にふった雨の通り道（太い矢印の線）
+    const px = (k) => { const i = k % N, j = (k - i) / N; return [(i / (N - 1)) * W, (j / (N - 1)) * H]; };
+    if (b.path.length > 1) {
+      ctx.save(); ctx.lineJoin = ctx.lineCap = "round";
+      const lw = Math.max(4, W / 250);
+      ctx.beginPath(); b.path.forEach((k, n) => { const [x, y] = px(k); n ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+      ctx.strokeStyle = "#fff"; ctx.lineWidth = lw * 2; ctx.stroke();
+      ctx.strokeStyle = "#0b3d91"; ctx.lineWidth = lw; ctx.stroke();
+      // 矢じるし
+      for (let n = 8; n < b.path.length; n += 16) {
+        const [x0, y0] = px(b.path[n - 4]), [x1, y1] = px(b.path[n]), ang = Math.atan2(y1 - y0, x1 - x0), L = lw * 3.2;
+        ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x1 - L * Math.cos(ang - 0.5), y1 - L * Math.sin(ang - 0.5)); ctx.lineTo(x1 - L * Math.cos(ang + 0.5), y1 - L * Math.sin(ang + 0.5)); ctx.closePath();
+        ctx.fillStyle = "#0b3d91"; ctx.fill();
+      }
+      const [sx, sy] = px(b.path[0]);
+      ctx.beginPath(); ctx.arc(sx, sy, lw * 2.2, 0, Math.PI * 2); ctx.fillStyle = "#0b3d91"; ctx.fill(); ctx.strokeStyle = "#fff"; ctx.lineWidth = lw * 0.6; ctx.stroke();
+      ctx.restore();
+    }
+  }
+  function basinCard(on) {
+    if (!on) return showCard("basinCard", false);
+    const b = computeBasins(), el = fcard("basinCard", "💧 流域（雨水の行き先）");
+    const end = b.path[b.path.length - 1], N = b.N, i = end % N, j = (end - i) / N;
+    const dx = i / (N - 1) - 0.5, dz = j / (N - 1) - 0.5;
+    const dirs = ["東", "南東", "南", "南西", "西", "北西", "北", "北東"];
+    const dir = dirs[(Math.round(Math.atan2(dz, dx) / (Math.PI / 4)) + 8) % 8];
+    const km = (b.path.length * (2 * S.site.half) / (N - 1) / 1000).toFixed(1);
+    el.querySelector(".fc-body").innerHTML =
+      '<p><b>流域</b>：雨がふったとき、同じ川に集まってくる範囲。<b>同じ色の所にふった雨は、同じ出口へ流れていきます。</b></p>' +
+      '<ul class="geo-list"><li><i style="background:#3c140a"></i><span><b>こい線＝分水界</b>（水の流れる向きが分かれる、尾根のような所）</span></li>' +
+      '<li><i style="background:#145ae6"></i><span>青い線＝水が集まって流れる道（谷）</span></li>' +
+      '<li><i style="background:#0b3d91;border-radius:50%"></i><span>太い矢印＝<b>学校にふった雨の通り道</b>。約' + km + 'km流れて、模型の<b>' + dir + '</b>のはしから出ていきます</span></li></ul>' +
+      '<p class="hint">※ 模型の標高から計算した、おおよその流れです。下水道や水路は入っていません。模型の外の流れはわかりません。</p>';
+    showCard("basinCard", true);
+  }
+
   /** 折れ線を、切れ目のない1本の帯（三角形のならび）にする。pts:[{x,y,z}] */
   function stripInto(arr, pts, hw, dy) {
     const n = pts.length;
@@ -2616,6 +2815,9 @@
     $("qLift").onclick = () => setLift(!S.lift);
     const setRiver = (v) => { S.showRivers = v; $("chkRiver").checked = v; $("qRiver").classList.toggle("on", v); buildRivers(); if (S.section) openSectionSheet(); };
     chk("chkRiver", setRiver);
+    // 流域・分水界
+    const setBasin = (v) => { S.showBasin = v; $("chkBasin").checked = v; if (v) S.cardClosed.basinCard = false; applyTexture(); basinCard(v); };
+    chk("chkBasin", setBasin);
     $("qRiver").onclick = () => setRiver(!S.showRivers);
     // 谷戸：この模型の中に谷戸があるときだけボタンを出す
     const setYato = (v) => { S.showYato = v; store.set("chisou3d:yato", v); $("chkYato").checked = v; $("qYato").classList.toggle("on", v); buildYato(); if (S.section) openSectionSheet(); };

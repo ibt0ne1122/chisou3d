@@ -173,6 +173,8 @@
   }
 
   const GSI = "https://cyberjapandata.gsi.go.jp/xyz/";
+  const GEOLOGY_TILES = "https://gbank.gsj.jp/seamless/v2/api/1.2/tiles/{z}/{y}/{x}.png";
+  C.GEOLOGY_LEGEND = "https://gbank.gsj.jp/seamless/v2/api/1.2/legend.json";
   C.MAP_TYPES = {
     std: { name: "地理院地図（標準）", url: GSI + "std/{z}/{x}/{y}.png", zoom: 16 },
     pale: { name: "地理院地図（淡色）", url: GSI + "pale/{z}/{x}/{y}.png", zoom: 16 },
@@ -188,6 +190,9 @@
     photo1974: { name: "航空写真 1974〜1978年ごろ", url: GSI + "gazo1/{z}/{x}/{y}.jpg", zoom: 17, group: "昔の写真" },
     photo1961: { name: "航空写真 1961〜1969年ごろ", url: GSI + "ort_old10/{z}/{x}/{y}.png", zoom: 17, group: "昔の写真" },
     photo1945: { name: "航空写真 1945〜1950年ごろ", url: GSI + "ort_USA10/{z}/{x}/{y}.png", zoom: 17, group: "昔の写真" },
+    // 地面の下（産総研 地質調査総合センター「20万分の1日本シームレス地質図V2」。タイルは {z}/{y}/{x} の順）
+    geology: { name: "地質図（どんな岩石・地層か）", url: GEOLOGY_TILES, zoom: 13, group: "地面の下（地質図）", geology: true },
+    geologyPhoto: { name: "地質図＋航空写真（すけて見える）", url: GEOLOGY_TILES, zoom: 13, group: "地面の下（地質図）", geology: true, under: "photo", alpha: 0.55 },
   };
   // 重ねるハザードマップ（国土地理院 ハザードマップポータルサイト）の透明な地図
   const DISA = "https://disaportaldata.gsi.go.jp/raster/";
