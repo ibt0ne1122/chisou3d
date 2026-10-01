@@ -37,7 +37,7 @@
       setTimeout(run, 0); // 1ファイル版：設定がすでに入っている（準備が終わってから始める）
     } else {
       const sc = document.createElement("script");
-      sc.src = entry.file + "?v=20260930235714";
+      sc.src = entry.file + "?v=20261001000645";
       sc.onload = run;
       sc.onerror = () => showError("場所の設定ファイル（" + entry.file + "）を読み込めませんでした。ZIPの場合は「すべて展開」してから開いてください。");
       document.body.appendChild(sc);
@@ -2532,18 +2532,44 @@
   }
   /** 断面図に出す範囲が「A〜Bだけ」か（2点で切ったときだけ選べる。はじめはA〜Bだけ） */
   function isAB() { return S.section && S.section.straight && S.secExtent !== "full"; }
-  /** 断面図（2D）に使う断面：A〜Bだけのときは、その区間で細かく取り直す */
+  /** 断面図（2D）に使う断面：A〜Bだけ・折れ線のときは、はしの点（Aと最後の点）の外にも少し余白をつけて取り直す */
   function viewSection() {
     const sec = S.section;
-    if (!isAB()) return sec;
-    const [a, b] = sec.pts, len = Math.hypot(b.x - a.x, b.z - a.z), ux = (b.x - a.x) / len, uz = (b.z - a.z) / len;
-    const M = 300, samples = [];
+    if (sec.straight && !isAB()) return sec; // 模型のはしまで：もう はしまである
+    const half = S.site.half - 0.5, pts = sec.pts;
+    let L0 = 0;
+    for (let i = 0; i < pts.length - 1; i++) L0 += Math.hypot(pts[i + 1].x - pts[i].x, pts[i + 1].z - pts[i].z);
+    const pad = Math.min(150, Math.max(20, L0 * 0.05));
+    // p を q と反対の向きへ pad だけのばす（模型の外には出さない）
+    const ext = (p, q) => {
+      const len = Math.hypot(p.x - q.x, p.z - q.z) || 1, ux = (p.x - q.x) / len, uz = (p.z - q.z) / len;
+      let t = pad;
+      if (Math.abs(ux) > 1e-9) t = Math.min(t, ((ux > 0 ? half : -half) - p.x) / ux);
+      if (Math.abs(uz) > 1e-9) t = Math.min(t, ((uz > 0 ? half : -half) - p.z) / uz);
+      t = Math.max(0, t);
+      return { x: p.x + ux * t, z: p.z + uz * t };
+    };
+    const n = pts.length, e0 = ext(pts[0], pts[1]), e1 = ext(pts[n - 1], pts[n - 2]);
+    // まっすぐのときは1本の線のまま（はしの柱が区切り目で落ちないように）
+    const path = sec.straight ? [e0, e1] : [e0, ...pts.map((p) => ({ x: p.x, z: p.z })), e1];
+    const segs = [];
+    let total = 0;
+    for (let i = 0; i < path.length - 1; i++) {
+      const p = path[i], q = path[i + 1], len = Math.hypot(q.x - p.x, q.z - p.z);
+      if (len < 1e-6) continue;
+      segs.push({ x: p.x, z: p.z, ux: (q.x - p.x) / len, uz: (q.z - p.z) / len, len, d0: total });
+      total += len;
+    }
+    const M = 400, samples = [];
     for (let i = 0; i <= M; i++) {
-      const d = (len * i) / M, x = a.x + ux * d, z = a.z + uz * d;
+      const d = (total * i) / M;
+      const sg = segs.find((g) => d <= g.d0 + g.len + 1e-6) || segs[segs.length - 1];
+      const t = d - sg.d0, x = sg.x + sg.ux * t, z = sg.z + sg.uz * t;
       const sm = GL.sampleModel(S.model, x, z);
       samples.push({ d, x, z, g: sm.g, tops: sm.tops, bots: sm.bots, rawB: sm.rawB, eros: sm.eros });
     }
-    return { pts: sec.pts, segs: [{ x: a.x, z: a.z, ux, uz, len, d0: 0 }], length: len, samples, straight: true, start: a, ux, uz };
+    const a = path[0], b = path[path.length - 1], ol = Math.hypot(b.x - a.x, b.z - a.z) || 1;
+    return { pts, segs, length: total, samples, straight: sec.straight, start: a, ux: (b.x - a.x) / ol, uz: (b.z - a.z) / ol };
   }
   function openSectionSheet() {
     if (S.mode === "cut") return; // 「模型を切る」では断面図（2D）は出さない
