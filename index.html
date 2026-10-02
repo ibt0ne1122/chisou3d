@@ -17,6 +17,15 @@
   h2 { font-size:20px; margin:28px 0 4px; }
   .card.preset { border-left:6px solid #d4a017; }
   footer { margin-top:32px; font-size:13px; color:var(--sub); }
+  .cw { position:relative; } .cw .card { height:100%; box-sizing:border-box; }
+  .qrb { position:absolute; top:10px; right:10px; border:1px solid #cfe0e7; background:#f4f8fa; border-radius:8px; padding:4px 8px; font-size:13px; cursor:pointer; }
+  .homeqr { border:1px solid #cfe0e7; background:#fff; border-radius:10px; padding:6px 12px; font-size:14px; cursor:pointer; margin-bottom:18px; }
+  #qrBox { position:fixed; inset:0; background:rgba(0,0,0,.45); display:flex; align-items:center; justify-content:center; padding:16px; }
+  #qrBox[hidden] { display:none; }
+  #qrBox .in { background:#fff; border-radius:14px; padding:18px; text-align:center; max-width:420px; width:100%; }
+  #qrBox canvas { width:min(300px,70vw); height:auto; image-rendering:pixelated; }
+  #qrBox .u { font-size:12px; color:var(--sub); word-break:break-all; }
+  #qrBox .row button { margin:4px; padding:6px 12px; border-radius:8px; border:1px solid #cfe0e7; background:#f4f8fa; font-size:14px; }
   footer a { color:var(--accent); }
 </style>
 </head>
@@ -24,9 +33,10 @@
 <main>
   <h1>🌋 3D土地模型（6年理科「大地のつくり」）</h1>
   <p class="lead">学校のまわりの地形と、地面の下の地層を3Dで見られます。見たい場所をえらんでください。</p>
+  <button type="button" class="homeqr qrb0" data-url="" data-title="3D土地模型（入り口）">📱 この入り口ページのQRコード</button>
   <div class="grid">
-    <a class="card" href="app.html?site=nagatsuta"><span class="ic">🏫</span><b>長津田小学校のまわり</b><small>3D土地模型をひらく ›</small></a>
-    <a class="card" href="app.html?site=shinoharanishi"><span class="ic">🏫</span><b>篠原西小学校のまわり</b><small>3D土地模型をひらく ›</small></a>
+    <div class="cw"><a class="card" href="app.html?site=nagatsuta"><span class="ic">🏫</span><b>長津田小学校のまわり</b><small>3D土地模型をひらく ›</small></a><button type="button" class="qrb" data-url="app.html?site=nagatsuta" data-title="長津田小学校のまわり">📱 QR</button></div>
+    <div class="cw"><a class="card" href="app.html?site=shinoharanishi"><span class="ic">🏫</span><b>篠原西小学校のまわり</b><small>3D土地模型をひらく ›</small></a><button type="button" class="qrb" data-url="app.html?site=shinoharanishi" data-title="篠原西小学校のまわり">📱 QR</button></div>
   </div>
   <section id="presets" hidden>
     <h2>👩‍🏫 先生が準備した画面</h2>
@@ -46,11 +56,44 @@
           a.className = "card preset"; a.href = "app.html?p=" + encodeURIComponent(p.id);
           a.innerHTML = '<span class="ic">📘</span><b></b><small>この画面をひらく ›</small>';
           a.querySelector("b").textContent = p.title;
-          g.appendChild(a);
+          var w = document.createElement("div"); w.className = "cw";
+          var qb = document.createElement("button"); qb.type = "button"; qb.className = "qrb"; qb.textContent = "📱 QR";
+          qb.dataset.url = a.getAttribute("href"); qb.dataset.title = p.title;
+          w.appendChild(a); w.appendChild(qb); g.appendChild(w);
         });
         document.getElementById("presets").hidden = false;
       };
       document.body.appendChild(sc);
+    })();
+  </script>
+  <div id="qrBox" hidden><div class="in"><b id="qrT"></b><br><canvas id="qrC"></canvas><div class="u" id="qrU"></div>
+    <div class="row"><button type="button" id="qrSave">💾 画像で保存</button><button type="button" id="qrClose">とじる</button></div></div></div>
+  <script src="lib/qrcode.js"></script>
+  <script>
+    (function () {
+      // 入り口・各場所のQRコード（タブレットのカメラで読みとると開く）
+      var box = document.getElementById("qrBox"), cv = document.getElementById("qrC");
+      function show(url, title) {
+        var abs = new URL(url, location.href).href;
+        var q = qrcode(0, "M"); q.addData(abs); q.make();
+        var n = q.getModuleCount(), cell = Math.max(3, Math.floor(480 / (n + 8))), size = (n + 8) * cell;
+        cv.width = cv.height = size;
+        var g = cv.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, size, size); g.fillStyle = "#000";
+        for (var r = 0; r < n; r++) for (var c = 0; c < n; c++) if (q.isDark(r, c)) g.fillRect((c + 4) * cell, (r + 4) * cell, cell, cell);
+        document.getElementById("qrT").textContent = title;
+        document.getElementById("qrU").textContent = abs;
+        box.hidden = false;
+      }
+      document.addEventListener("click", function (e) {
+        var b = e.target.closest(".qrb, .qrb0");
+        if (b) show(b.dataset.url || location.href.replace(/[?#].*$/, ""), b.dataset.title);
+      });
+      document.getElementById("qrClose").onclick = function () { box.hidden = true; };
+      box.onclick = function (e) { if (e.target === box) box.hidden = true; };
+      document.getElementById("qrSave").onclick = function () {
+        var a = document.createElement("a"); a.href = cv.toDataURL("image/png");
+        a.download = "QRコード-" + document.getElementById("qrT").textContent + ".png"; a.click();
+      };
     })();
   </script>
   <footer>

@@ -37,7 +37,7 @@
       setTimeout(run, 0); // 1ファイル版：設定がすでに入っている（準備が終わってから始める）
     } else {
       const sc = document.createElement("script");
-      sc.src = entry.file + "?v=20261001000645";
+      sc.src = entry.file + "?v=20261002090435";
       sc.onload = run;
       sc.onerror = () => showError("場所の設定ファイル（" + entry.file + "）を読み込めませんでした。ZIPの場合は「すべて展開」してから開いてください。");
       document.body.appendChild(sc);
@@ -3403,6 +3403,7 @@
     };
     $("nsCreate").onclick = createNewSite;
     $("btnNewSite").onclick = openNewSite;
+    initQr();
     $("nsSearch").onclick = searchPlace;
     $("nsLatLon").addEventListener("input", () => {
       const m = $("nsLatLon").value.match(/(-?\d+\.\d+)[,\s、]+(-?\d+\.\d+)/);
@@ -4343,6 +4344,53 @@
     const cv = drawQr(document.createElement("canvas"), link);
     return '<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>' + esc(title) + '</title><style>body{font-family:"BIZ UDPGothic",sans-serif;text-align:center;margin:18mm}h1{font-size:26px}img{width:120mm;height:120mm;image-rendering:pixelated}p{font-size:15px}@media print{button{display:none}}</style></head><body>' +
       "<h1>" + esc(title) + "</h1><img src=\"" + cv.toDataURL("image/png") + "\"><p>タブレットのカメラで読みとってね（3D土地模型）</p><button onclick=\"print()\">🖨 印刷する</button></body></html>";
+  }
+  // ---------- 入り口・各場所のURLとQRコード ----------
+  const PUBLIC_BASE = "https://ibt0ne1122.github.io/chisou3d/";
+  /** 公開しているフォルダのURL（公開版の app.html から開いていればその場所、ちがえば公開先） */
+  function publicBase() {
+    if (/^https?:$/.test(location.protocol) && /\/app\.html$/.test(location.pathname)) return location.href.replace(/[?#].*$/, "").replace(/app\.html$/, "");
+    return PUBLIC_BASE;
+  }
+  function qrTargets() {
+    const b = publicBase(), list = [{ v: "home", title: "入り口（場所えらび）", url: b }];
+    for (const it of C.SITE_LIST) list.push({ v: it.id, title: it.title, url: b + "app.html?site=" + encodeURIComponent(it.id) });
+    for (const c of customSites) list.push({ v: c.id, title: c.name + "のまわり（この端末で作った場所）", url: b + "app.html?site=" + encodeURIComponent(c.id), local: true });
+    return list;
+  }
+  function openQrDialog() {
+    const sel = $("qrTarget"), list = qrTargets();
+    sel.innerHTML = list.map((t) => '<option value="' + esc(t.v) + '">' + esc(t.title) + "</option>").join("");
+    sel.value = list.some((t) => t.v === S.site.id) ? S.site.id : "home";
+    const draw = () => {
+      const t = list.find((x) => x.v === sel.value) || list[0];
+      drawQr($("qrCanvas"), t.url);
+      $("qrTitle").textContent = t.v === "home" ? "3D土地模型（入り口）" : t.title;
+      $("qrUrl").textContent = $("qrUrl").href = t.url;
+      $("qrNote").textContent = t.local ? "⚠ この場所は、この端末のブラウザの中だけにあります。ほかのタブレットで読みとっても開けません（Claudeに頼んで公開版に入れると、どの端末でも開けます）。" : "";
+      S.qrNow = t;
+    };
+    sel.onchange = draw;
+    draw();
+    $("qrDialog").showModal();
+  }
+  function initQr() {
+    $("btnHome").href = publicBase();
+    $("btnQr").onclick = openQrDialog;
+    $("qrCopy").onclick = async () => { try { await navigator.clipboard.writeText(S.qrNow.url); flashHint("🔗 URLをコピーしました"); } catch (e) { prompt("このURLをコピーしてください", S.qrNow.url); } };
+    $("qrSave").onclick = () => download("QRコード-" + $("qrTitle").textContent + ".png", $("qrCanvas").toDataURL("image/png"));
+    $("qrPrint").onclick = () => { const w = window.open("", "_blank"); if (w) { w.document.write(qrSheetHtml(S.qrNow.url, $("qrTitle").textContent)); w.document.close(); } };
+    // 新しい場所のダイアログ：柱状図あつめ（ブックマークレット）
+    const holder = $("nsBmHolder");
+    if (holder && C.NGIC_BOOKMARKLET) {
+      const a = document.createElement("a");
+      a.href = C.NGIC_BOOKMARKLET; a.className = "bmlink"; a.textContent = "📥 柱状図あつめ";
+      a.onclick = (e) => { e.preventDefault(); flashHint("このボタンは、お気に入りバーにドラッグして使います"); };
+      const cp = document.createElement("button");
+      cp.type = "button"; cp.textContent = "📋 コピー";
+      cp.onclick = async () => { try { await navigator.clipboard.writeText(C.NGIC_BOOKMARKLET); cp.textContent = "コピーしました。お気に入りのURL欄に貼り付けてください"; } catch (e) { prompt("これをコピーして、お気に入りのURLに貼り付けてください", C.NGIC_BOOKMARKLET); } };
+      holder.append(a, " ", cp);
+    }
   }
   function presetId() { const d = new Date(); return "p" + d.getFullYear() % 100 + String(d.getMonth() + 1).padStart(2, "0") + String(d.getDate()).padStart(2, "0") + Math.random().toString(36).slice(2, 5); }
   async function makeKidLink() {
