@@ -1,0 +1,994 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>土地のでき方シミュレーター｜大地のつくり</title>
+<style>
+  :root { --bg:#eef4f7; --panel:#fff; --ink:#1f2a33; --sub:#5a6873; --accent:#1f7a8c; --line:#d5e1e7; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink);
+    font-family: "BIZ UDPGothic", "Hiragino Kaku Gothic ProN", "Meiryo", sans-serif; overscroll-behavior: none; }
+  body { display: flex; flex-direction: column; height: 100dvh; }
+  header { display: flex; align-items: center; gap: 10px; padding: 8px 12px 4px; flex-wrap: wrap; }
+  header h1 { font-size: 19px; margin: 0; white-space: nowrap; }
+  header small { color: var(--sub); font-size: 12.5px; }
+  #scenes { display: flex; gap: 6px; overflow-x: auto; padding: 4px 12px 8px; scrollbar-width: thin; -webkit-overflow-scrolling: touch; }
+  #scenes .grp { flex: 0 0 auto; align-self: center; font-size: 12px; color: var(--sub); font-weight: bold; padding: 0 2px 0 8px; border-left: 3px solid var(--line); }
+  #scenes .grp:first-child { border-left: 0; padding-left: 0; }
+  #scenes button { flex: 0 0 auto; border: 1px solid var(--line); background: #fff; border-radius: 18px; padding: 6px 12px; font-size: 14px; font-family: inherit; color: var(--ink); cursor: pointer; white-space: nowrap; min-height: 38px; }
+  #scenes button.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+  #stage { position: relative; flex: 1; min-height: 0; margin: 0 10px; background: #fff; border-radius: 14px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,.06); touch-action: none; }
+  #cv { position: absolute; inset: 0; width: 100%; height: 100%; cursor: ew-resize; }
+  #explainBar { display: flex; gap: 10px; align-items: flex-start; margin: 0 10px 8px; }
+  #explain { flex: 1; background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 8px 14px; font-size: 16.5px; line-height: 1.55; min-height: 3.4em; }
+  #explain .st { display: inline-block; background: var(--accent); color: #fff; border-radius: 10px; font-size: 13px; padding: 1px 9px; margin-right: 6px; vertical-align: 1px; }
+  #explain .ttl { font-weight: bold; font-size: 15px; color: #1f5f73; display: block; margin-bottom: 2px; }
+  #age { flex: 0 0 auto; background: rgba(31,42,51,.85); color: #fff; border-radius: 14px; padding: 6px 12px; font-size: 14px; margin-top: 6px; }
+  #age:empty { display: none; }
+  #swipeHint { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); background: rgba(31,42,51,.75); color: #fff; border-radius: 14px; padding: 4px 12px; font-size: 13px; pointer-events: none; transition: opacity .6s; }
+  footer { padding: 8px 12px calc(10px + env(safe-area-inset-bottom)); }
+  .timebar { display: flex; align-items: center; gap: 10px; background: #fff; border-radius: 14px; padding: 8px 12px 4px; box-shadow: 0 2px 10px rgba(0,0,0,.06); }
+  .timebar button { border: 1px solid var(--line); background: #f4f8fa; border-radius: 12px; min-width: 52px; min-height: 48px; font-size: 20px; cursor: pointer; font-family: inherit; color: var(--ink); }
+  .timebar button.play { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .track { position: relative; flex: 1; padding-bottom: 24px; }
+  .track .lab { display: flex; justify-content: space-between; font-size: 12px; color: var(--sub); margin-bottom: 2px; }
+  input[type=range]#time { width: 100%; height: 44px; margin: 0; -webkit-appearance: none; appearance: none; background: transparent; touch-action: none; }
+  #time::-webkit-slider-runnable-track { height: 14px; border-radius: 7px; background: linear-gradient(90deg, #c8955a, #e6cf7e, #9aa7a2, #6b7b8c); }
+  #time::-moz-range-track { height: 14px; border-radius: 7px; background: linear-gradient(90deg, #c8955a, #e6cf7e, #9aa7a2, #6b7b8c); }
+  #time::-webkit-slider-thumb { -webkit-appearance: none; width: 40px; height: 40px; margin-top: -13px; border-radius: 50%; background: #fff; border: 4px solid var(--accent); box-shadow: 0 2px 6px rgba(0,0,0,.3); }
+  #time::-moz-range-thumb { width: 34px; height: 34px; border-radius: 50%; background: #fff; border: 4px solid var(--accent); }
+  #ticks { position: absolute; left: 20px; right: 20px; bottom: 0; height: 24px; }
+  #ticks span { position: absolute; transform: translateX(-50%); font-size: 11.5px; color: var(--sub); white-space: nowrap; top: 4px; cursor: pointer; }
+  #ticks span::before { content: ""; position: absolute; left: 50%; top: -8px; width: 2px; height: 6px; background: #9fb3bd; }
+  #ticks span.on { color: var(--accent); font-weight: bold; }
+  @media (max-width: 700px) { #explain { font-size: 14.5px; } #explainBar { flex-direction: column; } header h1 { font-size: 16px; } #ticks span { font-size: 10px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>🌋 土地のでき方シミュレーター</h1>
+  <small>下のつまみ（または図の上）を指で右へスライドすると、時間が進みます</small>
+</header>
+<nav id="scenes"></nav>
+<div id="explainBar"><div id="explain"></div><div id="age"></div></div>
+<div id="stage">
+  <canvas id="cv"></canvas>
+  <div id="swipeHint">👉 図の上を左右になぞっても、時間を進めたり もどしたりできます</div>
+</div>
+<footer>
+  <div class="timebar">
+    <button id="reset" type="button" title="はじめにもどす">⏮</button>
+    <button id="play" type="button" class="play" title="自動で進める">▶</button>
+    <div class="track">
+      <div class="lab"><span>⏳ はじめ（むかし）</span><span>時間の流れ →</span><span>おわり（今）</span></div>
+      <input id="time" type="range" min="0" max="1000" value="0" aria-label="時間">
+      <div id="ticks"></div>
+    </div>
+  </div>
+</footer>
+<script>
+(function () {
+  "use strict";
+  // ================= 共通 =================
+  const VW = 1000, VH = 600;
+  const FONT = '"BIZ UDPGothic","Hiragino Kaku Gothic ProN","Meiryo",sans-serif';
+  const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
+  const seg = (t, a, b) => clamp((t - a) / (b - a));
+  const ease = (x) => (x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2);
+  const lerp = (a, b, u) => a + (b - a) * u;
+  const frac = (x) => x - Math.floor(x);
+  function rng(seed) { return function () { seed |= 0; seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+  function mix(c1, c2, u) {
+    const p = (c) => [parseInt(c.slice(1, 3), 16), parseInt(c.slice(3, 5), 16), parseInt(c.slice(5, 7), 16)];
+    const a = p(c1), b = p(c2);
+    return "rgb(" + a.map((v, i) => Math.round(lerp(v, b[i], clamp(u)))).join(",") + ")";
+  }
+  // 3D土地模型と同じ色
+  const COL = {
+    gravel: "#c8955a", sand: "#e6cf7e", mud: "#9aa7a2", ash: "#c46a4a", mudstone: "#6b7b8c", lime: "#e9e4d4",
+    rock: "#8b7f74", deep: "#6d625a", grass: "#7cb95c", soil: "#8a6a4a", sky1: "#cfe9f8", sky2: "#eef8fd",
+    sea: "#7cc0e6", seaDeep: "#4a90c4", water: "#d6f0fb", lava: "#e8572a", magma: "#ff7b2c", basalt: "#3f4448",
+  };
+  const NAME = { gravel: "れき", sand: "砂", mud: "どろ", ash: "火山灰", mudstone: "泥岩" };
+  // 柄：砂＝点、れき＝丸、どろ＝横線、火山灰＝V（3D土地模型と同じ）
+  const tiles = {};
+  function tile(type) {
+    if (tiles[type] !== undefined) return tiles[type];
+    const n = { sand: 9, gravel: 14, mud: 12, ash: 13, mudstone: 10 }[type];
+    if (!n) return (tiles[type] = null);
+    const c = document.createElement("canvas"); c.width = c.height = n;
+    const g = c.getContext("2d"); g.strokeStyle = g.fillStyle = "rgba(25,30,35,.55)"; g.lineWidth = 1.1;
+    if (type === "sand") { g.beginPath(); g.arc(2.5, 2.5, 1.1, 0, 7); g.arc(7, 7, 1.1, 0, 7); g.fill(); }
+    if (type === "gravel") { g.beginPath(); g.arc(7, 7, 3.6, 0, 7); g.stroke(); }
+    if (type === "mud" || type === "mudstone") { g.beginPath(); g.moveTo(1, 3); g.lineTo(6, 3); g.moveTo(6, n - 3); g.lineTo(n - 1, n - 3); g.stroke(); }
+    if (type === "ash") { g.beginPath(); g.moveTo(3, 4); g.lineTo(6.5, 9); g.lineTo(10, 4); g.stroke(); }
+    return (tiles[type] = c);
+  }
+  let G = null; // いまの描画先
+  function fillT(type, color) {
+    G.fillStyle = color || COL[type] || type; G.fill();
+    const tl = tile(type);
+    if (tl) { G.fillStyle = G.createPattern(tl, "repeat"); G.fill(); }
+  }
+  function path(pts, close = true) { G.beginPath(); pts.forEach((p, i) => (i ? G.lineTo(p[0], p[1]) : G.moveTo(p[0], p[1]))); if (close) G.closePath(); }
+  /** xs にそった上の線・下の線で囲んだ層 */
+  function band(xs, top, bot, type, color) {
+    const pts = xs.map((x, k) => [x, top[k]]);
+    for (let k = xs.length - 1; k >= 0; k--) pts.push([xs[k], bot[k]]);
+    path(pts); fillT(type, color);
+  }
+  /** 地層の重なり：bounds[i] が i番目の層の上の線。surf（地面）より上は見せない */
+  function strata(xs, bounds, types, surf, colors) {
+    for (let i = 0; i < types.length; i++) {
+      const top = xs.map((x, k) => (surf ? Math.max(bounds[i][k], surf[k]) : bounds[i][k]));
+      const bot = xs.map((x, k) => (surf ? Math.max(bounds[i + 1][k], surf[k]) : bounds[i + 1][k]));
+      if (top.every((v, k) => bot[k] - v < 0.2)) continue;
+      band(xs, top, bot, types[i], colors && colors[i]);
+      G.strokeStyle = "rgba(0,0,0,.18)"; G.lineWidth = 1; path(xs.map((x, k) => [x, bot[k]]), false); G.stroke();
+    }
+  }
+  function sky(top = 0, bot = VH) { const gr = G.createLinearGradient(0, top, 0, bot); gr.addColorStop(0, COL.sky1); gr.addColorStop(1, COL.sky2); G.fillStyle = gr; G.fillRect(0, top, VW, bot - top); }
+  function label(text, x, y, o = {}) {
+    const size = o.size || 17;
+    G.font = (o.bold === false ? "" : "bold ") + size + "px " + FONT;
+    const lines = String(text).split("\n");
+    const w = Math.max(...lines.map((l) => G.measureText(l).width)), lh = size * 1.3, h = lines.length * lh;
+    let bx = o.align === "right" ? x - w - 14 : o.align === "center" ? x - w / 2 - 7 : x;
+    const by = y - h / 2 - 4;
+    if (o.bg !== false) {
+      G.fillStyle = o.bg || "rgba(255,255,255,.92)";
+      G.beginPath(); G.roundRect ? G.roundRect(bx, by, w + 14, h + 8, 8) : G.rect(bx, by, w + 14, h + 8); G.fill();
+      if (o.border) { G.strokeStyle = o.border; G.lineWidth = 2; G.stroke(); }
+    }
+    G.fillStyle = o.color || "#1f2a33"; G.textBaseline = "middle"; G.textAlign = "left";
+    lines.forEach((l, i) => G.fillText(l, bx + 7, by + 4 + lh * (i + 0.5)));
+  }
+  function arrow(x1, y1, x2, y2, color = "#d0342c", w = 8) {
+    const a = Math.atan2(y2 - y1, x2 - x1), hl = w * 2.6;
+    G.strokeStyle = G.fillStyle = color; G.lineWidth = w; G.lineCap = "round";
+    G.beginPath(); G.moveTo(x1, y1); G.lineTo(x2 - Math.cos(a) * hl * 0.7, y2 - Math.sin(a) * hl * 0.7); G.stroke();
+    G.beginPath(); G.moveTo(x2, y2); G.lineTo(x2 - Math.cos(a - 0.45) * hl, y2 - Math.sin(a - 0.45) * hl); G.lineTo(x2 - Math.cos(a + 0.45) * hl, y2 - Math.sin(a + 0.45) * hl); G.closePath(); G.fill();
+  }
+  function tree(x, y, s = 1) { G.fillStyle = "#7a5634"; G.fillRect(x - 3 * s, y - 16 * s, 6 * s, 16 * s); G.fillStyle = "#3f8f3f"; G.beginPath(); G.arc(x, y - 24 * s, 13 * s, 0, 7); G.fill(); }
+  function house(x, y, s = 1, c = "#e8e0d0") { G.fillStyle = c; G.fillRect(x - 14 * s, y - 18 * s, 28 * s, 18 * s); G.fillStyle = "#b5523b"; path([[x - 18 * s, y - 18 * s], [x, y - 32 * s], [x + 18 * s, y - 18 * s]]); G.fill(); }
+  function person(x, y, s = 1, c = "#2f6fb0") {
+    G.strokeStyle = "#333"; G.lineWidth = 3 * s; G.lineCap = "round";
+    G.beginPath(); G.moveTo(x, y - 18 * s); G.lineTo(x - 6 * s, y); G.moveTo(x, y - 18 * s); G.lineTo(x + 6 * s, y); G.stroke();
+    G.fillStyle = c; G.fillRect(x - 6 * s, y - 36 * s, 12 * s, 19 * s);
+    G.fillStyle = "#f2c9a0"; G.beginPath(); G.arc(x, y - 43 * s, 7 * s, 0, 7); G.fill();
+  }
+  function shell(x, y, s = 1, c = "#f4ede0") {
+    G.fillStyle = c; G.strokeStyle = "#8a7a62"; G.lineWidth = 1.2;
+    G.beginPath(); G.moveTo(x, y); G.arc(x, y, 11 * s, Math.PI * 1.08, Math.PI * 1.92); G.closePath(); G.fill(); G.stroke();
+    G.beginPath(); for (let i = 1; i < 5; i++) { const a = Math.PI * (1.08 + 0.168 * i); G.moveTo(x, y); G.lineTo(x + Math.cos(a) * 11 * s, y + Math.sin(a) * 11 * s); } G.stroke();
+  }
+  function ammonite(x, y, s = 1, c = "#d9b98a") {
+    G.save(); G.translate(x, y); G.scale(s, s);
+    G.fillStyle = c; G.strokeStyle = "#7a5a34"; G.lineWidth = 1.6;
+    G.beginPath(); G.arc(0, 0, 16, 0, 7); G.fill(); G.stroke();
+    G.beginPath(); for (let a = 0; a < 6 * Math.PI; a += 0.15) { const r = 16 * Math.exp(-a / 7.5); a ? G.lineTo(Math.cos(a) * r, Math.sin(a) * r) : G.moveTo(r, 0); } G.stroke();
+    for (let a = 0; a < 2 * Math.PI; a += 0.5) { G.beginPath(); G.moveTo(Math.cos(a) * 10, Math.sin(a) * 10); G.lineTo(Math.cos(a) * 16, Math.sin(a) * 16); G.stroke(); }
+    G.restore();
+  }
+  /** 地しんのゆれ（ずれた直後に少しゆらす） */
+  function quake(t, times, amp = 6) { for (const q of times) if (t > q && t < q + 0.035) return Math.sin(t * 2600) * amp * (1 - (t - q) / 0.035); return 0; }
+  const XS = (step = 10, a = -20, b = 1020) => { const o = []; for (let x = a; x <= b; x += step) o.push(x); return o; };
+
+  // ================= 場面 =================
+  const SCENES = [];
+
+  // ---- ① 流れる水のはたらき（水そうの実験） ----
+  SCENES.push((() => {
+    const X0 = 330, X1 = 830, BOT = 520, WT = 192, IN = { x: 334, y: 190 };
+    const pours = [{ t0: 0.08, t1: 0.17 }, { t0: 0.5, t1: 0.59 }];
+    const ORD = ["gravel", "sand", "mud"], SINK = { gravel: 0.03, sand: 0.08, mud: 0.23 }, TH = { gravel: 34, sand: 30, mud: 22 };
+    const NUM = { gravel: 45, sand: 130, mud: 240 }, RAD = { gravel: 5.5, sand: 2.6, mud: 1.4 }, FALL = 0.012;
+    const r = rng(7), parts = [];
+    pours.forEach((p, pi) => ORD.forEach((ty, ti) => {
+      for (let i = 0; i < NUM[ty]; i++) parts.push({ k: pi * 3 + ti, ty, te: lerp(p.t0, p.t1, r()), x: X0 + 16 + Math.pow(r(), ty === "gravel" ? 1.5 : 1) * (X1 - X0 - 32), j: r(), w: r() * 6.3 });
+    }));
+    const fin = []; let fy = BOT;
+    for (let k = 0; k < 6; k++) { fin[k] = fy; fy -= TH[ORD[k % 3]]; }
+    const tot = new Array(6).fill(0); parts.forEach((p) => tot[p.k]++);
+    const landed = (p, t) => t >= p.te + FALL + SINK[p.ty];
+    return {
+      id: "tank", group: "地層のでき方", title: "流れる水のはたらき（水そうの実験）", short: "🧪 水そうの実験", dur: 26,
+      stages: [
+        { t: 0, s: "土をのせる", text: "れき・砂・どろがまざった土を、とい（雨どい）にのせます。水そうには水を入れておきます。" },
+        { t: 0.08, s: "1回目", text: "水を流すと、土が水といっしょに水そうへ運ばれます。つぶの大きく重いれきは早くしずみ、小さなどろはゆっくりしずみます。" },
+        { t: 0.4, s: "分かれた", text: "下から「れき→砂→どろ」の順に、分かれて積もりました。" },
+        { t: 0.47, s: "2回目", text: "もう一度、土をのせて水を流します。" },
+        { t: 0.86, s: "しま模様", text: "2回流すと、同じ順の層がもう一組重なり、しま模様ができました。海や湖の底でも、このように流れる水のはたらきで層が積み重なって地層ができます。" },
+      ],
+      draw(t) {
+        G.fillStyle = "#f6f8f9"; G.fillRect(0, 0, VW, VH);
+        G.fillStyle = "#c9b38f"; G.fillRect(0, 540, VW, 60); // 机
+        const cnt = new Array(6).fill(0); for (const p of parts) if (landed(p, t)) cnt[p.k]++;
+        G.fillStyle = COL.water; G.fillRect(X0, WT, X1 - X0, BOT - WT);
+        let y = BOT; const top = [];
+        for (let k = 0; k < 6; k++) {
+          const ty = ORD[k % 3], th = TH[ty] * cnt[k] / tot[k];
+          if (th > 0.3) { path([[X0, y - th], [X1, y - th], [X1, y], [X0, y]]); fillT(ty); }
+          y -= th; top[k] = y;
+        }
+        for (const p of pours) {
+          const a = 0.5 * seg(t, p.t0 + 0.005, p.t0 + 0.04) * (1 - seg(t, p.t0 + 0.08, p.t0 + 0.32));
+          if (a > 0) { G.fillStyle = "rgba(150,115,80," + a + ")"; G.fillRect(X0, WT, X1 - X0, y - WT); }
+        }
+        for (const p of parts) {
+          if (t < p.te || landed(p, t)) continue;
+          const tf = t - p.te; let x, yy;
+          if (tf < FALL) { x = IN.x + 4; yy = lerp(IN.y - 6, WT + 4, tf / FALL); }
+          else {
+            const u = (tf - FALL) / SINK[p.ty], land = fin[p.k] - p.j * TH[p.ty] * 0.9;
+            yy = lerp(WT + 4, land, u); x = lerp(IN.x + 8, p.x, Math.min(1, u * 2.4)) + (p.ty === "mud" ? Math.sin(p.w + t * 60) * 3 : 0);
+          }
+          G.fillStyle = COL[p.ty]; G.beginPath(); G.arc(x, yy, RAD[p.ty], 0, 7); G.fill();
+          if (p.ty !== "mud") { G.strokeStyle = "rgba(0,0,0,.35)"; G.lineWidth = 0.8; G.stroke(); }
+        }
+        // 水そうのガラス
+        G.strokeStyle = "#7aa7bd"; G.lineWidth = 5; G.beginPath(); G.moveTo(X0, 160); G.lineTo(X0, BOT + 3); G.lineTo(X1, BOT + 3); G.lineTo(X1, 160); G.stroke();
+        G.strokeStyle = "rgba(122,167,189,.5)"; G.lineWidth = 2; G.beginPath(); G.moveTo(X0, WT); G.lineTo(X1, WT); G.stroke();
+        // とい
+        G.fillStyle = "#b9c3c9"; path([[40, 64], [348, 178], [348, 192], [40, 80]]); G.fill();
+        G.strokeStyle = "#7d8a92"; G.lineWidth = 2; G.stroke();
+        pours.forEach((p, pi) => {
+          const m = (pi === 0 ? 1 : seg(t, 0.44, 0.49)) * (1 - seg(t, p.t0, p.t1));
+          if (m > 0.01 && (pi === 1 || t < 0.3)) {
+            const cx = 120, cy = 92;
+            G.fillStyle = "#9b7b55"; G.beginPath(); G.ellipse(cx, cy - 6 * m, 46 * Math.sqrt(m), 20 * m, -0.35, 0, 7); G.fill();
+            const rr = rng(3 + pi);
+            for (let i = 0; i < 40 * m; i++) { G.fillStyle = COL[ORD[i % 3]]; G.beginPath(); G.arc(cx + (rr() - 0.5) * 70 * Math.sqrt(m), cy - 6 * m + (rr() - 0.5) * 22 * m, 1.5 + rr() * 3, 0, 7); G.fill(); }
+          }
+          const w = seg(t, p.t0 - 0.01, p.t0 + 0.005) * (1 - seg(t, p.t1, p.t1 + 0.03));
+          if (w > 0) {
+            G.strokeStyle = "rgba(70,150,210," + 0.75 * w + ")"; G.lineWidth = 7; G.beginPath(); G.moveTo(90, 74); G.lineTo(345, 182); G.lineTo(352, 205); G.stroke();
+            G.save(); G.translate(48, 26); G.rotate(0.9); G.fillStyle = "rgba(200,230,245,.9)"; G.strokeStyle = "#7aa7bd"; G.lineWidth = 2; G.fillRect(-16, -26, 32, 48); G.strokeRect(-16, -26, 32, 48); G.restore();
+            G.strokeStyle = "rgba(70,150,210,.8)"; G.lineWidth = 5; G.beginPath(); G.moveTo(70, 40); G.quadraticCurveTo(84, 56, 92, 74); G.stroke();
+          }
+        });
+        const sinking = parts.some((p) => t > p.te && !landed(p, t));
+        if (sinking) label("つぶが大きく重いものほど、早くしずむ", 580, 140, { align: "center", size: 17, border: "#1f7a8c" });
+        if (t >= 0.42) {
+          const L = [["gravel", "れき（つぶが大きい）"], ["sand", "砂"], ["mud", "どろ（つぶが小さい）"]];
+          const n = t >= 0.86 ? 6 : 3;
+          for (let k = 0; k < n; k++) { const ty = ORD[k % 3]; label(L[k % 3][1], X1 + 18, (fin[k] + fin[k] - TH[ty]) / 2, { size: 15 }); }
+          if (t >= 0.86) {
+            G.strokeStyle = "#1f7a8c"; G.lineWidth = 3;
+            [[0, "1回目"], [3, "2回目"]].forEach(([k, s]) => { const yb = fin[k], yt = fin[k + 2] - TH.mud; G.beginPath(); G.moveTo(X0 - 12, yb); G.lineTo(X0 - 22, yb); G.lineTo(X0 - 22, yt); G.lineTo(X0 - 12, yt); G.stroke(); label(s, X0 - 28, (yb + yt) / 2, { align: "right", size: 15, color: "#1f5f73" }); });
+          }
+        }
+      },
+    };
+  })());
+
+  // ---- ②③⑭ 海の底（川が運ぶ／火山灰／化石）共通 ----
+  function seaScene(cfg) {
+    const SL = 240, COAST = 380, xs = XS(8);
+    const r = rng(cfg.seed || 11);
+    const land = (x) => {
+      if (cfg.volcano) { // 左に火山
+        if (x < 300) return 230 - 175 * Math.max(0, 1 - Math.abs(x - 170) / 150) + (Math.abs(x - 170) < 18 ? 14 : 0);
+        return lerp(230, SL, (x - 300) / (COAST - 300));
+      }
+      const pts = [[-20, 120], [80, 74], [160, 118], [250, 186], [COAST, SL]];
+      for (let i = 0; i < pts.length - 1; i++) if (x <= pts[i + 1][0]) return lerp(pts[i][1], pts[i + 1][1], (x - pts[i][0]) / (pts[i + 1][0] - pts[i][0]));
+      return SL;
+    };
+    const floor0 = (x) => (x < COAST ? land(x) : lerp(SL, 290, clamp((x - COAST) / 40)) + Math.max(0, x - COAST - 40) * 0.26);
+    const evs = cfg.events;
+    const thick = (e, x) => (e.kind === "ash" ? 8 : x < COAST ? 0 : 13 * Math.pow(clamp((x - COAST) / 170), 0.8));
+    const parts = []; for (let i = 0; i < 160; i++) parts.push({ ph: r(), ty: ["gravel", "sand", "sand", "mud", "mud", "mud"][i % 6], j: r() });
+    const ashFall = []; for (let i = 0; i < 260; i++) ashFall.push({ x: 60 + r() * 940, ph: r() });
+    return function (t) {
+      sky(0, SL);
+      // 海
+      const gr = G.createLinearGradient(0, SL, 0, 600); gr.addColorStop(0, COL.sea); gr.addColorStop(1, COL.seaDeep);
+      G.fillStyle = gr; G.fillRect(COAST - 40, SL, VW - COAST + 40, VH - SL);
+      // もとの地面（岩）
+      const f0 = xs.map(floor0);
+      band(xs, f0, xs.map(() => 640), "rock", COL.rock);
+      // 積もった層
+      let base = f0.slice();
+      const tops = [];
+      evs.forEach((e, k) => {
+        const gk = seg(t, e.t0, e.t1), th = xs.map((x) => thick(e, x) * gk);
+        const top = base.map((b, i) => b - th[i]);
+        if (gk > 0) {
+          if (e.kind === "ash") band(xs, top, base, "ash");
+          else {
+            const z1 = COAST + 90 + (e.shift || 0), z2 = COAST + 270 + (e.shift || 0);
+            [["gravel", -100, z1], ["sand", z1, z2], ["mud", z2, 1100]].forEach(([ty, a, b]) => { G.save(); G.beginPath(); G.rect(a, 0, b - a, VH); G.clip(); band(xs, top, base, ty); G.restore(); });
+          }
+          G.strokeStyle = "rgba(0,0,0,.18)"; G.lineWidth = 1; path(xs.map((x, i) => [x, top[i]]), false); G.stroke();
+        }
+        tops.push(top); base = top;
+      });
+      // 陸の草
+      G.strokeStyle = COL.grass; G.lineWidth = 5; path(xs.filter((x) => x <= COAST).map((x, i) => [x, base[i]]), false); G.stroke();
+      // 化石（貝）：層が積もったあと、その面にのる → 上に積もるとうまる
+      (cfg.fossils || []).forEach((f) => { const k = f.ev; if (t >= evs[k].t1 - 0.01) { const i = Math.round((f.x + 20) / 8); shell(f.x, tops[k][i] + 1, 1, t > evs[k].t1 + 0.15 ? "#e7dccb" : "#fbf5ea"); } });
+      // 川
+      if (!cfg.volcano) { G.strokeStyle = "#5aa9de"; G.lineWidth = 6; G.beginPath(); G.moveTo(150, 116); G.quadraticCurveTo(250, 190, COAST, SL - 1); G.stroke(); }
+      else { G.strokeStyle = "#5aa9de"; G.lineWidth = 5; G.beginPath(); G.moveTo(300, 232); G.lineTo(COAST, SL - 1); G.stroke(); }
+      // 運ばれる土砂
+      const act = evs.some((e) => e.kind !== "ash" && t > e.t0 && t < e.t1);
+      if (act) {
+        const cur = evs.find((e) => e.kind !== "ash" && t > e.t0 && t < e.t1);
+        for (const p of parts) {
+          const s = frac(p.ph + t * 9);
+          const tgt = p.ty === "gravel" ? COAST + 20 + p.j * 70 : p.ty === "sand" ? COAST + 100 + p.j * 170 : COAST + 280 + p.j * 330;
+          let x, y;
+          if (s < 0.45) { const u = s / 0.45; x = cfg.volcano ? lerp(300, COAST, u) : lerp(150, COAST, u); y = cfg.volcano ? lerp(232, SL, u) : (1 - u) * (1 - u) * 116 + 2 * (1 - u) * u * 190 + u * u * SL; }
+          else { const u = (s - 0.45) / 0.55, tx = tgt + (cur.shift || 0), i = clamp(Math.round((tx + 20) / 8), 0, xs.length - 1); x = lerp(COAST, tx, Math.min(1, u * 1.6)); y = lerp(SL + 4, base[i] - 2, u); }
+          G.fillStyle = COL[p.ty]; G.beginPath(); G.arc(x, y, p.ty === "gravel" ? 4 : p.ty === "sand" ? 2.4 : 1.4, 0, 7); G.fill();
+        }
+      }
+      // 火山の噴火
+      if (cfg.volcano) {
+        const er = cfg.erupt, e = seg(t, er[0], er[1]);
+        if (t > er[0] && t < er[1] + 0.06) {
+          const fade = 1 - seg(t, er[1], er[1] + 0.06);
+          for (let i = 0; i < 9; i++) { const a = seg(t, er[0] + i * 0.012, er[0] + i * 0.012 + 0.06); if (a <= 0) continue; G.fillStyle = "rgba(90,80,75," + 0.55 * fade + ")"; G.beginPath(); G.arc(170 + i * 22 * a + i * 30 * e, 40 - i * 7 - 30 * a, 26 + i * 6, 0, 7); G.fill(); }
+          for (const p of ashFall) { const s = frac(p.ph + t * 6); const y = lerp(30, 560, s); if (Math.abs(p.x - 170) < 30 && s < 0.2) continue; if (y > base[clamp(Math.round((p.x + 20) / 8), 0, xs.length - 1)] - 2) continue; G.fillStyle = "rgba(150,70,50," + 0.8 * fade + ")"; G.fillRect(p.x + Math.sin(s * 9) * 8, y, 2.5, 2.5); }
+          if (e < 1) { G.fillStyle = "rgba(255,120,40,.85)"; G.beginPath(); G.arc(170, 60, 10, 0, 7); G.fill(); }
+        }
+      }
+      // 名前
+      label("海", 900, SL + 24, { size: 15, bg: "rgba(255,255,255,.6)" });
+      if (!cfg.volcano) label("川", 236, 166, { size: 15, bg: "rgba(255,255,255,.6)" });
+      if (cfg.draw) cfg.draw(t, { tops, xs, base });
+    };
+  }
+  SCENES.push({
+    id: "sea", group: "地層のでき方", title: "海の底に地層ができる", short: "🌊 海の底で積もる", dur: 30,
+    age: (t) => "はじめから 約" + Math.round(t * 60) + "万年",
+    stages: [
+      { t: 0, s: "運ばれる", text: "川の水は、山や川岸をけずった石や土（れき・砂・どろ）を運びます。運ばれるうちに角がとれて丸くなります。" },
+      { t: 0.1, s: "しずむ", text: "海に出ると流れがゆるやかになり、運ばれてきたものが海の底にしずみます。重いれきは岸の近くに、軽いどろは遠くまで運ばれてしずみます。" },
+      { t: 0.4, s: "重なる", text: "長い年月の間に同じことがくり返され、海の底に層が何枚も積み重なります。海の深さが変わると、同じ場所でも積もるもの（れき・砂・どろ）が変わります。" },
+      { t: 0.65, s: "うもれる", text: "死んだ貝などが砂やどろにうもれると、化石になることがあります。" },
+      { t: 0.9, s: "地層", text: "下の層ほど古く、上の層ほど新しい層です。こうして何万年〜何百万年もかけて地層ができます。" },
+    ],
+    draw: seaScene({
+      seed: 11,
+      events: [{ t0: 0.1, t1: 0.22, shift: 0 }, { t0: 0.22, t1: 0.34, shift: -60 }, { t0: 0.34, t1: 0.46, shift: 50 }, { t0: 0.46, t1: 0.58, shift: 110 }, { t0: 0.58, t1: 0.7, shift: -20 }, { t0: 0.7, t1: 0.82, shift: 60 }, { t0: 0.82, t1: 0.92, shift: -40 }],
+      fossils: [{ ev: 2, x: 690 }, { ev: 4, x: 830 }, { ev: 1, x: 560 }],
+      draw(t, d) { if (t > 0.9) { label("下ほど古い ↓", 990, 520, { align: "right", size: 15 }); label("上ほど新しい ↑", 990, 300, { align: "right", size: 15 }); } },
+    }),
+  });
+
+  SCENES.push({
+    id: "ash", group: "地層のでき方", title: "火山のはたらきでできる地層", short: "🌋 火山灰の層", dur: 28,
+    age: (t) => "はじめから 約" + Math.round(t * 40) + "万年",
+    stages: [
+      { t: 0, s: "水の層", text: "海や湖の底に、流れる水が運んだれき・砂・どろが積もっています。" },
+      { t: 0.36, s: "噴火", text: "火山が噴火すると、火山灰が空高くふき上げられ、風で遠くまで運ばれて降り積もります。" },
+      { t: 0.48, s: "火山灰の層", text: "火山灰は、陸にも海にも同じように積もって、火山灰の層になります。" },
+      { t: 0.6, s: "また積もる", text: "その上に、また流れる水のはたらきで層が積もります。" },
+      { t: 0.86, s: "つぶを比べる", text: "つぶを比べると、流れる水で運ばれたつぶは角がとれて丸く、火山灰のつぶは角ばっています。小さな穴があいたもの（軽石）もあります。" },
+    ],
+    draw: seaScene({
+      seed: 21, volcano: true, erupt: [0.36, 0.55],
+      events: [{ t0: 0.04, t1: 0.2, shift: 0 }, { t0: 0.2, t1: 0.35, shift: 60 }, { t0: 0.38, t1: 0.56, kind: "ash" }, { t0: 0.6, t1: 0.73, shift: -40 }, { t0: 0.73, t1: 0.86, shift: 40 }],
+      draw(t, d) {
+        const a = seg(t, 0.86, 0.92);
+        if (a <= 0) return;
+        G.globalAlpha = a;
+        [[600, "流れる水のつぶ（丸い）", false], [830, "火山灰のつぶ（角ばっている）", true]].forEach(([cx, s, ang]) => {
+          const cy = 120, R = 78, rr = rng(ang ? 5 : 9);
+          G.fillStyle = "#fffdf8"; G.strokeStyle = "#1f7a8c"; G.lineWidth = 4; G.beginPath(); G.arc(cx, cy, R, 0, 7); G.fill(); G.stroke();
+          G.save(); G.beginPath(); G.arc(cx, cy, R - 3, 0, 7); G.clip();
+          for (let i = 0; i < 22; i++) {
+            const x = cx + (rr() - 0.5) * 140, y = cy + (rr() - 0.5) * 140, s2 = 9 + rr() * 9;
+            G.fillStyle = ang ? ["#d9d2c8", "#3d3a38", "#b8a68e", "#f0ece4"][i % 4] : ["#c8955a", "#e6cf7e", "#b9a27a", "#d8c7a1"][i % 4];
+            G.strokeStyle = "rgba(0,0,0,.4)"; G.lineWidth = 1;
+            G.beginPath();
+            if (ang) { const n = 4 + (i % 3); for (let v = 0; v < n; v++) { const an = (v / n) * 6.28 + rr(), rad = s2 * (0.5 + rr() * 0.8); v ? G.lineTo(x + Math.cos(an) * rad, y + Math.sin(an) * rad) : G.moveTo(x + Math.cos(an) * rad, y + Math.sin(an) * rad); } G.closePath(); }
+            else G.ellipse(x, y, s2, s2 * (0.7 + rr() * 0.3), rr() * 3, 0, 7);
+            G.fill(); G.stroke();
+            if (ang && i % 5 === 0) { G.fillStyle = "rgba(255,255,255,.8)"; G.beginPath(); G.arc(x, y, 2.2, 0, 7); G.fill(); }
+          }
+          G.restore();
+          label(s, cx, cy + R + 16, { align: "center", size: 14 });
+        });
+        G.globalAlpha = 1;
+      },
+    }),
+  });
+
+  // ---- ④ 固まって岩石になる ----
+  SCENES.push((() => {
+    const types = ["mud", "sand", "ash", "gravel"], rock = { gravel: "れき岩", sand: "砂岩", mud: "泥岩", ash: "凝灰岩" };
+    const cement = { gravel: "#cdb89a", sand: "#d9c9a0", mud: "#8f9a96", ash: "#b9806a" };
+    const grains = {};
+    const r = rng(31);
+    types.forEach((ty) => {
+      const n = { gravel: 18, sand: 70, mud: 260, ash: 70 }[ty], sz = { gravel: [14, 22], sand: [5, 8], mud: [2, 3], ash: [4, 9] }[ty];
+      grains[ty] = []; for (let i = 0; i < n; i++) { const a = r() * 6.3, d = Math.sqrt(r()) * 88; grains[ty].push({ x: Math.cos(a) * d, y: Math.sin(a) * d, s: lerp(sz[0], sz[1], r()), c: r(), rot: r() * 6.3 }); }
+    });
+    return {
+      id: "rock", group: "地層のでき方", title: "地層が固まって岩石になる", short: "🪨 固まって岩石に", dur: 24,
+      age: (t) => "はじめから 約" + Math.round(t * 300) + "万年",
+      stages: [
+        { t: 0, s: "やわらかい", text: "積もったばかりの層は、つぶとつぶの間に水がある、やわらかい土や砂です。" },
+        { t: 0.12, s: "おされる", text: "上に次々と層が積もると、その重みで下の層がおし固められ、つぶの間の水がしぼり出されます。" },
+        { t: 0.5, s: "くっつく", text: "つぶとつぶの間に、水にとけていたものがしみこんで固まり、つぶどうしをくっつけます。" },
+        { t: 0.78, s: "岩石", text: "長い年月をかけて、かたい岩石になります。れき→れき岩、砂→砂岩、どろ→泥岩、火山灰→凝灰岩（ぎょうかいがん）。" },
+      ],
+      draw(t) {
+        sky(0, 120);
+        const c = ease(seg(t, 0.12, 0.6)), cm = seg(t, 0.5, 0.82);
+        // 左：地層の柱
+        const x0 = 70, x1 = 400, bot = 580, th0 = 70, th = th0 * (1 - 0.22 * c);
+        G.fillStyle = COL.deep; G.fillRect(0, 120, 470, VH - 120);
+        let y = bot;
+        types.forEach((ty, i) => { path([[x0, y - th], [x1, y - th], [x1, y], [x0, y]]); fillT(ty, cm > 0 ? mix(COL[ty], cement[ty], cm * 0.5) : COL[ty]); G.strokeStyle = "rgba(0,0,0,.25)"; G.stroke(); label(cm > 0.85 ? rock[ty] : NAME[ty], x1 + 8, y - th / 2, { size: 14 }); y -= th; });
+        // 上に積もる層
+        const up = 300 - 50 * c, pileTop = lerp(y, 130, seg(t, 0.08, 0.6));
+        if (pileTop < y - 1) {
+          const n = 5, h = (y - pileTop) / n;
+          for (let i = 0; i < n; i++) { path([[x0, y - h * (i + 1)], [x1, y - h * (i + 1)], [x1, y - h * i], [x0, y - h * i]]); fillT(["sand", "mud", "gravel", "mud", "sand"][i], mix(COL[["sand", "mud", "gravel", "mud", "sand"][i]], "#bbbbbb", 0.4)); }
+          label("上に積もった層", (x0 + x1) / 2, (y + pileTop) / 2, { align: "center", size: 14 });
+        }
+        if (c > 0.05 && c < 0.99) for (let i = 0; i < 3; i++) arrow(x0 + 60 + i * 105, pileTop - 50, x0 + 60 + i * 105, pileTop - 10, "#d0342c", 6);
+        if (c > 0.05) label("重み", x0 + 10, pileTop - 62, { size: 14, color: "#d0342c" });
+        void up;
+        // 右：虫めがね
+        types.forEach((ty, i) => {
+          const cx = 590 + (i % 2) * 250, cy = 165 + Math.floor(i / 2) * 250, R = 100;
+          G.save();
+          G.beginPath(); G.arc(cx, cy, R, 0, 7); G.fillStyle = mix("#bfe6f7", cement[ty], cm); G.fill();
+          G.clip();
+          const sq = 1 - 0.28 * c;
+          for (const p of grains[ty]) {
+            const x = cx + p.x * (1 + 0.04 * c), yy = cy + 40 * c * 0.3 + p.y * sq, s = p.s * (1 + 0.15 * c);
+            G.fillStyle = ty === "ash" ? ["#d9d2c8", "#3d3a38", "#c08a70", "#f0ece4"][Math.floor(p.c * 4)] : mix(COL[ty], "#6b5a45", p.c * 0.45);
+            G.beginPath();
+            if (ty === "ash") { for (let v = 0; v < 5; v++) { const an = p.rot + v * 1.25 + (v % 2) * 0.4, rad = s * (0.6 + (v % 3) * 0.25); v ? G.lineTo(x + Math.cos(an) * rad, yy + Math.sin(an) * rad) : G.moveTo(x + Math.cos(an) * rad, yy + Math.sin(an) * rad); } G.closePath(); }
+            else G.ellipse(x, yy, s, s * 0.8, p.rot, 0, 7);
+            G.fill(); if (ty !== "mud") { G.strokeStyle = "rgba(0,0,0,.35)"; G.lineWidth = 1; G.stroke(); }
+          }
+          G.restore();
+          G.strokeStyle = "#1f7a8c"; G.lineWidth = 5; G.beginPath(); G.arc(cx, cy, R, 0, 7); G.stroke();
+          const nm = cm > 0.85 ? NAME[ty] + " → " + rock[ty] : NAME[ty];
+          label(nm, cx, cy + R + 16, { align: "center", size: 15, border: cm > 0.85 ? "#1f7a8c" : null });
+        });
+        if (c < 0.3) label("水", 700, 290, { align: "center", size: 13, color: "#2a77a8", bg: "rgba(255,255,255,.7)" });
+      },
+    };
+  })());
+
+  // ---- ⑭ 化石ができるまで ----
+  SCENES.push((() => {
+    const xs = XS(8), SL = 170;
+    return {
+      id: "fossil", group: "地層のでき方", title: "化石ができるまで", short: "🐚 化石ができるまで", dur: 28,
+      age: (t) => (t < 0.7 ? "約" + Math.round(lerp(10000, 9000, t / 0.7)) + "万年前" : "今に近づく…"),
+      stages: [
+        { t: 0, s: "生きていた", text: "大昔の海で、アンモナイトが生きていました。" },
+        { t: 0.13, s: "しずむ", text: "死ぬと海の底にしずみます。やわらかい部分はくさってなくなり、かたい殻が残ります。" },
+        { t: 0.28, s: "うもれる", text: "その上に、砂やどろが次々と積もって、殻がうもれます。" },
+        { t: 0.55, s: "化石に", text: "長い年月の間に、殻は地層の中で石のようにかたくなります。これが化石です。" },
+        { t: 0.68, s: "陸になる", text: "土地がもち上がって陸になり、雨や川の水にけずられていきます。" },
+        { t: 0.88, s: "見つかる", text: "がけの地層から化石が見つかります。化石から、その地層ができたころ、そこが海だったことなどがわかります。" },
+      ],
+      draw(t) {
+        const U = 190 * ease(seg(t, 0.68, 0.8)) + quake(t, [0.7, 0.74, 0.78], 4);
+        sky(0, VH);
+        const gr = G.createLinearGradient(0, SL, 0, 600); gr.addColorStop(0, COL.sea); gr.addColorStop(1, COL.seaDeep);
+        G.globalAlpha = 1 - seg(t, 0.7, 0.8); G.fillStyle = gr; G.fillRect(0, SL, VW, VH - SL); G.globalAlpha = 1;
+        const fl0 = 470 - U;
+        const n = 6, th = 26;
+        const bounds = []; for (let i = 0; i <= n; i++) bounds.push(xs.map(() => fl0 - th * (n - i) * 1));
+        // 積もる順：下から
+        const grow = seg(t, 0.28, 0.6) * n;
+        const tops = [];
+        for (let i = 0; i <= n; i++) { const k = n - i; const filled = clamp(grow - (k - 1)); tops[i] = fl0 - th * (k - 1) - th * filled; }
+        const er = ease(seg(t, 0.8, 0.9)), valley = (x) => 175 * er * Math.max(0, 1 - Math.abs(x - 470) / 230) ** 1.2;
+        const surf = xs.map((x) => (t > 0.8 ? tops[0] + valley(x) : -1e9));
+        const B = []; for (let i = 0; i <= n; i++) B.push(xs.map(() => Math.min(tops[i], fl0)));
+        band(xs, xs.map(() => fl0), xs.map(() => 640), "mudstone");
+        const types = ["sand", "mud", "sand", "gravel", "mud", "sand"];
+        strata(xs, B, types, t > 0.8 ? surf : null);
+        if (U > 0) { const s2 = xs.map((x, k) => Math.max(tops[0], surf[k])); G.strokeStyle = COL.grass; G.lineWidth = 6; path(xs.map((x, k) => [x, s2[k]]), false); G.stroke(); }
+        // 海が引く
+        if (tops[0] < SL) { G.fillStyle = "rgba(255,255,255,0)"; }
+        // アンモナイト
+        const fx = 520;
+        let ax, ay, col = "#d9b98a";
+        if (t < 0.13) { ax = lerp(150, 430, t / 0.13); ay = 300 + Math.sin(t * 60) * 12; }
+        else if (t < 0.28) { const u = seg(t, 0.13, 0.26); ax = lerp(430, fx, u); ay = lerp(300, fl0 - 13, ease(u)); }
+        else { ax = fx; ay = fl0 - 13; }
+        col = mix("#d9b98a", "#8d8478", seg(t, 0.5, 0.65));
+        G.save();
+        if (t > 0.3) { G.globalAlpha = 1; }
+        ammonite(ax, ay, 1.1, col);
+        if (t < 0.13) { G.strokeStyle = "#c48f6a"; G.lineWidth = 3; for (let i = 0; i < 5; i++) { G.beginPath(); G.moveTo(ax - 16, ay + i * 3 - 6); G.lineTo(ax - 32, ay + i * 4 - 8 + Math.sin(t * 80 + i) * 3); G.stroke(); } }
+        G.restore();
+        if (t > 0.3 && t < 0.88) label("うもれた殻", ax + 24, ay - 4, { size: 14 });
+        if (t > 0.88) { person(ax + 70, ay + 14, 1.2); label("あった！化石だ！", ax + 70, ay - 70, { align: "center", size: 16, border: "#1f7a8c" }); }
+        if (tops[0] > SL - 10) label("海", 900, SL + 26, { size: 15, bg: "rgba(255,255,255,.6)" });
+      },
+    };
+  })());
+
+  // ---- ⑤ 土地がもち上がって陸に・川がけずる ----
+  SCENES.push((() => {
+    const xs = XS(8), SL = 230, n = 7, th = 32, top0 = 330;
+    const types = ["gravel", "sand", "mud", "ash", "sand", "mud", "gravel"];
+    return {
+      id: "uplift", group: "土地の変化", title: "土地がもち上がり、地層が見えるまで", short: "⛰ もち上がって陸に", dur: 26,
+      age: (t) => "はじめから 約" + Math.round(t * 100) + "万年",
+      stages: [
+        { t: 0, s: "海の底", text: "海の底で、地層が積み重なっています。" },
+        { t: 0.08, s: "もち上がる", text: "大地に大きな力がはたらき、土地がもち上がります（地しんのたびに少しずつ）。海の底だった所が陸になります。" },
+        { t: 0.48, s: "けずられる", text: "陸になった土地を、雨や川の流れる水がけずり、谷ができます。" },
+        { t: 0.85, s: "がけの地層", text: "けずられたがけに、海の底でできた地層がしま模様になって見えます。山の上で貝の化石が見つかるのは、このためです。" },
+      ],
+      draw(t) {
+        const qs = [0.12, 0.2, 0.28, 0.36, 0.43];
+        const U = 200 * ease(seg(t, 0.08, 0.45)), sh = quake(t, qs, 5);
+        G.save(); G.translate(sh, 0);
+        sky(0, VH);
+        const top = top0 - U;
+        if (top > SL - 2) { G.fillStyle = COL.sea; G.fillRect(-20, SL, VW + 40, top - SL + 2); label("海", 880, SL + 20, { size: 15, bg: "rgba(255,255,255,.6)" }); }
+        const e = ease(seg(t, 0.48, 0.85)), valley = (x) => 185 * e * Math.pow(Math.max(0, 1 - Math.abs(x - 520) / 260), 1.4);
+        const surf = xs.map((x) => top + valley(x));
+        const B = []; for (let i = 0; i <= n; i++) B.push(xs.map(() => top + th * i));
+        band(xs, xs.map((x, k) => Math.max(top + th * n, surf[k])), xs.map(() => 640), "mudstone");
+        strata(xs, B, types, surf);
+        // 化石
+        [[300, 2], [760, 4]].forEach(([x, i]) => shell(x, top + th * i + 18, 0.9, "#e7dccb"));
+        if (top < SL) { G.strokeStyle = COL.grass; G.lineWidth = 6; path(xs.map((x, k) => [x, surf[k]]), false); G.stroke(); [[120, 1], [860, 1.2], [930, 0.9]].forEach(([x, s]) => tree(x, top, s)); }
+        if (e > 0.05) { const yb = top + valley(520); G.fillStyle = "#5aa9de"; G.beginPath(); G.ellipse(520, yb - 2, 30 * e + 5, 5, 0, 0, 7); G.fill(); }
+        if (t > 0.08 && t < 0.45) for (let i = 0; i < 3; i++) arrow(250 + i * 250, 600, 250 + i * 250, 545, "#d0342c", 8);
+        if (t > 0.85) { person(470, top + valley(470) + 2, 1.1); label("がけに しま模様が見える！", 520, top + valley(520) - 120, { align: "center", size: 16, border: "#1f7a8c" }); }
+        G.restore();
+      },
+    };
+  })());
+
+  // ---- ⑥ しゅう曲 ----
+  SCENES.push((() => {
+    const N = 7, th0 = 34, top0 = 230, types = ["sand", "mud", "ash", "gravel", "sand", "mud", "sand"];
+    return {
+      id: "fold", group: "土地の変化", title: "しゅう曲（地層が曲がる）", short: "〰 しゅう曲", dur: 22,
+      age: (t) => "何十万年〜何百万年もかけて",
+      stages: [
+        { t: 0, s: "水平な地層", text: "海の底でできた地層は、はじめは水平に積み重なっています。" },
+        { t: 0.1, s: "おす力", text: "大地の動きによって、地層に両側からおす大きな力が、長い間はたらき続けます。" },
+        { t: 0.45, s: "曲がる", text: "地層はこわれずに、波のように曲がっていきます。これを「しゅう曲」といいます。" },
+        { t: 0.85, s: "背斜・向斜", text: "山のように盛り上がった所を「背斜（はいしゃ）」、谷のように下がった所を「向斜（こうしゃ）」といいます。" },
+      ],
+      draw(t) {
+        sky(0, VH);
+        const s = ease(seg(t, 0.1, 0.85)), W = 800 - 230 * s, cx = 500, A = 88 * s, th = th0 * (1 + 0.22 * s);
+        const us = []; for (let i = 0; i <= 80; i++) us.push(i / 80);
+        const xs = us.map((u) => cx + (u - 0.5) * W);
+        const fold = (u) => Math.cos(2 * Math.PI * (u - 0.5) * 1.25);
+        const B = []; for (let i = 0; i <= N; i++) B.push(us.map((u) => top0 - (th - th0) * N * 0.5 + th * i - A * fold(u)));
+        G.fillStyle = COL.deep;
+        const bl = B[N]; path(xs.map((x, k) => [x, bl[k]]).concat([[xs[xs.length - 1], 640], [xs[0], 640]])); G.fill();
+        strata(xs, B, types);
+        G.strokeStyle = "#555"; G.lineWidth = 2; path([[xs[0], B[0][0]], [xs[0], 640]], false); G.stroke(); path([[xs[80], B[0][80]], [xs[80], 640]], false); G.stroke();
+        if (t > 0.08) { const ay = 380, L = 70 + 30 * s; arrow(xs[0] - L - 20, ay, xs[0] - 12, ay, "#d0342c", 12); arrow(xs[80] + L + 20, ay, xs[80] + 12, ay, "#d0342c", 12); label("おす力", xs[0] - 30, ay - 40, { align: "right", size: 15, color: "#d0342c" }); label("おす力", xs[80] + 30, ay - 40, { size: 15, color: "#d0342c" }); }
+        if (t > 0.85) { label("背斜（山形）", cx, B[0][40] - 34, { align: "center", size: 16, border: "#1f7a8c" }); const k = 8; label("向斜（谷形）", xs[k], B[0][k] - 40, { align: "center", size: 15 }); label("向斜（谷形）", xs[80 - k], B[0][80 - k] - 40, { align: "center", size: 15 }); }
+      },
+    };
+  })());
+
+  // ---- ⑦⑧ 断層（正断層・逆断層） ----
+  function faultScene(kind) {
+    const N = 8, th = 36, top0 = 200, types = ["sand", "mud", "gravel", "ash", "sand", "mud", "sand", "mudstone"];
+    const tanA = 0.577; // 断層面のかたむき（60°）
+    const xf = (y) => 430 + (y - top0) * tanA;
+    const slips = [0.25, 0.5, 0.75], D = 26;
+    return function (t) {
+      let d = 0; for (const q of slips) d += D * ease(seg(t, q, q + 0.03));
+      const dir = kind === "normal" ? 1 : -1, dx = dir * d * 0.5, dy = dir * d * 0.866;
+      const sh = quake(t, slips, 7);
+      G.save(); G.translate(sh, sh * 0.3);
+      sky(-20, VH + 20);
+      const ys = []; for (let i = 0; i <= N; i++) ys.push(top0 + th * i);
+      ys[N] = 900;
+      // 下盤（左）
+      for (let i = 0; i < N; i++) { path([[-120, ys[i]], [xf(ys[i]), ys[i]], [xf(ys[i + 1]), ys[i + 1]], [-120, ys[i + 1]]]); fillT(types[i]); G.strokeStyle = "rgba(0,0,0,.2)"; G.lineWidth = 1; G.stroke(); }
+      // 上盤（右）：断層面にそってずれる
+      G.save(); G.translate(dx, dy);
+      for (let i = 0; i < N; i++) { path([[xf(ys[i]), ys[i]], [1200, ys[i]], [1200, ys[i + 1]], [xf(ys[i + 1]), ys[i + 1]]]); fillT(types[i]); G.strokeStyle = "rgba(0,0,0,.2)"; G.lineWidth = 1; G.stroke(); }
+      G.strokeStyle = COL.grass; G.lineWidth = 6; G.beginPath(); G.moveTo(xf(top0), top0); G.lineTo(1200, top0); G.stroke();
+      tree(760, top0, 1.2); house(880, top0, 1.2);
+      G.restore();
+      G.strokeStyle = COL.grass; G.lineWidth = 6; G.beginPath(); G.moveTo(-120, top0); G.lineTo(xf(top0), top0); G.stroke();
+      tree(200, top0, 1.2); house(310, top0, 1.2);
+      // 断層面
+      G.strokeStyle = "#d0342c"; G.lineWidth = 4; G.setLineDash(d > 0 ? [] : [10, 8]);
+      G.beginPath(); G.moveTo(xf(Math.min(top0, top0 + dy)), Math.min(top0, top0 + dy)); G.lineTo(xf(640), 640); G.stroke(); G.setLineDash([]);
+      G.restore();
+      // 力の向き
+      if (t > 0.05) {
+        const ay = 62;
+        if (kind === "normal") { arrow(330, ay, 150, ay, "#d0342c", 12); arrow(670, ay, 850, ay, "#d0342c", 12); label("引っぱる力", 500, ay, { align: "center", size: 16, color: "#d0342c" }); }
+        else { arrow(110, ay, 300, ay, "#d0342c", 12); arrow(890, ay, 700, ay, "#d0342c", 12); label("おす力", 500, ay, { align: "center", size: 16, color: "#d0342c" }); }
+      }
+      if (sh !== 0) label("ぐらぐら（地しん）", 500, 60, { align: "center", size: 18, color: "#fff", bg: "#d0342c" });
+      if (d > 1) label("断層", xf(420) + 14, 420, { size: 16, color: "#d0342c" });
+      if (t > 0.82) {
+        const tx = kind === "normal" ? "上盤がずり下がった\n→ 正断層" : "上盤がずり上がった\n→ 逆断層";
+        label(tx, 230, 135, { align: "center", size: 17, border: "#1f7a8c" });
+        label("上盤（断層面の上側）", 760 + dx, 330 + dy, { align: "center", size: 15 });
+        label("下盤（断層面の下側）", 200, 330, { align: "center", size: 15 });
+      }
+    };
+  }
+  SCENES.push({
+    id: "normal", group: "土地の変化", title: "正断層（引っぱる力でずれる）", short: "↔ 正断層", dur: 22,
+    age: () => "地しん1回で 数十cm〜数m ずれる",
+    stages: [
+      { t: 0, s: "引っぱる力", text: "地層に、左右に引っぱる大きな力がはたらいています。" },
+      { t: 0.24, s: "ずれる", text: "力にたえられなくなると、地層が割れてずれます。このとき地しんが起きます。この割れ目を「断層」といいます。" },
+      { t: 0.5, s: "くり返す", text: "ずれは、地しんのたびにくり返されて大きくなります。地面に段差（がけ）ができることもあります。" },
+      { t: 0.82, s: "正断層", text: "引っぱる力で、断層面の上側（ななめの面にのっている右側）がずり下がったずれを「正断層」といいます。同じ層が、断層の所で食いちがっています。" },
+    ],
+    draw: faultScene("normal"),
+  });
+  SCENES.push({
+    id: "reverse", group: "土地の変化", title: "逆断層（おす力でずれる）", short: "→← 逆断層", dur: 22,
+    age: () => "地しん1回で 数十cm〜数m ずれる",
+    stages: [
+      { t: 0, s: "おす力", text: "地層に、左右からおす大きな力がはたらいています。日本では、このおす力がはたらいている所が多くあります。" },
+      { t: 0.24, s: "ずれる", text: "力にたえられなくなると、地層が割れてずれ、地しんが起きます。" },
+      { t: 0.5, s: "くり返す", text: "地しんのたびにずれが大きくなり、土地がもり上がっていきます。" },
+      { t: 0.82, s: "逆断層", text: "おす力で、断層面の上側（ななめの面にのっている右側）がずり上がったずれを「逆断層」といいます。" },
+    ],
+    draw: faultScene("reverse"),
+  });
+
+  // ---- ⑨ 横ずれ断層（上から見る） ----
+  SCENES.push((() => {
+    const slips = [0.25, 0.5, 0.75], D = 32;
+    const fx = (y) => 520 - y * 0.07;
+    function world() {
+      G.fillStyle = "#a8d38a"; G.fillRect(-50, -200, 1100, 1000);
+      const r = rng(41);
+      for (let i = 0; i < 18; i++) { G.fillStyle = ["#9cc97c", "#b6db94", "#c9df8f"][i % 3]; G.fillRect(-40 + (i % 6) * 180, -150 + Math.floor(i / 6) * 330 + (i % 2) * 40, 160, 120); }
+      G.fillStyle = "#6f7478"; G.fillRect(-60, 270, 1120, 56); // 道路
+      G.strokeStyle = "#fff"; G.lineWidth = 3; G.setLineDash([22, 16]); G.beginPath(); G.moveTo(-60, 298); G.lineTo(1080, 298); G.stroke(); G.setLineDash([]);
+      G.strokeStyle = "#5aa9de"; G.lineWidth = 16; G.beginPath(); G.moveTo(-60, 470); G.bezierCurveTo(300, 440, 700, 520, 1080, 480); G.stroke(); // 川
+      for (let i = 0; i < 12; i++) { const x = 40 + i * 85; G.fillStyle = "#3f8f3f"; G.beginPath(); G.arc(x, 180, 14, 0, 7); G.fill(); }
+      for (let i = 0; i < 6; i++) { const x = 90 + i * 170 + r() * 20; G.fillStyle = "#e8e0d0"; G.fillRect(x, 360, 34, 26); G.fillStyle = "#b5523b"; G.fillRect(x, 360, 34, 8); }
+    }
+    return {
+      id: "strike", group: "土地の変化", title: "横ずれ断層（上から見る）", short: "⇅ 横ずれ断層", dur: 22,
+      age: () => "地しん1回で 数十cm〜数m ずれる",
+      stages: [
+        { t: 0, s: "上から見る", text: "空の上から地面を見ています。道路・川・並木が、断層をまたいでいます。" },
+        { t: 0.24, s: "ずれる", text: "地しんが起きると、断層の両側の土地が、横（水平）にずれます。" },
+        { t: 0.5, s: "くり返す", text: "地しんのたびにずれが大きくなり、道路や川が食いちがっていきます。" },
+        { t: 0.82, s: "横ずれ断層", text: "このように横にずれる断層を「横ずれ断層」といいます。1995年の兵庫県南部地しんでは、淡路島の野島断層が地面にあらわれ、横にずれました。" },
+      ],
+      draw(t) {
+        let d = 0; for (const q of slips) d += D * ease(seg(t, q, q + 0.03));
+        const sh = quake(t, slips, 6);
+        G.save(); G.translate(sh, sh);
+        G.save(); path([[-60, -60], [fx(-60), -60], [fx(660), 660], [-60, 660]]); G.clip(); G.translate(0, -d / 2); world(); G.restore();
+        G.save(); path([[fx(-60), -60], [1080, -60], [1080, 660], [fx(660), 660]]); G.clip(); G.translate(0, d / 2); world(); G.restore();
+        G.strokeStyle = "#d0342c"; G.lineWidth = 4; G.setLineDash([12, 8]); G.beginPath(); G.moveTo(fx(-60), -60); G.lineTo(fx(660), 660); G.stroke(); G.setLineDash([]);
+        G.restore();
+        label("断層", fx(560) + 10, 560, { size: 16, color: "#d0342c" });
+        if (t > 0.2) { arrow(380, 110, 380, 40, "#d0342c", 10); arrow(660, 40, 660, 110, "#d0342c", 10); }
+        G.fillStyle = "#1f2a33"; G.font = "bold 18px " + FONT; G.fillText("北↑", 945, 30);
+        if (sh !== 0) label("ぐらぐら（地しん）", 500, 230, { align: "center", size: 18, color: "#fff", bg: "#d0342c" });
+        if (t > 0.82) label("道路が食いちがった！", 500, 560, { align: "center", size: 17, border: "#1f7a8c" });
+      },
+    };
+  })());
+
+  // ---- ⑩ 不整合 ----
+  SCENES.push((() => {
+    const xs = XS(8), SL = 300, nL = 6, thL = 30, baseL = 560, nU = 4, thU = 26;
+    const lowT = ["sand", "mud", "gravel", "sand", "ash", "mud"], upT = ["gravel", "sand", "mud", "sand"];
+    const wav = (x) => Math.sin(x * 0.045) * 7 + Math.sin(x * 0.013 + 1) * 6;
+    return {
+      id: "unconf", group: "土地の変化", title: "不整合（地層の重なりの切れ目）", short: "⚡ 不整合", dur: 30,
+      age: (t) => "はじめから 約" + Math.round(t * 500) + "万年",
+      stages: [
+        { t: 0, s: "積もる", text: "海の底で、地層が積み重なります。" },
+        { t: 0.25, s: "もち上がる", text: "大地の動きで、地層がもち上がり、かたむいて陸になります。" },
+        { t: 0.45, s: "けずられる", text: "陸になった地層の上の方が、雨や風、流れる水で長い間けずられます。" },
+        { t: 0.62, s: "しずむ", text: "土地がしずんで、ふたたび海の底になります。" },
+        { t: 0.72, s: "また積もる", text: "けずられた面の上に、新しい地層が水平に積もります。いちばん下には、けずられた石（れき）がたまります。" },
+        { t: 0.93, s: "不整合", text: "下のかたむいた地層と上の地層の間の、けずられた面を「不整合」といいます。ここで長い時間がぬけていることがわかります。" },
+      ],
+      draw(t) {
+        const tilt = Math.tan((12 * Math.PI / 180) * ease(seg(t, 0.25, 0.45)));
+        const U = 200 * ease(seg(t, 0.25, 0.45)), Dn = 210 * ease(seg(t, 0.62, 0.72));
+        const sh = quake(t, [0.29, 0.35, 0.41, 0.65], 5);
+        G.save(); G.translate(sh, 0);
+        sky(0, VH);
+        const grow = seg(t, 0.03, 0.25) * nL;
+        const Bl = []; for (let i = 0; i <= nL; i++) Bl.push(xs.map((x) => baseL - thL * Math.min(i, nL - Math.max(0, nL - grow) * 0) + (x - 500) * tilt - U + Dn));
+        // 積もり途中
+        for (let i = 0; i <= nL; i++) { const lvl = Math.min(i, grow); Bl[i] = xs.map((x) => baseL - thL * lvl + (x - 500) * tilt - U + Dn); }
+        const topLow = Bl[nL];
+        const ePost = lerp(Math.min(...topLow.map((v) => v - Dn)), 255, ease(seg(t, 0.45, 0.62)));
+        const er = t > 0.45;
+        const surf = xs.map((x, k) => (er ? Math.max(topLow[k], ePost + Dn + wav(x)) : topLow[k]));
+        // 海（陸より上で、海面より下）
+        G.fillStyle = COL.sea; G.fillRect(0, SL, VW, VH - SL);
+        // 下の岩
+        band(xs, Bl[0], xs.map(() => 700), "mudstone");
+        const B = Bl.slice().reverse(); // 上から
+        strata(xs, B, lowT.slice().reverse(), surf);
+        // 上の新しい地層
+        const gu = seg(t, 0.72, 0.93) * nU;
+        if (gu > 0) {
+          let below = surf.slice();
+          const flatBase = ePost + Dn;
+          for (let j = 0; j < nU; j++) {
+            const f = clamp(gu - j); if (f <= 0) break;
+            const top = xs.map((x, k) => Math.min(below[k], flatBase - thU * (j + f) + (j === 0 ? 4 : 0)));
+            band(xs, top, below, upT[j]);
+            G.strokeStyle = "rgba(0,0,0,.2)"; G.lineWidth = 1; path(xs.map((x, k) => [x, top[k]]), false); G.stroke();
+            below = top;
+          }
+        }
+        // 陸の草
+        const landTop = surf.map((v) => v);
+        if (Math.min(...landTop) < SL && t < 0.66) { G.strokeStyle = COL.grass; G.lineWidth = 5; path(xs.map((x, k) => [x, landTop[k]]).filter((p) => p[1] < SL), false); G.stroke(); }
+        if (t > 0.93) { G.strokeStyle = "#d0342c"; G.lineWidth = 4; path(xs.map((x, k) => [x, surf[k]]), false); G.stroke(); label("不整合（けずられた面）", 520, surf[65] + 46, { align: "center", size: 16, color: "#d0342c", border: "#d0342c" }); }
+        G.restore();
+        if (t > 0.25 && t < 0.45) arrow(500, 600, 500, 530, "#d0342c", 10);
+        if (t > 0.62 && t < 0.72) arrow(500, 200, 500, 270, "#2a77a8", 10);
+      },
+    };
+  })());
+
+  // ---- ⑪ 火山の噴火で山ができる ----
+  SCENES.push((() => {
+    const xs = XS(6), G0 = 410, erup = [[0.08, 0.2, "lava"], [0.22, 0.34, "ash"], [0.36, 0.48, "lava"], [0.5, 0.62, "ash"], [0.64, 0.76, "lava"], [0.78, 0.9, "ash"]];
+    const prof = (k, x) => (k < 0 ? G0 : G0 - (75 + 52 * k) * Math.max(0, 1 - Math.abs(x - 500) / (160 + 62 * k)) + (Math.abs(x - 500) < 14 && k >= 0 ? 10 : 0));
+    return {
+      id: "volcano", group: "土地の変化", title: "火山の噴火で土地が変わる", short: "🌋 火山ができる", dur: 30,
+      age: (t) => "はじめから 約" + Math.round(t * 10) + "万年",
+      stages: [
+        { t: 0, s: "マグマ", text: "地下深くには、岩石がどろどろにとけた「マグマ」があります。" },
+        { t: 0.08, s: "溶岩", text: "マグマが地表にふき出すのが「噴火」です。流れ出た溶岩は、冷えて固まります。" },
+        { t: 0.22, s: "火山灰", text: "火山灰や軽石、火山れきもふき出して、まわりに降り積もります。" },
+        { t: 0.36, s: "くり返す", text: "噴火がくり返されると、溶岩と火山灰の層が交互に重なり、山がどんどん高くなります。富士山も、このようにしてできた火山です。" },
+        { t: 0.9, s: "新しい土地", text: "噴火によって、新しい山ができたり、海の中で新しい島ができたり（例：西之島）、土地のようすが大きく変わります。" },
+      ],
+      draw(t) {
+        sky(0, VH);
+        // 地下
+        band(xs, xs.map(() => G0), xs.map(() => 470), "sand"); band(xs, xs.map(() => 470), xs.map(() => 640), "mudstone");
+        G.fillStyle = COL.magma; G.beginPath(); G.ellipse(500, 540, 170, 40, 0, 0, 7); G.fill();
+        label("マグマだまり", 700, 540, { size: 15, bg: "rgba(255,255,255,.8)" });
+        let last = -1;
+        erup.forEach(([a, b, kind], k) => {
+          const g = seg(t, a, b); if (g <= 0) return; last = k;
+          const top = xs.map((x) => lerp(prof(k - 1, x), Math.min(prof(k, x), prof(k - 1, x)), ease(g)));
+          const bot = xs.map((x) => prof(k - 1, x));
+          const cool = seg(t, b, b + 0.12);
+          band(xs, top, bot, kind === "ash" ? "ash" : "basalt", kind === "ash" ? COL.ash : mix("#ff6a2a", "#4d4440", cool));
+          G.strokeStyle = "rgba(0,0,0,.25)"; G.lineWidth = 1; path(xs.map((x, i) => [x, top[i]]), false); G.stroke();
+        });
+        // 火道
+        const peak = prof(last, 500);
+        G.strokeStyle = COL.magma; G.lineWidth = 12; G.beginPath(); G.moveTo(500, 520); G.lineTo(500, peak + 6); G.stroke();
+        G.strokeStyle = COL.grass; G.lineWidth = 5; G.beginPath(); G.moveTo(-20, G0); G.lineTo(VW + 20, G0); G.stroke();
+        // 噴火のようす
+        const now = erup.find(([a, b]) => t > a && t < b);
+        if (now) {
+          if (now[2] === "lava") { for (let i = 0; i < 14; i++) { const a = (i / 14) * Math.PI - Math.PI, s2 = frac(t * 20 + i * 0.37); G.fillStyle = "rgba(255," + (90 + i * 8) + ",40,.9)"; G.beginPath(); G.arc(500 + Math.cos(a) * 60 * s2, peak - 10 - Math.sin(-a) * 80 * s2 + 60 * s2 * s2, 5, 0, 7); G.fill(); } label("溶岩が流れ出す", 500, peak - 110, { align: "center", size: 15, color: "#b33" }); }
+          else { for (let i = 0; i < 10; i++) { const s2 = frac(t * 8 + i * 0.1); G.fillStyle = "rgba(95,85,80,.5)"; G.beginPath(); G.arc(500 + (i - 5) * 14 * s2 + 160 * s2, peak - 20 - 220 * s2, 20 + 30 * s2, 0, 7); G.fill(); } label("火山灰がふき出す", 500, peak - 60, { align: "center", size: 15 }); }
+        }
+        if (t > 0.9) { label("溶岩の層と火山灰の層が\n交互に重なっている", 760, 200, { size: 15, border: "#1f7a8c" }); G.strokeStyle = "#1f7a8c"; G.lineWidth = 2; G.beginPath(); G.moveTo(760, 220); G.lineTo(650, 300); G.stroke(); }
+      },
+    };
+  })());
+
+  // ---- ⑫ マグマが冷えて岩石に（火山岩・深成岩） ----
+  SCENES.push((() => {
+    const r = rng(51);
+    const deep = []; // 深成岩：大きな結晶がすき間なく
+    for (let gy = -3; gy <= 3; gy++) for (let gx = -3; gx <= 3; gx++) { const x = gx * 30 + (r() - 0.5) * 16, y = gy * 30 + (r() - 0.5) * 16; if (x * x + y * y < 105 * 105) deep.push({ x, y, s: 20 + r() * 10, rot: r() * 3, c: r() < 0.3 ? "#2d2a26" : r() < 0.55 ? "#f2efe8" : "#e9d3c4", st: 0.08 + r() * 0.4, sh: r() }); }
+    const phen = []; for (let i = 0; i < 7; i++) phen.push({ x: (r() - 0.5) * 150, y: (r() - 0.5) * 150, s: 14 + r() * 10, rot: r() * 3, c: i % 3 === 0 ? "#2d2a26" : "#f2efe8", st: 0.06 + r() * 0.2 });
+    const fine = []; for (let i = 0; i < 700; i++) { const a = r() * 6.3, d = Math.sqrt(r()) * 108; fine.push({ x: Math.cos(a) * d, y: Math.sin(a) * d, c: r() < 0.4 ? "#1f1f1f" : "#d8d4cc", st: 0.52 + r() * 0.1, rot: r() * 3 }); }
+    function xtal(x, y, s, rot, c) { G.save(); G.translate(x, y); G.rotate(rot); G.fillStyle = c; G.strokeStyle = "rgba(0,0,0,.35)"; G.lineWidth = 1; G.beginPath(); G.moveTo(-s, -s * 0.45); G.lineTo(-s * 0.6, -s * 0.7); G.lineTo(s * 0.9, -s * 0.55); G.lineTo(s, s * 0.4); G.lineTo(s * 0.5, s * 0.7); G.lineTo(-s * 0.9, s * 0.55); G.closePath(); G.fill(); G.stroke(); G.restore(); }
+    return {
+      id: "igneous", group: "岩石", title: "マグマが冷えて岩石に（火山岩と深成岩）", short: "💎 火山岩と深成岩", dur: 28,
+      stages: [
+        { t: 0, s: "マグマ", text: "地下のマグマが冷えると、鉱物（つぶ）ができて固まり、岩石になります。これを「火成岩」といいます。" },
+        { t: 0.06, s: "ゆっくり", text: "地下深くでは、マグマが何万年もかけてゆっくり冷えます。つぶ（結晶）が大きく育ちます。" },
+        { t: 0.42, s: "地表へ", text: "一方、とちゅうまで冷えて少し大きなつぶができたマグマが、噴火などで地表や地表近くに出ると…" },
+        { t: 0.53, s: "急に冷える", text: "急に冷えるので、つぶが育つ時間がなく、とても小さなつぶやガラスになります。大きなつぶ（斑晶）が小さなつぶ（石基）にうまったつくりになります。" },
+        { t: 0.72, s: "2つのつくり", text: "急に冷えた「火山岩」は斑状組織、ゆっくり冷えた「深成岩」は大きなつぶがそろった等粒状組織になります。" },
+        { t: 0.86, s: "なかま", text: "火成岩は、ふくまれる鉱物によって、白っぽいものから黒っぽいものまであります。" },
+      ],
+      draw(t) {
+        G.fillStyle = "#f6f3ee"; G.fillRect(0, 0, VW, VH);
+        // 左：断面
+        G.save(); G.beginPath(); G.rect(0, 0, 440, 400); G.clip();
+        sky(0, 120);
+        G.fillStyle = "#8b7f74"; G.fillRect(0, 120, 440, 300);
+        G.fillStyle = "#6f655d"; path([[60, 120], [150, 60], [240, 120]]); G.fill();
+        const cool = seg(t, 0.06, 0.9);
+        G.fillStyle = mix("#ff7b2c", "#b9aca0", cool); G.beginPath(); G.ellipse(250, 320, 140, 55, 0, 0, 7); G.fill();
+        G.strokeStyle = t > 0.45 ? "#ff7b2c" : "#a9563a"; G.lineWidth = 9; G.beginPath(); G.moveTo(220, 290); G.lineTo(150, 75); G.stroke();
+        if (t > 0.45 && t < 0.6) { G.fillStyle = "rgba(255,120,40,.85)"; G.beginPath(); G.arc(150, 62, 12, 0, 7); G.fill(); }
+        label("A 地表・地表近く\n（急に冷える）", 170, 150, { size: 13 });
+        label("B 地下深く\n（ゆっくり冷える）", 250, 320, { align: "center", size: 13 });
+        G.restore();
+        label("冷え方のちがいで、\nつぶの大きさが変わる", 220, 470, { align: "center", size: 16, border: "#1f7a8c" });
+        label("急に冷える：数時間〜数年\nゆっくり冷える：何万年も", 220, 550, { align: "center", size: 14 });
+        // 右：けんび鏡
+        const circ = (cx, cy, R, title, fn) => { G.save(); G.beginPath(); G.arc(cx, cy, R, 0, 7); G.clip(); fn(cx, cy); G.restore(); G.strokeStyle = "#1f7a8c"; G.lineWidth = 6; G.beginPath(); G.arc(cx, cy, R, 0, 7); G.stroke(); label(title, cx, cy + R + 18, { align: "center", size: 14 }); };
+        circ(590, 175, 112, t > 0.72 ? "A 火山岩：斑状組織\n（斑晶＋石基）" : "A のつぶ", (cx, cy) => {
+          const q = seg(t, 0.5, 0.62);
+          G.fillStyle = q > 0 ? mix("#ff9b4a", "#6e6a66", q) : "#ff9b4a"; G.fillRect(cx - 120, cy - 120, 240, 240);
+          for (const f of fine) if (t > f.st) { G.fillStyle = f.c; G.fillRect(cx + f.x, cy + f.y, 2.6, 1.6); }
+          for (const p of phen) { const s = p.s * ease(seg(t, p.st, 0.45)); if (s > 0.5) xtal(cx + p.x, cy + p.y, s, p.rot, p.c); }
+          if (t > 0.72) label("斑晶", cx + phen[0].x, cy + phen[0].y - 28, { align: "center", size: 12 });
+        });
+        circ(850, 175, 112, t > 0.72 ? "B 深成岩：等粒状組織\n（大きなつぶがそろう）" : "B のつぶ", (cx, cy) => {
+          G.fillStyle = mix("#ff9b4a", "#d9d2c6", seg(t, 0.5, 0.85)); G.fillRect(cx - 120, cy - 120, 240, 240);
+          for (const p of deep) { const s = p.s * ease(seg(t, p.st, 0.85)); if (s > 0.5) xtal(cx + p.x, cy + p.y, s, p.rot, p.c); }
+        });
+        // 表：火成岩のなかま
+        const a = seg(t, 0.86, 0.94);
+        if (a > 0) {
+          G.globalAlpha = a;
+          const x0 = 470, y0 = 395, cw = 165, ch = 80;
+          const rows = [["火山岩", ["流紋岩", "安山岩", "玄武岩"]], ["深成岩", ["花こう岩", "せん緑岩", "はんれい岩"]]];
+          const cols = ["#e6e0d6", "#9b958d", "#3e3d3c"];
+          label("白っぽい", x0 + 70, y0 - 12, { size: 13, bg: false }); label("黒っぽい →", x0 + 70 + cw * 3 - 30, y0 - 12, { size: 13, bg: false, align: "right" });
+          rows.forEach(([nm, list], ri) => {
+            label(nm, x0 - 4, y0 + 18 + ri * ch + ch / 2, { size: 14, align: "right" });
+            list.forEach((rk, ci) => {
+              const x = x0 + 10 + ci * cw, y = y0 + 12 + ri * ch, rr = rng(60 + ri * 3 + ci);
+              G.fillStyle = cols[ci]; G.fillRect(x, y, cw - 14, ch - 10);
+              for (let i = 0; i < (ri ? 40 : 14); i++) { G.fillStyle = rr() < 0.5 ? (ci === 2 ? "#cfcac1" : "#2b2a28") : "#f7f4ee"; const s = ri ? 4 + rr() * 5 : 2 + rr() * 4; G.fillRect(x + rr() * (cw - 24), y + rr() * (ch - 20), s, s * 0.7); }
+              label(rk, x + (cw - 14) / 2, y + ch - 22, { align: "center", size: 14 });
+            });
+          });
+          G.globalAlpha = 1;
+        }
+      },
+    };
+  })());
+
+  // ---- ⑬ 柱状節理 ----
+  SCENES.push((() => {
+    const xs = XS(6), LV = 250;
+    const valleyF = (x) => 250 + 260 * Math.max(0, 1 - Math.pow(Math.abs(x - 470) / 330, 2)); // 谷の底
+    const r = rng(71), cracks = []; for (let x = 160; x <= 780; x += 24) cracks.push({ x: x + (r() - 0.5) * 8, st: r() });
+    const hexes = []; { const R = 18; for (let q = -6; q <= 6; q++) for (let s = -6; s <= 6; s++) { const x = q * R * 1.5, y = (s + q * 0.5) * R * Math.sqrt(3); if (x * x + y * y < 95 * 95) for (let e = 0; e < 6; e++) hexes.push({ x, y, e, R, st: r() }); } }
+    return {
+      id: "column", group: "岩石", title: "柱状節理（六角形の柱の岩）", short: "⬡ 柱状節理", dur: 26,
+      age: (t) => (t < 0.3 ? "噴火した日" : t < 0.8 ? "冷えていく（何年〜何十年）" : "それから長い年月"),
+      stages: [
+        { t: 0, s: "溶岩が流れる", text: "噴火で流れ出た熱い溶岩が、谷をうめるように流れこみ、厚くたまります。" },
+        { t: 0.3, s: "冷える", text: "溶岩は、空気にふれる上の面と、地面にふれる下の面から冷えていきます。" },
+        { t: 0.4, s: "割れ目", text: "冷えて固まると、岩は少しちぢみます。そのため、冷える面に直角に割れ目が入っていきます。" },
+        { t: 0.6, s: "六角形", text: "割れ目は、上から見ると六角形に近い形にならびます。" },
+        { t: 0.8, s: "柱状節理", text: "長い年月でけずられると、六角形の柱が並んだがけが現れます。これを「柱状節理」といいます（例：兵庫県の玄武洞、福井県の東尋坊）。" },
+      ],
+      draw(t) {
+        sky(0, VH);
+        const vf = xs.map(valleyF);
+        band(xs, xs.map((x) => Math.min(LV, vf[xs.indexOf(x)])), xs.map(() => 640), "sand", "#a89a86");
+        band(xs, vf, xs.map(() => 640), "mudstone");
+        const fill = seg(t, 0.02, 0.3), lvl = lerp(510, LV, ease(fill));
+        const top = vf.map((v) => Math.min(v, Math.max(lvl, LV))), lavaPts = xs.map((x, k) => [x, top[k]]);
+        const cool = seg(t, 0.3, 0.8);
+        if (fill > 0) {
+          const pts = lavaPts.concat(xs.map((x, k) => [x, vf[k]]).reverse()); path(pts);
+          G.fillStyle = mix("#ff6a2a", "#e0602e", cool); G.fill();
+          // 上と下から冷える（黒っぽくなる）
+          const mid = (LV + 510) / 2, ft = lerp(LV, mid, cool), fb = lerp(510, mid, cool);
+          G.save(); path(pts); G.clip();
+          G.fillStyle = COL.basalt; G.fillRect(0, 0, VW, ft); G.fillRect(0, 0, VW, 0);
+          xs.forEach((x, k) => { const y0 = Math.max(fb, vf[k] - (510 - fb)); G.fillRect(x - 3, y0, 7, vf[k] - y0 + 2); });
+          // 割れ目
+          if (t > 0.4) {
+            G.strokeStyle = "#1c1e20"; G.lineWidth = 2.2;
+            for (const c of cracks) { const p = seg(t, 0.4 + c.st * 0.1, 0.8); if (p <= 0) continue; const i = Math.round((c.x + 20) / 6), bot = vf[i]; G.beginPath(); G.moveTo(c.x, LV); G.lineTo(c.x, lerp(LV, (LV + bot) / 2, p)); G.moveTo(c.x, bot); G.lineTo(c.x, lerp(bot, (LV + bot) / 2, p)); G.stroke(); }
+          }
+          G.restore();
+        }
+        // 上にのっていた土・右がわがけずられる
+        const er = seg(t, 0.8, 0.95);
+        if (t < 0.3) { G.fillStyle = "rgba(255,140,40,.35)"; G.beginPath(); G.ellipse(160, lvl - 4, 60, 10, 0, 0, 7); G.fill(); }
+        G.strokeStyle = COL.grass; G.lineWidth = 5; G.beginPath(); G.moveTo(-20, LV); G.lineTo(VW + 20, LV); G.stroke();
+        if (er > 0) { G.save(); G.globalAlpha = er; path([[700, 235], [1020, 235], [1020, 640], [790, 640], [730, 430]]); G.clip(); sky(0, VH); G.fillStyle = "#8b7f74"; G.fillRect(700, 600, 400, 40); G.restore(); if (er > 0.6) { person(860, 600, 1.2); label("柱が並んだがけ！", 840, 520, { align: "center", size: 15, border: "#1f7a8c" }); } }
+        // 上から見た図
+        const a = seg(t, 0.55, 0.65);
+        if (a > 0) {
+          G.globalAlpha = a; const cx = 860, cy = 130, R = 100;
+          G.fillStyle = "#4b4f53"; G.beginPath(); G.arc(cx, cy, R, 0, 7); G.fill();
+          G.save(); G.beginPath(); G.arc(cx, cy, R - 3, 0, 7); G.clip();
+          G.strokeStyle = "#141516"; G.lineWidth = 2.5;
+          for (const h of hexes) { if (seg(t, 0.55 + h.st * 0.2, 0.8) <= 0) continue; const a1 = (h.e / 6) * 6.283, a2 = ((h.e + 1) / 6) * 6.283; G.beginPath(); G.moveTo(cx + h.x + Math.cos(a1) * h.R, cy + h.y + Math.sin(a1) * h.R); G.lineTo(cx + h.x + Math.cos(a2) * h.R, cy + h.y + Math.sin(a2) * h.R); G.stroke(); }
+          G.restore(); G.strokeStyle = "#1f7a8c"; G.lineWidth = 5; G.beginPath(); G.arc(cx, cy, R, 0, 7); G.stroke();
+          label("上から見ると六角形", cx, cy + R + 16, { align: "center", size: 14 }); G.globalAlpha = 1;
+        }
+      },
+    };
+  })());
+
+  // ================= 画面 =================
+  const cv = document.getElementById("cv"), ctx = cv.getContext("2d");
+  const range = document.getElementById("time"), playBtn = document.getElementById("play");
+  let cur = SCENES[0], T = 0, playing = false, last = 0;
+  function resize() {
+    const r = cv.getBoundingClientRect(), dpr = Math.min(2, window.devicePixelRatio || 1);
+    cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr);
+    render();
+  }
+  function render() {
+    G = ctx;
+    const W = cv.width, H = cv.height, s = Math.min(W / VW, H / VH);
+    G.setTransform(1, 0, 0, 1, 0, 0); G.fillStyle = "#e8eef1"; G.fillRect(0, 0, W, H);
+    G.setTransform(s, 0, 0, s, (W - VW * s) / 2, (H - VH * s) / 2);
+    G.save(); G.beginPath(); G.rect(0, 0, VW, VH); G.clip();
+    try { cur.draw(T); } catch (e) { console.error(e); }
+    G.restore();
+    // 説明
+    const st = cur.stages.filter((x) => T >= x.t - 1e-6).pop() || cur.stages[0], idx = cur.stages.indexOf(st);
+    const ex = document.getElementById("explain");
+    const html = '<span class="ttl">' + cur.title + "</span><span class=\"st\">" + "①②③④⑤⑥⑦⑧"[idx] + " " + st.s + "</span>" + st.text;
+    if (ex.dataset.k !== cur.id + idx) { ex.innerHTML = html; ex.dataset.k = cur.id + idx; }
+    document.getElementById("age").textContent = cur.age ? "⏳ " + cur.age(T) : "";
+    document.querySelectorAll("#ticks span").forEach((sp, i) => sp.classList.toggle("on", i === idx));
+  }
+  function setT(v, fromRange) { T = clamp(v); if (!fromRange) range.value = Math.round(T * 1000); render(); }
+  function choose(sc) {
+    cur = sc; playing = false; playBtn.textContent = "▶";
+    document.querySelectorAll("#scenes button").forEach((b) => b.classList.toggle("on", b.dataset.id === sc.id));
+    const tk = document.getElementById("ticks"); tk.innerHTML = "";
+    sc.stages.forEach((s) => { const sp = document.createElement("span"); sp.textContent = s.s; sp.style.left = (s.t * 100) + "%"; sp.onclick = () => setT(s.t + 0.001); tk.appendChild(sp); });
+    history.replaceState(null, "", "#" + sc.id);
+    setT(0);
+  }
+  // 場面ボタン
+  const nav = document.getElementById("scenes");
+  let grp = "";
+  SCENES.forEach((sc) => {
+    if (sc.group !== grp) { grp = sc.group; const g = document.createElement("span"); g.className = "grp"; g.textContent = grp; nav.appendChild(g); }
+    const b = document.createElement("button"); b.type = "button"; b.textContent = sc.short; b.dataset.id = sc.id; b.title = sc.title; b.onclick = () => choose(sc); nav.appendChild(b);
+  });
+  range.addEventListener("input", () => { playing = false; playBtn.textContent = "▶"; setT(range.value / 1000, true); });
+  document.getElementById("reset").onclick = () => { playing = false; playBtn.textContent = "▶"; setT(0); };
+  playBtn.onclick = () => {
+    if (T >= 0.999) setT(0);
+    playing = !playing; playBtn.textContent = playing ? "⏸" : "▶"; last = performance.now();
+    if (playing) requestAnimationFrame(loop);
+  };
+  function loop(now) {
+    if (!playing) return;
+    const dt = Math.min(0.1, (now - last) / 1000); last = now;
+    setT(T + dt / (cur.dur || 24));
+    if (T >= 1) { playing = false; playBtn.textContent = "▶"; return; }
+    requestAnimationFrame(loop);
+  }
+  // 図の上を左右になぞって時間を動かす
+  let drag = null;
+  cv.addEventListener("pointerdown", (e) => { drag = { x: e.clientX, t: T }; cv.setPointerCapture(e.pointerId); playing = false; playBtn.textContent = "▶"; document.getElementById("swipeHint").style.opacity = 0; });
+  cv.addEventListener("pointermove", (e) => { if (!drag) return; const w = cv.getBoundingClientRect().width; setT(drag.t + (e.clientX - drag.x) / w); });
+  const end = () => { drag = null; };
+  cv.addEventListener("pointerup", end); cv.addEventListener("pointercancel", end);
+  window.addEventListener("keydown", (e) => { if (e.key === "ArrowRight") setT(T + 0.01); if (e.key === "ArrowLeft") setT(T - 0.01); });
+  document.addEventListener("gesturestart", (e) => e.preventDefault());
+  setTimeout(() => (document.getElementById("swipeHint").style.opacity = 0), 6000);
+  window.addEventListener("resize", resize);
+  const first = SCENES.find((s) => "#" + s.id === location.hash) || SCENES[0];
+  choose(first);
+  resize();
+  window.__sim = { SCENES, setT, choose: (id) => choose(SCENES.find((s) => s.id === id)) };
+})();
+</script>
+</body>
+</html>
