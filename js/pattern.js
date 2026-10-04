@@ -91,7 +91,7 @@
     const g = c.getContext("2d");
     g.strokeStyle = g.fillStyle = "rgba(20,24,28,0.8)";
     g.lineWidth = 1.1;
-    if (id === "dots") { g.beginPath(); g.arc(2.5, 2.5, 1.2, 0, 7); if (!weak) g.arc(7.5, 7.5, 1.2, 0, 7); g.fill(); }
+    if (id === "dots") { g.beginPath(); g.arc(2.5, 2.5, 1.2, 0, 7); g.fill(); if (!weak) { g.beginPath(); g.arc(7.5, 7.5, 1.2, 0, 7); g.fill(); } }
     else if (id === "circ") { g.beginPath(); g.arc(n / 2, n / 2, 2.8, 0, 7); g.stroke(); }
     else if (id === "dash") { g.beginPath(); g.moveTo(1, 3); g.lineTo(6, 3); if (!weak) { g.moveTo(6, 8); g.lineTo(10, 8); } g.stroke(); }
     else if (id === "vee") { g.beginPath(); g.moveTo(2, 3); g.lineTo(5, 8); g.lineTo(8, 3); g.stroke(); }

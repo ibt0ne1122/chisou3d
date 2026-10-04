@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>土地のでき方シミュレーター3D｜大地のつくり</title>
+<style>
+  :root { --bg:#eef4f7; --panel:#fff; --ink:#1f2a33; --sub:#5a6873; --accent:#1f7a8c; --line:#d5e1e7; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink);
+    font-family: "BIZ UDPGothic", "Hiragino Kaku Gothic ProN", "Meiryo", sans-serif; overscroll-behavior: none; }
+  body { display: flex; flex-direction: column; height: 100dvh; }
+  header { display: flex; align-items: center; gap: 10px; padding: 8px 12px 4px; flex-wrap: wrap; }
+  header h1 { font-size: 19px; margin: 0; white-space: nowrap; }
+  header small { color: var(--sub); font-size: 12.5px; }
+  header a { margin-left: auto; font-size: 13px; color: var(--accent); }
+  #scenes { display: flex; gap: 6px; overflow-x: auto; padding: 4px 12px 8px; scrollbar-width: thin; -webkit-overflow-scrolling: touch; }
+  #scenes .grp { flex: 0 0 auto; align-self: center; font-size: 12px; color: var(--sub); font-weight: bold; padding: 0 2px 0 8px; border-left: 3px solid var(--line); }
+  #scenes .grp:first-child { border-left: 0; padding-left: 0; }
+  #scenes button { flex: 0 0 auto; border: 1px solid var(--line); background: #fff; border-radius: 18px; padding: 6px 12px; font-size: 14px; font-family: inherit; color: var(--ink); cursor: pointer; white-space: nowrap; min-height: 38px; }
+  #scenes button.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+  #explainBar { display: flex; gap: 10px; align-items: flex-start; margin: 0 10px 8px; }
+  #explain { flex: 1; background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 8px 14px; font-size: 16.5px; line-height: 1.55; min-height: 3.4em; }
+  #explain .st { display: inline-block; background: var(--accent); color: #fff; border-radius: 10px; font-size: 13px; padding: 1px 9px; margin-right: 6px; vertical-align: 1px; }
+  #explain .ttl { font-weight: bold; font-size: 15px; color: #1f5f73; display: block; margin-bottom: 2px; }
+  #age { flex: 0 0 auto; background: rgba(31,42,51,.85); color: #fff; border-radius: 14px; padding: 6px 12px; font-size: 14px; margin-top: 6px; }
+  #age:empty { display: none; }
+  #stage { position: relative; flex: 1; min-height: 0; margin: 0 10px; background: #dff1fb; border-radius: 14px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,.06); touch-action: none; }
+  #stage canvas.gl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  #labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+  #labels .lb { position: absolute; transform: translate(-50%, -50%); background: rgba(255,255,255,.92); border-radius: 8px; padding: 3px 8px; font-size: 14px; font-weight: bold; white-space: pre; line-height: 1.35; box-shadow: 0 1px 4px rgba(0,0,0,.15); }
+  #labels .lb.big { font-size: 16px; border: 2px solid var(--accent); }
+  #labels .lb.red { color: #c62828; }
+  #labels .lb.warn { background: #d0342c; color: #fff; }
+  #insets { position: absolute; right: 10px; top: 10px; display: flex; gap: 10px; pointer-events: none; }
+  #insets canvas { width: 190px; height: 190px; border-radius: 50%; background: #fff; box-shadow: 0 2px 10px rgba(0,0,0,.25); }
+  #insets .cap { text-align: center; font-size: 13px; font-weight: bold; background: rgba(255,255,255,.92); border-radius: 8px; margin-top: 4px; padding: 2px 6px; }
+  #viewBtns { position: absolute; left: 10px; bottom: 10px; display: flex; gap: 6px; }
+  #viewBtns button { border: 1px solid var(--line); background: rgba(255,255,255,.92); border-radius: 12px; padding: 6px 10px; font-size: 13px; font-family: inherit; cursor: pointer; }
+  #hint3d { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); background: rgba(31,42,51,.75); color: #fff; border-radius: 14px; padding: 4px 12px; font-size: 13px; pointer-events: none; transition: opacity .6s; white-space: nowrap; }
+  footer { padding: 8px 12px calc(10px + env(safe-area-inset-bottom)); }
+  .timebar { display: flex; align-items: center; gap: 10px; background: #fff; border-radius: 14px; padding: 8px 12px 4px; box-shadow: 0 2px 10px rgba(0,0,0,.06); }
+  .timebar button { border: 1px solid var(--line); background: #f4f8fa; border-radius: 12px; min-width: 52px; min-height: 48px; font-size: 20px; cursor: pointer; font-family: inherit; color: var(--ink); }
+  .timebar button.play { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .track { position: relative; flex: 1; padding-bottom: 24px; }
+  .track .lab { display: flex; justify-content: space-between; font-size: 12px; color: var(--sub); margin-bottom: 2px; }
+  input[type=range]#time { width: 100%; height: 44px; margin: 0; -webkit-appearance: none; appearance: none; background: transparent; touch-action: none; }
+  #time::-webkit-slider-runnable-track { height: 14px; border-radius: 7px; background: linear-gradient(90deg, #c8955a, #e6cf7e, #9aa7a2, #6b7b8c); }
+  #time::-moz-range-track { height: 14px; border-radius: 7px; background: linear-gradient(90deg, #c8955a, #e6cf7e, #9aa7a2, #6b7b8c); }
+  #time::-webkit-slider-thumb { -webkit-appearance: none; width: 40px; height: 40px; margin-top: -13px; border-radius: 50%; background: #fff; border: 4px solid var(--accent); box-shadow: 0 2px 6px rgba(0,0,0,.3); }
+  #time::-moz-range-thumb { width: 34px; height: 34px; border-radius: 50%; background: #fff; border: 4px solid var(--accent); }
+  #ticks { position: absolute; left: 20px; right: 20px; bottom: 0; height: 24px; }
+  #ticks span { position: absolute; transform: translateX(-50%); font-size: 11.5px; color: var(--sub); white-space: nowrap; top: 4px; cursor: pointer; }
+  #ticks span::before { content: ""; position: absolute; left: 50%; top: -8px; width: 2px; height: 6px; background: #9fb3bd; }
+  #ticks span.on { color: var(--accent); font-weight: bold; }
+  @media (max-width: 700px) { #explain { font-size: 14.5px; } #explainBar { flex-direction: column; } header h1 { font-size: 16px; } #ticks span { font-size: 10px; } #insets canvas { width: 120px; height: 120px; } #labels .lb { font-size: 12px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>🌋 土地のでき方シミュレーター <span style="color:#1f7a8c">3D</span></h1>
+  <small>下のつまみを指で右へスライドすると時間が進みます。図は指でなぞると回せます（2本指で拡大）</small>
+  <a href="sim.html">2Dの図で見る ›</a>
+</header>
+<nav id="scenes"></nav>
+<div id="explainBar"><div id="explain"></div><div id="age"></div></div>
+<div id="stage">
+  <div id="labels"></div>
+  <div id="insets"></div>
+  <div id="viewBtns"><button type="button" id="viewReset">🎥 はじめの向き</button><button type="button" id="viewTop">⬇ 上から</button><button type="button" id="viewFront">➡ 横から</button></div>
+  <div id="hint3d">👆 図を指でなぞると、まわして見られます</div>
+</div>
+<footer>
+  <div class="timebar">
+    <button id="reset" type="button" title="はじめにもどす">⏮</button>
+    <button id="play" type="button" class="play" title="自動で進める">▶</button>
+    <div class="track">
+      <div class="lab"><span>⏳ はじめ（むかし）</span><span>時間の流れ →</span><span>おわり（今）</span></div>
+      <input id="time" type="range" min="0" max="1000" value="0" aria-label="時間">
+      <div id="ticks"></div>
+    </div>
+  </div>
+</footer>
+<script src="lib/three.min.js?v=20261004035157"></script>
+<script src="lib/OrbitControls.js?v=20261004035157"></script>
+<script src="js/sim3d.js?v=20261004035157"></script>
+</body>
+</html>
