@@ -20,7 +20,13 @@
   #scenes button { flex: 0 0 auto; border: 1px solid var(--line); background: #fff; border-radius: 18px; padding: 6px 12px; font-size: 14px; font-family: inherit; color: var(--ink); cursor: pointer; white-space: nowrap; min-height: 38px; }
   #scenes button.on { background: var(--accent); color: #fff; border-color: var(--accent); }
   #explainBar { display: flex; gap: 10px; align-items: flex-start; margin: 0 10px 8px; }
-  #explain { flex: 1; background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 8px 14px; font-size: 16.5px; line-height: 1.55; min-height: 3.4em; }
+  /* 説明の高さは固定（文の長さで図の大きさが変わって、画面がガクッと動かないように） */
+  #explain { flex: 1; background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 8px 14px; font-size: 16.5px; line-height: 1.55; height: calc(16.5px * 1.55 * 3 + 36px); overflow-y: auto; }
+  #explain .body { animation: fadein .5s ease; display: inline; }
+  @keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
+  #flash { position: absolute; inset: 0; pointer-events: none; opacity: 0; box-shadow: inset 0 0 60px 22px rgba(220,40,30,.85); border-radius: 14px; }
+  #flash.volc { box-shadow: inset 0 0 70px 26px rgba(255,120,20,.9); }
+  #qtext { position: absolute; left: 50%; top: 18%; transform: translate(-50%,-50%); pointer-events: none; opacity: 0; font-size: 34px; font-weight: 900; color: #fff; background: #d0342c; padding: 6px 20px; border-radius: 16px; box-shadow: 0 4px 16px rgba(0,0,0,.3); white-space: nowrap; }
   #explain .st { display: inline-block; background: var(--accent); color: #fff; border-radius: 10px; font-size: 13px; padding: 1px 9px; margin-right: 6px; vertical-align: 1px; }
   #explain .ttl { font-weight: bold; font-size: 15px; color: #1f5f73; display: block; margin-bottom: 2px; }
   #age { flex: 0 0 auto; background: rgba(31,42,51,.85); color: #fff; border-radius: 14px; padding: 6px 12px; font-size: 14px; margin-top: 6px; }
@@ -28,7 +34,7 @@
   #stage { position: relative; flex: 1; min-height: 0; margin: 0 10px; background: #dff1fb; border-radius: 14px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,.06); touch-action: none; }
   #stage canvas.gl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
   #labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
-  #labels .lb { position: absolute; transform: translate(-50%, -50%); background: rgba(255,255,255,.92); border-radius: 8px; padding: 3px 8px; font-size: 14px; font-weight: bold; white-space: pre; line-height: 1.35; box-shadow: 0 1px 4px rgba(0,0,0,.15); }
+  #labels .lb { transition: opacity .35s; position: absolute; transform: translate(-50%, -50%); background: rgba(255,255,255,.92); border-radius: 8px; padding: 3px 8px; font-size: 14px; font-weight: bold; white-space: pre; line-height: 1.35; box-shadow: 0 1px 4px rgba(0,0,0,.15); }
   #labels .lb.big { font-size: 16px; border: 2px solid var(--accent); }
   #labels .lb.red { color: #c62828; }
   #labels .lb.warn { background: #d0342c; color: #fff; }
@@ -53,7 +59,7 @@
   #ticks span { position: absolute; transform: translateX(-50%); font-size: 11.5px; color: var(--sub); white-space: nowrap; top: 4px; cursor: pointer; }
   #ticks span::before { content: ""; position: absolute; left: 50%; top: -8px; width: 2px; height: 6px; background: #9fb3bd; }
   #ticks span.on { color: var(--accent); font-weight: bold; }
-  @media (max-width: 700px) { #explain { font-size: 14.5px; } #explainBar { flex-direction: column; } header h1 { font-size: 16px; } #ticks span { font-size: 10px; } #insets canvas { width: 120px; height: 120px; } #labels .lb { font-size: 12px; } }
+  @media (max-width: 700px) { #explain { font-size: 14.5px; height: calc(14.5px * 1.55 * 4 + 30px); } #explainBar { flex-direction: column; } header h1 { font-size: 16px; } #ticks span { font-size: 10px; } #insets canvas { width: 120px; height: 120px; } #labels .lb { font-size: 12px; } }
 </style>
 </head>
 <body>
@@ -66,6 +72,8 @@
 <div id="explainBar"><div id="explain"></div><div id="age"></div></div>
 <div id="stage">
   <div id="labels"></div>
+  <div id="flash"></div>
+  <div id="qtext"></div>
   <div id="insets"></div>
   <div id="viewBtns"><button type="button" id="viewReset">🎥 はじめの向き</button><button type="button" id="viewTop">⬇ 上から</button><button type="button" id="viewFront">➡ 横から</button></div>
   <div id="hint3d">👆 図を指でなぞると、まわして見られます</div>
@@ -81,8 +89,8 @@
     </div>
   </div>
 </footer>
-<script src="lib/three.min.js?v=20261004035157"></script>
-<script src="lib/OrbitControls.js?v=20261004035157"></script>
-<script src="js/sim3d.js?v=20261004035157"></script>
+<script src="lib/three.min.js?v=20261004084911"></script>
+<script src="lib/OrbitControls.js?v=20261004084911"></script>
+<script src="js/sim3d.js?v=20261004084911"></script>
 </body>
 </html>

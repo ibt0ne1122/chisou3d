@@ -174,6 +174,8 @@
   }
   /** 地しんのゆれ（ずれた直後に少しゆらす） */
   function quake(t, times, amp = 6) { for (const q of times) if (t > q && t < q + 0.035) return Math.sin(t * 2600) * amp * (1 - (t - q) / 0.035); return 0; }
+  function ago(y) { if (y < 0.5) return "今"; if (y >= 1e8) return "約" + Math.round(y / 1e7) / 10 + "億年前"; if (y >= 1e4) return "約" + Math.round(y / 1e4) + "万年前"; if (y >= 1000) return "約" + Math.round(y / 1000) + "千年前"; return "約" + Math.round(y) + "年前"; }
+  const agoSpan = (span) => (t) => ago(span * (1 - t));
   const XS = (step = 10, a = -20, b = 1020) => { const o = []; for (let x = a; x <= b; x += step) o.push(x); return o; };
 
   // ================= 場面 =================
@@ -344,7 +346,7 @@
   }
   SCENES.push({
     id: "sea", group: "地層のでき方", title: "海の底に地層ができる", short: "🌊 海の底で積もる", dur: 30,
-    age: (t) => "はじめから 約" + Math.round(t * 60) + "万年",
+    age: agoSpan(600000),
     stages: [
       { t: 0, s: "運ばれる", text: "川の水は、山や川岸をけずった石や土（れき・砂・どろ）を運びます。運ばれるうちに角がとれて丸くなります。" },
       { t: 0.1, s: "しずむ", text: "海に出ると流れがゆるやかになり、運ばれてきたものが海の底にしずみます。重いれきは岸の近くに、軽いどろは遠くまで運ばれてしずみます。" },
@@ -362,7 +364,7 @@
 
   SCENES.push({
     id: "ash", group: "地層のでき方", title: "火山のはたらきでできる地層", short: "🌋 火山灰の層", dur: 28,
-    age: (t) => "はじめから 約" + Math.round(t * 40) + "万年",
+    age: agoSpan(400000),
     stages: [
       { t: 0, s: "水の層", text: "海や湖の底に、流れる水が運んだれき・砂・どろが積もっています。" },
       { t: 0.36, s: "噴火", text: "火山が噴火すると、火山灰が空高くふき上げられ、風で遠くまで運ばれて降り積もります。" },
@@ -411,7 +413,7 @@
     });
     return {
       id: "rock", group: "地層のでき方", title: "地層が固まって岩石になる", short: "🪨 固まって岩石に", dur: 24,
-      age: (t) => "はじめから 約" + Math.round(t * 300) + "万年",
+      age: agoSpan(3000000),
       stages: [
         { t: 0, s: "やわらかい", text: "積もったばかりの層は、つぶとつぶの間に水がある、やわらかい土や砂です。" },
         { t: 0.12, s: "おされる", text: "上に次々と層が積もると、その重みで下の層がおし固められ、つぶの間の水がしぼり出されます。" },
@@ -466,7 +468,7 @@
     const xs = XS(8), SL = 170;
     return {
       id: "fossil", group: "地層のでき方", title: "化石ができるまで", short: "🐚 化石ができるまで", dur: 28,
-      age: (t) => (t < 0.7 ? "約" + Math.round(lerp(10000, 9000, t / 0.7)) + "万年前" : "今に近づく…"),
+      age: agoSpan(100000000),
       stages: [
         { t: 0, s: "生きていた", text: "大昔の海で、アンモナイトが生きていました。" },
         { t: 0.13, s: "しずむ", text: "死ぬと海の底にしずみます。やわらかい部分はくさってなくなり、かたい殻が残ります。" },
@@ -521,7 +523,7 @@
     const types = ["gravel", "sand", "mud", "ash", "sand", "mud", "gravel"];
     return {
       id: "uplift", group: "土地の変化", title: "土地がもち上がり、地層が見えるまで", short: "⛰ もち上がって陸に", dur: 26,
-      age: (t) => "はじめから 約" + Math.round(t * 100) + "万年",
+      age: agoSpan(1000000),
       stages: [
         { t: 0, s: "海の底", text: "海の底で、地層が積み重なっています。" },
         { t: 0.08, s: "もち上がる", text: "大地に大きな力がはたらき、土地がもち上がります（地しんのたびに少しずつ）。海の底だった所が陸になります。" },
@@ -694,7 +696,7 @@
     const wav = (x) => Math.sin(x * 0.045) * 7 + Math.sin(x * 0.013 + 1) * 6;
     return {
       id: "unconf", group: "土地の変化", title: "不整合（地層の重なりの切れ目）", short: "⚡ 不整合", dur: 30,
-      age: (t) => "はじめから 約" + Math.round(t * 500) + "万年",
+      age: agoSpan(5000000),
       stages: [
         { t: 0, s: "積もる", text: "海の底で、地層が積み重なります。" },
         { t: 0.25, s: "もち上がる", text: "大地の動きで、地層がもち上がり、かたむいて陸になります。" },
@@ -753,7 +755,7 @@
     const prof = (k, x) => (k < 0 ? G0 : G0 - (75 + 52 * k) * Math.max(0, 1 - Math.abs(x - 500) / (160 + 62 * k)) + (Math.abs(x - 500) < 14 && k >= 0 ? 10 : 0));
     return {
       id: "volcano", group: "土地の変化", title: "火山の噴火で土地が変わる", short: "🌋 火山ができる", dur: 30,
-      age: (t) => "はじめから 約" + Math.round(t * 10) + "万年",
+      age: agoSpan(100000),
       stages: [
         { t: 0, s: "マグマ", text: "地下深くには、岩石がどろどろにとけた「マグマ」があります。" },
         { t: 0.08, s: "溶岩", text: "マグマが地表にふき出すのが「噴火」です。流れ出た溶岩は、冷えて固まります。" },
