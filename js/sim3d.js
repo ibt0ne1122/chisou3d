@@ -163,6 +163,16 @@
     if (ix.length < 2) return null;
     return band2(ix.map((k) => xs[k]), ix.map((k) => top[k]), ix.map((k) => bot[k]), type, color);
   }
+  /** 多角形を、f(x,y)>=0 の側だけ残して切る（2Dの座標のまま） */
+  function clipHalf(pts, f) {
+    const out = [];
+    for (let i = 0; i < pts.length; i++) {
+      const a = pts[i], b = pts[(i + 1) % pts.length], fa = f(a[0], a[1]), fb = f(b[0], b[1]);
+      if (fa >= 0) out.push(a);
+      if ((fa >= 0) !== (fb >= 0)) { const u = fa / (fa - fb); out.push([a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u]); }
+    }
+    return out;
+  }
   function strata2(xs, bounds, types, surf, colors) {
     const out = [];
     for (let i = 0; i < types.length; i++) {
@@ -185,6 +195,22 @@
     g.userData.m = m;
     return g;
   }
+  function leafMesh(color = "#6b5a3a") {
+    const g = new THREE.Group(), m = new THREE.MeshLambertMaterial({ color });
+    const b = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 10), m); b.scale.set(4.2, 2.2, 0.4); g.add(b);
+    const vein = new THREE.Mesh(new THREE.BoxGeometry(9, 0.25, 0.6), mat("vein", "#3c3222")); g.add(vein);
+    for (let i = -2; i <= 2; i++) { const v = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.2, 0.6), mat("vein", "#3c3222")); v.position.set(i * 1.5, 0.7, 0); v.rotation.z = 0.6; g.add(v); const v2 = v.clone(); v2.position.y = -0.7; v2.rotation.z = -0.6; g.add(v2); }
+    const st = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.3, 0.5), m); st.position.x = -5.2; g.add(st);
+    return g;
+  }
+  function boneFishMesh(color = "#8d8478") { // 魚の骨の化石
+    const g = new THREE.Group(), m = new THREE.MeshLambertMaterial({ color });
+    const sp = new THREE.Mesh(new THREE.BoxGeometry(10, 0.5, 0.6), m); g.add(sp);
+    for (let i = -4; i <= 3; i++) { const r = new THREE.Mesh(new THREE.BoxGeometry(0.35, 3.4 - Math.abs(i) * 0.3, 0.5), m); r.position.x = i * 1.1; g.add(r); }
+    const hd = new THREE.Mesh(new THREE.ConeGeometry(1.8, 3, 3), m); hd.rotation.z = -Math.PI / 2; hd.position.x = 6.3; g.add(hd);
+    const tl = new THREE.Mesh(new THREE.ConeGeometry(1.8, 2.6, 3), m); tl.rotation.z = -Math.PI / 2; tl.position.x = -6; g.add(tl);
+    return g;
+  }
   function fishMesh(color) {
     const g = new THREE.Group(), m = new THREE.MeshLambertMaterial({ color, transparent: true });
     const body = new THREE.Mesh(new THREE.SphereGeometry(1, 14, 10), m); body.scale.set(4, 1.8, 1.2); g.add(body);
@@ -201,6 +227,7 @@
     line.position.y = yTop; line.material.opacity = a;
     label(key + "T", text || "昔の海面（ここまで海だった）", [-62, yTop + 3, 35], "big");
   }
+  let _vm = null; function volcMat() { return _vm || (_vm = new THREE.MeshLambertMaterial({ color: 0x6f625a, side: THREE.DoubleSide })); }
   function arrow(key, from, to, color = 0xd0342c, r = 2.6) {
     const g = K(key, () => {
       const grp = new THREE.Group(), m = new THREE.MeshLambertMaterial({ color, emissive: color, emissiveIntensity: 0.25 });
@@ -385,7 +412,7 @@
   // ---- ② 海の底に地層ができる ／ ③ 火山灰（共通） ----
   function seaBuild(cfg) {
     return () => {
-      const SL = 240, COAST = 380, xs = XS(8), r = rng(cfg.seed || 11);
+      const SL = 240, COAST = 380, xs = XS(4), r = rng(cfg.seed || 11);
       const land = (x) => { const pts = cfg.volcano ? [[-20, 225], [300, 225], [COAST, SL]] : [[-20, 120], [80, 74], [160, 118], [250, 186], [COAST, SL]]; for (let i = 0; i < pts.length - 1; i++) if (x <= pts[i + 1][0]) return lerp(pts[i][1], pts[i + 1][1], (x - pts[i][0]) / (pts[i + 1][0] - pts[i][0])); return SL; };
       const floor0 = (x) => (x < COAST ? land(x) : lerp(SL, 290, clamp((x - COAST) / 40)) + Math.max(0, x - COAST - 40) * 0.26);
       const evs = cfg.events;
@@ -402,7 +429,7 @@
         // 平らな陸の上に、円すいの火山（緑の土地にかくれないように、地面の上にのせる）
         const prof = [new THREE.Vector2(0.001, 38)]; for (let i = 0; i <= 20; i++) { const rr = 3.5 + (i / 20) * 30.5; prof.push(new THREE.Vector2(rr, 42 * (1 - rr / 34) + (i === 0 ? -3 : 0))); }
         prof.push(new THREE.Vector2(0.001, 0));
-        vol = new THREE.Mesh(new THREE.LatheGeometry(prof, 40), mat("volc", "#6f625a")); vol.position.set(-66, W(0, 225)[1] - 0.5, -8); root.add(vol);
+        vol = new THREE.Mesh(new THREE.LatheGeometry(prof, 40), volcMat()); vol.position.set(-66, W(0, 225)[1] - 0.5, -8); root.add(vol);
       }
       return (t) => {
         const f0 = xs.map(floor0), list = [band2(xs, f0, xs.map(() => 640), "rock")];
@@ -411,7 +438,13 @@
           const gk = seg(t, e.t0, e.t1), th = xs.map((x) => thick(e, x) * gk), top = base.map((b, i) => b - th[i]);
           if (gk > 0) {
             if (e.kind === "ash") list.push(band2(xs, top, base, "ash"));
-            else { const z1 = COAST + 90 + (e.shift || 0), z2 = COAST + 270 + (e.shift || 0); [["gravel", -100, z1], ["sand", z1, z2], ["mud", z2, 1100]].forEach(([ty, a, b]) => { const bd = bandRange2(xs, top, base, a, b, ty); if (bd) list.push(bd); }); }
+            else {
+              // れき→砂→どろの境目は、ななめにゆるやかに変わる（となりの層とも なめらかにつながる）
+              const z1 = COAST + 90 + (e.shift || 0), z2 = COAST + 270 + (e.shift || 0), ib = (x) => base[clamp(Math.round((x + 20) / 4), 0, xs.length - 1)];
+              const raw = []; xs.forEach((x, k) => raw.push([x, top[k]])); for (let k = xs.length - 1; k >= 0; k--) raw.push([xs[k], Math.max(base[k], top[k] + 0.02)]);
+              const f1 = (x, y) => x - (z1 + (ib(z1) - y) * 4), f2 = (x, y) => x - (z2 + (ib(z2) - y) * 4);
+              [["gravel", clipHalf(raw, (x, y) => -f1(x, y))], ["sand", clipHalf(clipHalf(raw, f1), (x, y) => -f2(x, y))], ["mud", clipHalf(raw, f2)]].forEach(([ty, pp]) => { if (pp.length > 2) list.push({ type: ty, pts: cleanPts(pp.map((q) => W(q[0], q[1]))) }); });
+            }
           }
           tops.push(top); base = top;
         });
@@ -420,7 +453,7 @@
         ex.set(list);
         waterBox("sea", W(COAST - 10, 0)[0], 100.5, W(0, 640)[1], W(0, SL)[1]);
         // 化石（貝）
-        (cfg.fossils || []).forEach((f, fi) => { const k = f.ev; if (t >= evs[k].t1 - 0.01) { const i = Math.round((f.x + 20) / 8); [-22, -4, 14].forEach((z, zi) => { const s = K("shell" + fi + "_" + zi, () => shellMesh()); const w = W(f.x + zi * 14, tops[k][i] - 0.2); s.position.set(w[0], w[1], z + f.x * 0.01); }); } });
+        (cfg.fossils || []).forEach((f, fi) => { const k = f.ev; if (t >= evs[k].t1 - 0.01) { const i = Math.round((f.x + 20) / 4); [-22, -4, 14].forEach((z, zi) => { const s = K("shell" + fi + "_" + zi, () => shellMesh()); const w = W(f.x + zi * 14, tops[k][i] - 0.2); s.position.set(w[0], w[1], z + f.x * 0.01); }); } });
         // 運ばれる土砂
         const cur = evs.find((e) => e.kind !== "ash" && t > e.t0 && t < e.t1);
         if (cur) {
@@ -429,7 +462,7 @@
             const s = frac(p.ph + t * 3.2); let w, z;
             const tgt = (p.ty === "gravel" ? COAST + 20 + p.j * 70 : p.ty === "sand" ? COAST + 100 + p.j * 170 : COAST + 280 + p.j * 330) + (cur.shift || 0);
             if (s < 0.45) { const q = riverAt(s / 0.45); w = W(q[0], q[1]); w[1] += 1.2; z = 5 + (p.j - 0.5) * 4; }
-            else { const u = (s - 0.45) / 0.55, i = clamp(Math.round((tgt + 20) / 8), 0, xs.length - 1); w = W(lerp(COAST, tgt, Math.min(1, u * 1.6)), lerp(SL + 2, base[i] - 1, u)); z = lerp(5, p.z, Math.min(1, u * 1.6)); }
+            else { const u = (s - 0.45) / 0.55, i = clamp(Math.round((tgt + 20) / 4), 0, xs.length - 1); w = W(lerp(COAST, tgt, Math.min(1, u * 1.6)), lerp(SL + 2, base[i] - 1, u)); z = lerp(5, p.z, Math.min(1, u * 1.6)); }
             pts[p.ty].push([w[0], w[1], z]);
           }
           setPoints(points("pg", 80, 0x9b6a35, 3.2), pts.gravel); setPoints(points("ps", 80, 0xd8b850, 2.2), pts.sand); setPoints(points("pm", 120, 0x6f7a77, 1.5), pts.mud);
@@ -441,7 +474,7 @@
           if (on) {
             for (let i = 0; i < 8; i++) { const a = seg(t, er[0] + i * 0.012, er[0] + i * 0.012 + 0.06); if (a <= 0) continue; const s = K("plume" + i, () => new THREE.Mesh(new THREE.SphereGeometry(1, 14, 10), new THREE.MeshLambertMaterial({ color: 0x5f5550, transparent: true, opacity: 0.6 }))); s.material.opacity = 0.6 * fade; const rad = 7 + i * 2.2; s.scale.set(rad, rad * 0.8, rad); s.position.set(VX + i * 7 * a + i * 9 * seg(t, er[0], er[1]), VY + 4 + i * 3.4 + 10 * a, VZ); }
             const fall = [];
-            for (const p of ashFall) { const s = frac(p.ph + t * 6), x = p.x + Math.sin(s * 9) * 8, y = lerp(-10, 560, s), i = clamp(Math.round((x + 20) / 8), 0, xs.length - 1); if (y > base[i] - 1) continue; const w = W(x, y); fall.push([w[0], w[1], p.z]); }
+            for (const p of ashFall) { const s = frac(p.ph + t * 6), x = p.x + Math.sin(s * 9) * 8, y = lerp(-10, 560, s), i = clamp(Math.round((x + 20) / 4), 0, xs.length - 1); if (y > base[i] - 1) continue; const w = W(x, y); fall.push([w[0], w[1], p.z]); }
             setPoints(points("ashfall", 500, 0x8a3d2a, 0.9, fade), fall);
             const glow = K("glow", () => new THREE.Mesh(new THREE.SphereGeometry(3, 12, 10), new THREE.MeshBasicMaterial({ color: 0xff7a30 }))); glow.position.set(VX, VY - 1, VZ); glow.visible = seg(t, er[0], er[1]) < 1;
           }
@@ -499,7 +532,7 @@
   // ---- ④ 岩石のでき方くらべ（れき岩・砂岩・でい岩・ぎょう灰岩） ----
   SCENES.push({
     id: "rocks", group: "地層のでき方", title: "地層が固まって岩石になる（4つの岩石のちがい）", short: "🪨 4つの岩石", dur: 30,
-    cam: { pos: [8, 58, 178], target: [6, 20, 0] },
+    cam: { pos: [-8, 64, 215], target: [-14, 24, 0] },
     age: agoSpan(3000000),
     stages: [
       { t: 0, s: "2つのでき方", text: "左の3つ（れき・砂・どろ）は「流れる水のはたらき」で、川に運ばれて海の底に積もります。右の火山灰は「火山のはたらき」で、火山からふき出されて空から降り積もります。でき方がちがいます。" },
@@ -519,8 +552,14 @@
       const baseW = boxMesh(96, 3, 40, mat("plateW", "#b9dcf0")); baseW.position.set(-38, -1.5, 0); root.add(baseW);
       const baseV = boxMesh(66, 3, 40, mat("plateV", "#f3c7a6")); baseV.position.set(70, -1.5, 0); root.add(baseV);
       const vprof = [new THREE.Vector2(0.001, 28)]; for (let i = 0; i <= 12; i++) { const rr = 2.5 + (i / 12) * 15.5; vprof.push(new THREE.Vector2(rr, 30 * (1 - rr / 18))); } vprof.push(new THREE.Vector2(0.001, 0));
-      const vol = new THREE.Mesh(new THREE.LatheGeometry(vprof, 32), mat("volc", "#6f625a")); vol.position.set(VC[0], VC[1], VC[2]); root.add(vol);
+      const vol = new THREE.Mesh(new THREE.LatheGeometry(vprof, 32), volcMat()); vol.position.set(VC[0], VC[1], VC[2]); root.add(vol);
       const plumeM = new THREE.MeshLambertMaterial({ color: 0x5f5550, transparent: true, opacity: 0.55 });
+      // 左から川が流れこみ、れき・砂・どろを運んでくる
+      const RV = [[-142, 74], [-118, 66], [-96, 56], [-84, 50]];
+      const riverR = ribbon(RV.map(([x, y]) => [x, y, 0]), 9, COL.river); root.add(riverR);
+      const bank = new THREE.Mesh(new THREE.BoxGeometry(70, 1, 24), mat("grass")); bank.position.set(-118, 60, 0); bank.rotation.z = -0.32; root.add(bank);
+      const seaS = new THREE.Mesh(new THREE.BoxGeometry(86, 0.6, 30), new THREE.MeshLambertMaterial({ color: 0x7cc0e6, transparent: true, opacity: 0.35, depthWrite: false })); seaS.position.set(-38, 49.5, 0); seaS.renderOrder = 7; root.add(seaS);
+      const riverAt = (v) => { const L = RV.length - 1, f = Math.min(L - 1e-6, v * L), i = Math.floor(f), u = f - i; return [lerp(RV[i][0], RV[i + 1][0], u), lerp(RV[i][1], RV[i + 1][1], u) + 1.2]; };
       const plumes = []; for (let i = 0; i < 5; i++) { const m = new THREE.Mesh(new THREE.SphereGeometry(1, 12, 10), plumeM); root.add(m); plumes.push(m); }
       types.forEach((ty, i) => {
         const x = xs[i];
@@ -556,8 +595,13 @@
           const wy = lerp(62, h + 3, c) + 40 * fin;
           o.weight.visible = t > 0.33 && fin < 0.95; o.weight.position.set(o.x, wy, 0);
           o.gr.forEach((g, k) => {
-            const u = seg(t, g.te, g.te + g.dur), vis = t > g.te && u < 1;
-            let px = g.x, y = lerp(46, Math.max(h, 1), u), pz = g.z;
+            const TR = 0.05, u = seg(t, g.te, g.te + g.dur), vis = t > g.te - (o.ty === "ash" ? 0 : TR) && u < 1;
+            let px = g.x, y = lerp(49, Math.max(h, 1), u), pz = g.z;
+            if (o.ty !== "ash" && t < g.te) { // 川を流れてきて、海（つつの上）を横に進む
+              const v = seg(t, g.te - TR, g.te);
+              if (v < 0.55) { const q = riverAt(v / 0.55); px = q[0]; y = q[1]; pz = (g.z / R) * 3; }
+              else { const w = (v - 0.55) / 0.45; px = lerp(-84, g.x, w); y = 50 + Math.sin(w * 9 + g.rot) * 0.5; pz = lerp((g.z / R) * 3, g.z, w); }
+            }
             if (o.ty === "ash") { // 火口からふき上がって、空から降ってくる
               px = lerp(VC[0], g.x, u); pz = lerp(VC[2], g.z, u); y = lerp(VC[1] + 30, Math.max(h, 1), u) + 40 * Math.sin(Math.PI * Math.min(1, u * 1.15)) * (1 - u * 0.3);
             }
@@ -577,7 +621,8 @@
         label("kV", "🌋 火山のはたらき\n（ふき出されて降る → 角ばる）", [70, -12, 22], "big red");
         label("vol", "火山", [VC[0], VC[1] + 33, VC[2]]);
         if (c > 0.05 && c < 0.95) label("sq", "つぶの間の水が しぼり出される", [0, 64, 0], "big");
-        if (t > 0.08 && t < 0.36) label("hy", "水の中では、大きくて重いつぶほど 早くしずむ", [-38, 66, 0], "big");
+        label("riv", "川（れき・砂・どろを運ぶ）", [-120, 80, 0], "big");
+        if (t > 0.08 && t < 0.36) label("hy", "大きくて重いつぶほど 川の近くで早くしずむ", [-38, 70, 0], "big");
         if (t > 0.6 && t < 0.8) label("cm", "つぶの間を うめて固める", [0, 64, 0], "big");
         insets(t > 0.36 && t < 0.8 ? cols.map((o) => ({ key: "lens" + o.ty, cap: NAME[o.ty] + "（虫めがね）", draw: (g, n) => drawGrains(g, n, o.ty, cm > 0.5, 3 + o.ty.length) })) : []);
       };
@@ -595,7 +640,7 @@
       { t: 0.28, s: "うもれる", text: "川が運んできた砂やどろが、海の中を雪のようにしずんで、殻の上に1枚ずつ積もっていきます。積もるたびに、殻はどんどん深くうもれていきます。" },
       { t: 0.55, s: "化石に", text: "長い年月の間に、殻は地層の中で石のようにかたくなります。大昔の生き物のからだや、生き物がいたあとなどが残った物を化石といいます。" },
       { t: 0.68, s: "おし上げ", text: "大きな力が加わって大地がおし上げられ、陸になります。雨や川の水にしん食されていきます。" },
-      { t: 0.88, s: "見つかる", text: "がけの地層から化石が見つかります。海の生き物の化石が出てくるので、昔そこが海だったことがわかります。" },
+      { t: 0.86, s: "見つかる", text: "がけの地層から、アンモナイト・貝・魚・木の葉などの化石が見つかります。海の生き物の化石が出てくるので、昔そこが海だったことがわかります。木の葉は、川に運ばれてきて、どろといっしょにうもれたものです。" },
     ],
     build() {
       const xs = XS(8), SL = 170, ex = extruder();
@@ -608,6 +653,14 @@
         crowd.push({ o, isFish, x0: -95 + rr() * 170, y0: 0 + rr() * 26, z: -25 + rr() * 50, sp: (rr() < 0.5 ? 1 : -1) * (0.6 + rr() * 0.6), ph: rr() * 6 });
       }
       const rs = rng(91), snow = []; for (let i = 0; i < 260; i++) snow.push({ x: -98 + rs() * 196, z: -33 + rs() * 66, ph: rs(), sp: 0.7 + rs() * 0.6 });
+      // ほかにも化石になる物（貝・魚の骨・木の葉・小さなアンモナイト）：k＝何まい目の層にうもれるか
+      const FOS = [
+        { k: 0, x: -72, name: "貝の化石", make: () => { const m = shellMesh(); m.scale.set(4, 2, 3.4); m.rotation.x = Math.PI / 2; return m; } },
+        { k: 1, x: 62, name: "魚の化石", make: () => boneFishMesh() },
+        { k: 2, x: -48, name: "木の葉の化石", make: () => leafMesh() },
+        { k: 3, x: 82, name: "アンモナイトの化石", make: () => { const a = ammoniteMesh("#a08d70"); a.scale.setScalar(0.55); return a; } },
+        { k: 4, x: -85, name: "貝の化石", make: () => { const m = shellMesh(); m.scale.set(3.4, 1.8, 3); m.rotation.x = Math.PI / 2; return m; } },
+      ];
       const FT = ["sand", "mud", "sand", "gravel", "mud", "sand"], NM = { sand: "砂", mud: "どろ", gravel: "れき" }, PC = { sand: 0xd8b850, mud: 0x6f7a77, gravel: 0x9b6a35 };
       return (t) => {
         const U = 190 * ease(seg(t, 0.68, 0.8)), sh = quake(t, [0.7, 0.74, 0.78]);
@@ -648,8 +701,26 @@
         am.rotation.set(0, 0, -0.3 * seg(t, 0.13, 0.26));
         am.scale.setScalar(0.9);
         am.userData.m.color.copy(mixC("#d9b98a", "#8d8478", seg(t, 0.5, 0.65)));
-        if (t > 0.3 && t < 0.88) label("um", t > 0.55 ? "化石になった殻" : "うもれていく殻", [p[0] - 18, p[1], 36]);
-        if (t > 0.88) { const pp = K("person", () => person()); pp.position.set(18, p[1] - 1, 10); label("found", "あった！化石だ！", [18, p[1] + 16, 10], "big"); }
+        am.scale.setScalar(1.25);
+        if (t > 0.8) am.userData.m.color.copy(mixC("#8d8478", "#e2c08a", seg(t, 0.86, 0.92))); // 見つかると、よく見えるように明るく
+        if (t > 0.3 && t < 0.86) label("um", t > 0.55 ? "化石になった殻" : "うもれていく殻", [p[0] - 20, p[1], 36]);
+        // ほかの化石：k まい目の層が積もったときに、その層の中（手前の切り口）にうもれる
+        FOS.forEach((f, i) => {
+          const li = n - 1 - f.k; if (grow < f.k + 0.5) return;
+          const o = K("fos" + i, f.make), i2 = clamp(Math.round((f.x * 5 + 500 + 20) / 8), 0, xs.length - 1);
+          const y = W(0, (B[li][i2] + B[li + 1][i2]) / 2)[1];
+          o.position.set(f.x, y, 35.6);
+          if (t > 0.86) label("fn" + i, f.name, [f.x, y + 7, 36], "big");
+        });
+        if (t > 0.86) {
+          label("um", "アンモナイトの化石", [p[0], p[1] + 9, 36], "big");
+          // 見つかった化石を光る輪でかこむ
+          [[p[0], p[1]]].concat(FOS.map((f, i) => { const o = keyed.get("fos" + i); return o ? [o.position.x, o.position.y] : null; }).filter(Boolean)).forEach(([x, y], i) => {
+            const ring = K("ring" + i, () => new THREE.Mesh(new THREE.TorusGeometry(8, 0.7, 8, 32), new THREE.MeshBasicMaterial({ color: 0xffd400 })));
+            ring.position.set(x, y, 36.2); ring.scale.setScalar(1 + 0.08 * Math.sin(t * 120));
+          });
+          const pp = K("person", () => person()); pp.position.set(18, p[1] - 1, 10); label("found", "化石が いくつも見つかった！", [0, W(0, tops[0])[1] + 14, 30], "big");
+        }
         if (U < 60) label("umi", "海", [80, 30, 35]);
       };
     },
@@ -1146,6 +1217,10 @@
     if (ex.dataset.k !== cur.id + idx) { ex.innerHTML = '<span class="ttl">' + cur.title + '</span><span class="st">' + "①②③④⑤⑥⑦⑧"[idx] + " " + st.s + "</span><span class=\"body\">" + st.text + "</span>"; ex.dataset.k = cur.id + idx; }
     document.getElementById("age").textContent = cur.age ? "⏳ " + cur.age(T) : "";
     document.querySelectorAll("#ticks span").forEach((sp, i) => sp.classList.toggle("on", i === idx));
+    // せまい画面では、となりと重なる目もりの文字をかくす（いまの場面の文字は必ず出す）
+    const sps = [...document.querySelectorAll("#ticks span")]; let lastR = -1e9;
+    const rs = sps.map((sp) => { sp.style.visibility = ""; const r = sp.getBoundingClientRect(); return [r.left, r.right]; });
+    sps.forEach((sp, i) => { if (i === idx) return; const ov = rs[i][0] < lastR + 4 || (i < idx && rs[i][1] + 4 > rs[idx][0]) || (i > idx && rs[i][0] < rs[idx][1] + 4); if (ov) sp.style.visibility = "hidden"; else lastR = rs[i][1]; if (i + 1 === idx) lastR = rs[idx][1]; });
     dirty = true;
   }
   function loop(now) {

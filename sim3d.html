@@ -59,7 +59,7 @@
   #ticks span { position: absolute; transform: translateX(-50%); font-size: 11.5px; color: var(--sub); white-space: nowrap; top: 4px; cursor: pointer; }
   #ticks span::before { content: ""; position: absolute; left: 50%; top: -8px; width: 2px; height: 6px; background: #9fb3bd; }
   #ticks span.on { color: var(--accent); font-weight: bold; }
-  @media (max-width: 700px) { #explain { font-size: 14.5px; height: calc(14.5px * 1.55 * 4 + 30px); } #explainBar { flex-direction: column; } header h1 { font-size: 16px; } #ticks span { font-size: 10px; } #insets canvas { width: 120px; height: 120px; } #labels .lb { font-size: 12px; } }
+  @media (max-width: 700px) { header small { display: none; } #labels .lb { font-size: 10.5px !important; padding: 2px 5px; } #labels .lb.big { border-width: 1.5px; } #explainBar { margin-bottom: 4px; } #explain { min-height: 0; } .track .lab { font-size: 10.5px; } #viewBtns button { padding: 4px 7px; font-size: 11.5px; } #explain { font-size: 14.5px; height: calc(14.5px * 1.55 * 4 + 30px); } #explainBar { flex-direction: column; } header h1 { font-size: 16px; } #ticks span { font-size: 10px; } #insets canvas { width: 120px; height: 120px; } #labels .lb { font-size: 12px; } }
 </style>
 </head>
 <body>
@@ -89,8 +89,8 @@
     </div>
   </div>
 </footer>
-<script src="lib/three.min.js?v=20261005082219"></script>
-<script src="lib/OrbitControls.js?v=20261005082219"></script>
-<script src="js/sim3d.js?v=20261005082219"></script>
+<script src="lib/three.min.js?v=20261005103305"></script>
+<script src="lib/OrbitControls.js?v=20261005103305"></script>
+<script src="js/sim3d.js?v=20261005103305"></script>
 </body>
 </html>
