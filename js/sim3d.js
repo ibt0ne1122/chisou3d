@@ -103,14 +103,28 @@
     e._p = pos;
   }
   const tmpV = new THREE.Vector3();
+  /** 名札を置く：となりの名札や小窓（虫めがね）と重ならないように、上下にずらす */
   function placeLabels() {
-    const w = stage.clientWidth, h = stage.clientHeight;
+    const w = stage.clientWidth, h = stage.clientHeight, sr = stage.getBoundingClientRect();
+    const placed = [];
+    document.querySelectorAll("#insets > div, #viewBtns").forEach((d) => { const r = d.getBoundingClientRect(); if (r.width) placed.push({ l: r.left - sr.left - 4, t: r.top - sr.top - 4, r: r.right - sr.left + 4, b: r.bottom - sr.top + 4 }); });
+    const items = [];
     labels.forEach((e, k) => {
       if (!usedL.has(k)) { e.style.display = "none"; return; }
       tmpV.set(e._p[0], e._p[1], e._p[2]).applyMatrix4(root.matrixWorld).project(camera);
       if (tmpV.z > 1) { e.style.display = "none"; return; }
-      e.style.display = ""; e.style.left = ((tmpV.x + 1) / 2) * w + "px"; e.style.top = ((1 - tmpV.y) / 2) * h + "px";
+      e.style.display = "";
+      items.push({ e, x: ((tmpV.x + 1) / 2) * w, y: ((1 - tmpV.y) / 2) * h, big: /big/.test(e.className) });
     });
+    items.sort((a, b) => b.big - a.big); // 大きな名札を先に置く
+    for (const it of items) {
+      const ew = it.e.offsetWidth, eh = it.e.offsetHeight;
+      let y = it.y, x = Math.max(ew / 2 + 2, Math.min(w - ew / 2 - 2, it.x));
+      const hit = (yy) => placed.find((p) => x - ew / 2 < p.r && x + ew / 2 > p.l && yy - eh / 2 < p.b && yy + eh / 2 > p.t);
+      for (let n = 0, d = 0; n < 16; n++) { const c = hit(y); if (!c) break; d = n % 2 === 0 ? c.b + eh / 2 + 2 - y : c.t - eh / 2 - 2 - y; const y2 = y + d; if (!hit(y2) || n > 10) { y = y2; break; } y = n % 2 === 0 ? y2 : y; }
+      it.e.style.left = x + "px"; it.e.style.top = y + "px";
+      placed.push({ l: x - ew / 2, t: y - eh / 2, r: x + ew / 2, b: y + eh / 2 });
+    }
   }
 
   // ---- 部品 ----
@@ -223,6 +237,10 @@
     const keys = list.map((x) => x.key).join(",");
     if (box.dataset.k !== keys) { box.innerHTML = ""; box.dataset.k = keys; list.forEach((it) => { const d = document.createElement("div"); const c = document.createElement("canvas"); c.width = it.wide ? 520 : 300; c.height = it.wide ? 300 : 300; if (it.wide) { c.style.width = "330px"; c.style.height = "190px"; c.style.borderRadius = "12px"; } const p = document.createElement("div"); p.className = "cap"; d.append(c, p); box.appendChild(d); it._c = c; it._p = p; }); }
     const kids = box.children;
+    // 小窓の大きさ：数が多いときや画面がせまいときは小さく
+    const sw = stage.clientWidth, sh = stage.clientHeight, n = list.length;
+    const size = Math.round(Math.max(84, Math.min(n > 2 ? 132 : 190, (sw * 0.62) / Math.max(1, n) - 12, sh * 0.34)));
+    list.forEach((it, i) => { const c = kids[i].firstChild; if (!it.wide) { c.style.width = c.style.height = size + "px"; kids[i].style.width = size + "px"; } });
     list.forEach((it, i) => { const c = kids[i].firstChild, p = kids[i].lastChild; const g = c.getContext("2d"); g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, c.width, c.height); g.save(); if (!it.wide) { g.beginPath(); g.arc(150, 150, 148, 0, 7); g.clip(); } it.draw(g, c.width, c.height); g.restore(); if (!it.wide) { g.strokeStyle = "#1f7a8c"; g.lineWidth = 8; g.beginPath(); g.arc(150, 150, 146, 0, 7); g.stroke(); } if (p.textContent !== it.cap) p.textContent = it.cap; });
   }
 
@@ -555,8 +573,8 @@
         const erupt = seg(t, 0.06, 0.34) > 0 && t < 0.4;
         boom(t, 0.06, "ドカーン！ 噴火");
         plumes.forEach((m, i) => { const s2 = frac(t * 5 + i / 5); m.visible = erupt; const rad = 3 + 8 * s2; m.scale.set(rad, rad * 0.8, rad); m.position.set(VC[0] - 10 * s2, VC[1] + 30 + 34 * s2, VC[2]); });
-        label("kW", "💧 流れる水のはたらき（水に運ばれる → つぶが丸い）", [-38, -9, 22], "big");
-        label("kV", "🌋 火山のはたらき（ふき出されて降る → 角ばる）", [70, -9, 22], "big red");
+        label("kW", "💧 流れる水のはたらき\n（水に運ばれる → つぶが丸い）", [-38, -12, 22], "big");
+        label("kV", "🌋 火山のはたらき\n（ふき出されて降る → 角ばる）", [70, -12, 22], "big red");
         label("vol", "火山", [VC[0], VC[1] + 33, VC[2]]);
         if (c > 0.05 && c < 0.95) label("sq", "つぶの間の水が しぼり出される", [0, 64, 0], "big");
         if (t > 0.08 && t < 0.36) label("hy", "水の中では、大きくて重いつぶほど 早くしずむ", [-38, 66, 0], "big");
@@ -569,12 +587,12 @@
   // ---- ⑤ 化石ができるまで ----
   SCENES.push({
     id: "fossil", group: "地層のでき方", title: "化石ができるまで", short: "🐚 化石ができるまで", dur: 28,
-    cam: { pos: [60, 55, 160], target: [0, -10, 0] },
+    cam: { pos: [35, 40, 175], target: [0, -12, 0] },
     age: agoSpan(100000000),
     stages: [
       { t: 0, s: "生きていた", text: "大昔の海には、アンモナイトや魚など、たくさんの生き物がすんでいました。" },
       { t: 0.13, s: "しずむ", text: "1ぴきのアンモナイトが死んで、海の底にしずみます。やわらかい部分はなくなり、かたい殻が残ります。" },
-      { t: 0.28, s: "うもれる", text: "生き物のからだが、流れる水が運んだ砂やどろでうまります。" },
+      { t: 0.28, s: "うもれる", text: "川が運んできた砂やどろが、海の中を雪のようにしずんで、殻の上に1枚ずつ積もっていきます。積もるたびに、殻はどんどん深くうもれていきます。" },
       { t: 0.55, s: "化石に", text: "長い年月の間に、殻は地層の中で石のようにかたくなります。大昔の生き物のからだや、生き物がいたあとなどが残った物を化石といいます。" },
       { t: 0.68, s: "おし上げ", text: "大きな力が加わって大地がおし上げられ、陸になります。雨や川の水にしん食されていきます。" },
       { t: 0.88, s: "見つかる", text: "がけの地層から化石が見つかります。海の生き物の化石が出てくるので、昔そこが海だったことがわかります。" },
@@ -589,6 +607,8 @@
         o.scale.setScalar(isFish ? 1.1 + rr() * 0.5 : 0.55 + rr() * 0.25); root.add(o);
         crowd.push({ o, isFish, x0: -95 + rr() * 170, y0: 0 + rr() * 26, z: -25 + rr() * 50, sp: (rr() < 0.5 ? 1 : -1) * (0.6 + rr() * 0.6), ph: rr() * 6 });
       }
+      const rs = rng(91), snow = []; for (let i = 0; i < 260; i++) snow.push({ x: -98 + rs() * 196, z: -33 + rs() * 66, ph: rs(), sp: 0.7 + rs() * 0.6 });
+      const FT = ["sand", "mud", "sand", "gravel", "mud", "sand"], NM = { sand: "砂", mud: "どろ", gravel: "れき" }, PC = { sand: 0xd8b850, mud: 0x6f7a77, gravel: 0x9b6a35 };
       return (t) => {
         const U = 190 * ease(seg(t, 0.68, 0.8)), sh = quake(t, [0.7, 0.74, 0.78]);
         root.position.x = sh;
@@ -597,7 +617,15 @@
         const er = ease(seg(t, 0.8, 0.9)), valley = (x) => 175 * er * Math.pow(Math.max(0, 1 - Math.abs(x - 470) / 230), 1.2);
         const surf = t > 0.8 ? xs.map((x) => tops[0] + valley(x)) : null;
         const B = []; for (let i = 0; i <= n; i++) B.push(xs.map(() => Math.min(tops[i], fl0)));
-        const list = [band2(xs, xs.map(() => fl0), xs.map(() => 700), "mudstone")].concat(strata2(xs, B, ["sand", "mud", "sand", "gravel", "mud", "sand"], surf));
+        const list = [band2(xs, xs.map(() => fl0), xs.map(() => 700), "mudstone")].concat(strata2(xs, B, FT, surf));
+        // 積もっていく砂やどろ（海の中をしずんでくる）と、何枚目かの番号
+        if (t > 0.27 && t < 0.62) {
+          const gi = Math.min(n - 1, Math.floor(grow)), li = n - 1 - gi, ty = FT[li], topNow = W(0, tops[0])[1], wt = W(0, SL)[1];
+          const pts = snow.map((p) => [p.x, lerp(wt - 1, topNow + 0.5, frac(p.ph + t * 14 * p.sp)), p.z]);
+          const pp = points("snow", 260, PC[ty], ty === "gravel" ? 2.6 : ty === "sand" ? 1.8 : 1.3); pp.material.color.setHex(PC[ty]); setPoints(pp, pts);
+          label("now", (gi + 1) + "まい目：" + NM[ty] + "が積もる", [0, wt - 6, 30], "big");
+        }
+        for (let k = 0; k < n; k++) { const li = n - 1 - k; if (grow >= k + 0.6 && t < 0.66) label("no" + k, "①②③④⑤⑥"[k] + " " + NM[FT[li]], [92, W(0, (B[li][0] + B[li + 1][0]) / 2)[1], 36]); }
         const gg = seg(t, 0.8, 0.9); // 陸になってから、だんだん草が生える
         if (gg > 0) { const s2 = xs.map((x, k) => (surf ? Math.max(tops[0], surf[k]) : tops[0])); list.push(band2(xs, s2.map((v) => v - 2.5 * gg), s2, "grass")); }
         ex.set(list);
@@ -612,14 +640,15 @@
           c.o.visible = t < 0.32; c.o.position.set(x, c.y0 + Math.sin(t * 20 + c.ph) * 1.5, c.z);
           c.o.rotation.set(c.isFish ? 0 : Math.PI * 0.05, dir < 0 ? Math.PI : 0, 0);
         });
-        if (t < 0.13) p = [lerp(-70, -5, t / 0.13) + Math.sin(t * 40) * 6, 18 + Math.sin(t * 60) * 2, 5];
-        else if (t < 0.28) { const u = seg(t, 0.13, 0.26); p = [lerp(-5, 4, u), lerp(18, W(0, fl0)[1] + 1.6, ease(u)), 5]; }
-        else p = [4, W(0, fl0)[1] + 1.6, 5];
+        // 化石になるアンモナイトは、手前の切り口のところにしずむ（うもれていく様子が見えるように）
+        if (t < 0.13) p = [lerp(-70, -5, t / 0.13) + Math.sin(t * 40) * 6, 18 + Math.sin(t * 60) * 2, lerp(5, 30, t / 0.13)];
+        else if (t < 0.28) { const u = seg(t, 0.13, 0.26); p = [lerp(-5, 4, u), lerp(18, W(0, fl0)[1] + 1.6, ease(u)), lerp(30, 33.5, u)]; }
+        else p = [4, W(0, fl0)[1] + 1.6, 33.5];
         am.position.set(p[0], p[1], p[2]);
-        am.rotation.set(t < 0.13 ? 0 : -Math.PI / 2 * seg(t, 0.13, 0.26), 0, 0);
+        am.rotation.set(0, 0, -0.3 * seg(t, 0.13, 0.26));
         am.scale.setScalar(0.9);
         am.userData.m.color.copy(mixC("#d9b98a", "#8d8478", seg(t, 0.5, 0.65)));
-        if (t > 0.3 && t < 0.88) label("um", t > 0.55 ? "化石になった殻" : "うもれた殻", [p[0] + 12, p[1] + 2, 36]);
+        if (t > 0.3 && t < 0.88) label("um", t > 0.55 ? "化石になった殻" : "うもれていく殻", [p[0] - 18, p[1], 36]);
         if (t > 0.88) { const pp = K("person", () => person()); pp.position.set(18, p[1] - 1, 10); label("found", "あった！化石だ！", [18, p[1] + 16, 10], "big"); }
         if (U < 60) label("umi", "海", [80, 30, 35]);
       };
@@ -982,54 +1011,94 @@
   });
 
   // ---- ⑭ 柱状節理 ----
+  // 熱い溶岩が上と下から冷える → 冷えた所がちぢもうとして割れ目が入る（どろがかわいてひび割れるのと同じしくみ）
+  // → 割れ目は冷えた面に直角に、冷えた部分がふえるにつれて内側へのびる → 上下からの割れ目が出会い、六角形の柱になる
+  function drawCracks(g, n, prog, regular, seed) {
+    const r = rng(seed), R = n / 7, cells = [];
+    for (let q = -1; q <= 9; q++) for (let k = -1; k <= 9; k++) { const x = q * R * 1.5, y = (k + (q % 2 ? 0.5 : 0)) * R * Math.sqrt(3); cells.push([x + (regular ? 0 : (r() - 0.5) * R * 0.5), y + (regular ? 0 : (r() - 0.5) * R * 0.5)]); }
+    g.fillStyle = regular ? (prog > 0 ? "#45494d" : "#ff6a2a") : "#8a6a4a"; g.fillRect(0, 0, n, n);
+    if (!regular) { g.fillStyle = "rgba(255,255,255," + 0.25 * (1 - prog) + ")"; g.fillRect(0, 0, n, n); }
+    g.strokeStyle = regular ? "#121314" : "#3a2a1c"; g.lineCap = "round";
+    const rr = rng(seed + 1);
+    cells.forEach(([cx, cy]) => {
+      for (let e = 0; e < 6; e++) {
+        const th = rr(); if (prog < th) continue;
+        const a1 = (e / 6) * Math.PI * 2, a2 = ((e + 1) / 6) * Math.PI * 2, w = Math.min(1, (prog - th) * 4);
+        g.lineWidth = (regular ? 3 : 4) * w + 0.5;
+        g.beginPath(); g.moveTo(cx + Math.cos(a1) * R, cy + Math.sin(a1) * R); g.lineTo(cx + Math.cos(a2) * R, cy + Math.sin(a2) * R); g.stroke();
+      }
+    });
+  }
   SCENES.push({
-    id: "column", group: "岩石", title: "柱状節理（六角形の柱の岩）〔発展〕", short: "⬡ 柱状節理", dur: 26,
-    cam: { pos: [90, 55, 130], target: [0, -12, 0] },
-    age: (t) => (t < 0.3 ? "噴火した日" : t < 0.8 ? "冷えていく（何年〜何十年）" : "それから長い年月"),
+    id: "column", group: "岩石", title: "柱状節理（六角形の柱の岩）〔発展〕", short: "⬡ 柱状節理", dur: 32,
+    cam: { pos: [80, 60, 150], target: [0, -18, 0] },
+    age: (t) => (t < 0.22 ? "噴火した日" : t < 0.8 ? "冷えていく（何年〜何十年もかけて）" : "それから長い年月"),
     stages: [
-      { t: 0, s: "溶岩が流れる", text: "噴火で流れ出た熱い溶岩が、谷をうめるように流れこみ、厚くたまります。" },
-      { t: 0.3, s: "冷える", text: "溶岩は、空気にふれる上の面と、地面にふれる下の面から冷えていきます。" },
-      { t: 0.4, s: "割れ目", text: "冷えて固まると、岩は少しちぢみます。そのため割れ目が入り、六角形に近い柱に分かれていきます。" },
-      { t: 0.8, s: "柱状節理", text: "長い年月でけずられると、六角形の柱が並んだがけが現れます。これを「柱状節理」といいます（例：兵庫県の玄武洞、福井県の東尋坊）。図をまわして上から見てみよう。" },
+      { t: 0, s: "溶岩がたまる", text: "噴火で流れ出たとても熱い溶岩（約1000℃）が、低い所に流れこんで、厚くたまります。" },
+      { t: 0.22, s: "熱がにげる", text: "溶岩は、空気にふれる上の面と、地面にふれる下の面から熱がにげて、外側から冷えて固まっていきます。" },
+      { t: 0.32, s: "ちぢんで割れる", text: "冷えて固まった岩は、少しちぢもうとします。でも、まわりとくっついているので引っぱられ、たえきれずに割れ目ができます。どろ水がかわくと、ちぢんでひび割れるのと にた しくみです。" },
+      { t: 0.45, s: "割れ目がのびる", text: "割れ目は、冷える面（上の面・下の面）に直角に入ります。冷えた部分がふえるにつれて、割れ目も少しずつ内側へのびていきます。上から見ると、六角形に近い形に分かれます。" },
+      { t: 0.74, s: "柱になる", text: "上からのびた割れ目と、下からのびた割れ目が真ん中で出会うと、全体が六角形の柱に分かれます。" },
+      { t: 0.82, s: "柱状節理", text: "長い年月でけずられると、柱が並んだがけが現れます。これを「柱状節理」といいます（例：兵庫県の玄武洞、福井県の東尋坊）。図をまわして、上からも見てみよう。" },
     ],
     build() {
-      const vb = (x) => (Math.abs(x) < 60 ? -46 * (1 - Math.pow(x / 60, 2)) : 0);
-      const xs = []; for (let x = -100; x <= 100; x += 2) xs.push(x);
-      const exG = extruder(), exL = extruder();
-      const lavaM = new THREE.MeshLambertMaterial({ color: 0xff5a1f, emissive: 0xff3300, emissiveIntensity: 0.8 });
-      const Rh = 3.3, cols = [];
-      for (let q = -20; q <= 20; q++) for (let s = -14; s <= 14; s++) { const x = q * Rh * 1.5, z = (s + (q % 2 ? 0.5 : 0)) * Rh * Math.sqrt(3); if (Math.abs(x) < 57 && Math.abs(z) < 34) cols.push({ x, z, b: vb(x) }); }
-      const colM = new THREE.MeshLambertMaterial({ color: 0x3f4448 });
-      const im = new THREE.InstancedMesh(new THREE.CylinderGeometry(1, 1, 1, 6), colM, cols.length); im.frustumCulled = false; root.add(im);
+      const H = 40, XL = -70, XR = 70, ZB = -35, ZF = 35, Rh = 3.4;
+      const base = boxMesh(1, 1, 1, mat("mudstone")); root.add(base);
+      const wallL = boxMesh(1, 1, 1, mat("sand", COL.oldrock)); const wallR = boxMesh(1, 1, 1, mat("sand", COL.oldrock)); root.add(wallL, wallR);
+      const grassL = boxMesh(1, 1, 1, mat("grass")); const grassR = boxMesh(1, 1, 1, mat("grass")); root.add(grassL, grassR);
+      const lavaM = new THREE.MeshLambertMaterial({ color: 0xff5a1f, emissive: 0xff3300, emissiveIntensity: 0.9 });
+      const lava = boxMesh(1, 1, 1, lavaM); root.add(lava);
+      const cells = [];
+      for (let q = -30; q <= 30; q++) for (let k = -12; k <= 12; k++) { const x = q * Rh * 1.5, z = (k + (q % 2 ? 0.5 : 0)) * Rh * Math.sqrt(3); if (x > XL + Rh * 0.8 && x < XR - Rh * 0.8 && z > ZB + Rh * 0.8 && z < ZF - Rh * 0.8) cells.push({ x, z }); }
+      const ZC0 = Math.min(...cells.map((c) => c.z)) - Rh * 0.95, ZC1 = Math.max(...cells.map((c) => c.z)) + Rh * 0.95, XC0 = Math.min(...cells.map((c) => c.x)) - Rh, XC1 = Math.max(...cells.map((c) => c.x)) + Rh;
+      const geo = new THREE.CylinderGeometry(1, 1, 1, 6);
+      const topM = new THREE.MeshLambertMaterial({ color: 0x3f4448 }), botM = new THREE.MeshLambertMaterial({ color: 0x4a4f53 });
+      const imT = new THREE.InstancedMesh(geo, topM, cells.length), imB = new THREE.InstancedMesh(geo, botM, cells.length);
+      imT.frustumCulled = imB.frustumCulled = false; root.add(imT, imB);
+      const crackBg = boxMesh(1, 1, 1, new THREE.MeshLambertMaterial({ color: 0x141516 })); root.add(crackBg); // 割れ目のすき間（暗い）
       const dummy = new THREE.Object3D();
+      const setBox = (m, x0, x1, y0, y1, z0, z1) => { m.visible = x1 - x0 > 0.01 && y1 - y0 > 0.01 && z1 - z0 > 0.01; m.scale.set(Math.max(0.01, x1 - x0), Math.max(0.01, y1 - y0), Math.max(0.01, z1 - z0)); m.position.set((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2); };
       return (t) => {
-        const fillU = ease(seg(t, 0.02, 0.3)), lvl = lerp(-46, 0, fillU), cool = seg(t, 0.3, 0.8), crack = seg(t, 0.4, 0.8), er = ease(seg(t, 0.8, 0.95));
-        const zCut = lerp(35, 6, er), depth = zCut + 35;
-        const gpts = []; xs.forEach((x) => gpts.push([x, vb(x)])); const ground = [{ type: "sand", color: COL.oldrock, pts: [[-100, -16]].concat(gpts.filter((p) => true).map((p) => [p[0], Math.min(p[1], 0)])).concat([[100, -16]]), depth: D, z0: Z0 }];
-        // 地面：谷のある岩（2層）
-        const top = xs.map((x) => Math.min(0, vb(x)));
-        const l1 = []; xs.forEach((x, i) => l1.push([x, top[i]])); for (let i = xs.length - 1; i >= 0; i--) l1.push([xs[i], Math.min(top[i], -16)]);
-        const l2 = []; xs.forEach((x, i) => l2.push([x, Math.min(top[i], -16)])); for (let i = xs.length - 1; i >= 0; i--) l2.push([xs[i], -80]);
-        void ground;
-        exG.set([{ type: "sand", color: COL.oldrock, pts: cleanPts(l1), depth: D, z0: Z0 }, { type: "mudstone", pts: cleanPts(l2), depth: D, z0: Z0 }]);
-        // 溶岩のかたまり（割れる前）
-        const lx = xs.filter((x) => Math.abs(x) < 60), lavaTop = Math.min(lvl, 0);
-        if (crack < 0.08 && fillU > 0) {
-          const p = []; lx.forEach((x) => p.push([x, Math.max(vb(x), lavaTop)])); for (let i = lx.length - 1; i >= 0; i--) p.push([lx[i], vb(lx[i])]);
-          lavaM.color.copy(mixC("#ff5a1f", "#3f4448", cool)); lavaM.emissiveIntensity = 0.8 * (1 - cool);
-          exL.set([{ mat: lavaM, pts: cleanPts(p), depth: D, z0: Z0 }]);
-        } else exL.set([]);
-        im.visible = crack >= 0.08;
-        cols.forEach((c, i) => {
-          const hgt = lavaTop - c.b, vis = im.visible && hgt > 0.5 && c.z < zCut;
-          const rr = vis ? Rh * (1 - 0.1 * crack) : 0.0001;
-          dummy.position.set(c.x, (lavaTop + c.b) / 2, c.z); dummy.scale.set(rr, Math.max(0.01, hgt), rr); dummy.rotation.set(0, Math.PI / 6, 0); dummy.updateMatrix(); im.setMatrixAt(i, dummy.matrix);
+        const flow = ease(seg(t, 0.02, 0.2)), cool = ease(seg(t, 0.22, 0.76)), crack = seg(t, 0.32, 0.5), er = ease(seg(t, 0.82, 0.96));
+        const zCut = lerp(ZF, 4, er); // けずられて、手前がなくなっていく
+        const dT = (H / 2) * cool, dB = (H / 2) * cool;
+        setBox(base, -100, 100, -H - 40, -H, ZB, zCut);
+        setBox(wallL, -100, XL, -H, 0, ZB, zCut); setBox(wallR, XR, 100, -H, 0, ZB, zCut);
+        setBox(grassL, -100, XL, 0, 1.2, ZB, zCut); setBox(grassR, XR, 100, 0, 1.2, ZB, zCut);
+        const xFront = lerp(XC0, XC1, flow);
+        setBox(K("wb", () => boxMesh(1, 1, 1, mat("sand", COL.oldrock))), XL, XR, -H, 0, ZB, ZC0); // おくの壁
+        setBox(lava, XC0, Math.min(XC1, xFront), -H + dB, -dT, ZC0, Math.min(ZC1, zCut));
+        lavaM.emissiveIntensity = 0.9 * (1 - 0.5 * cool);
+        // 冷えて固まった部分（上と下）＝六角形の柱。割れ目が開くと、柱のすき間が見える
+        const gap = 1 - 0.13 * crack, rr = Rh * gap;
+        const solid = cool > 0.001;
+        const zIn = Math.min(ZC1, zCut) - Rh * 1.3;
+        setBox(crackBg, XC0 + Rh * 1.3, XC1 - Rh * 1.3, -H + 0.2, -0.2, ZC0 + Rh * 1.3, zIn); crackBg.visible = solid && crack > 0;
+        if (crackBg.visible) { crackBg.scale.y = Math.max(0.01, dT - 0.4); crackBg.position.y = -dT / 2; }
+        const cb2 = K("cb2", () => boxMesh(1, 1, 1, new THREE.MeshLambertMaterial({ color: 0x141516 }))); setBox(cb2, XC0 + Rh * 1.3, XC1 - Rh * 1.3, -H + 0.2, -H + dB - 0.2, ZC0 + Rh * 1.3, zIn); cb2.visible = solid && crack > 0 && dB > 0.5;
+        cells.forEach((c, i) => {
+          const vis = solid && c.x < xFront && c.z < zCut;
+          dummy.rotation.set(0, Math.PI / 6, 0);
+          const s1 = vis ? rr : 0.0001;
+          dummy.position.set(c.x, -dT / 2, c.z); dummy.scale.set(s1 * 1.155 * (crack > 0 ? 1 : 1.02), Math.max(0.01, dT), s1 * 1.155 * (crack > 0 ? 1 : 1.02)); dummy.updateMatrix(); imT.setMatrixAt(i, dummy.matrix);
+          dummy.position.set(c.x, -H + dB / 2, c.z); dummy.scale.set(s1 * 1.155, Math.max(0.01, dB), s1 * 1.155); dummy.updateMatrix(); imB.setMatrixAt(i, dummy.matrix);
         });
-        im.instanceMatrix.needsUpdate = true;
-        // けずられて前がなくなる
-        if (er > 0) { exG.set([{ type: "sand", color: COL.oldrock, pts: cleanPts(l1), depth, z0: Z0 }, { type: "mudstone", pts: cleanPts(l2), depth, z0: Z0 }]); const pp = K("person", () => person()); pp.position.set(78, 0.8, zCut - 6); label("cliff", "柱が並んだがけ！", [0, 12, zCut + 2], "big"); }
-        if (t < 0.3 && fillU > 0) label("lv", "溶岩が谷に流れこむ", [0, lvl + 10, 30], "big red");
-        if (crack > 0.3 && er < 0.5) label("hex", "上から見ると六角形", [0, 8, -20]);
+        imT.instanceMatrix.needsUpdate = imB.instanceMatrix.needsUpdate = true;
+        // 熱がにげる矢印
+        if (t > 0.2 && t < 0.78) {
+          [-40, 0, 40].forEach((x, i) => { arrow("hu" + i, [x, 2, 30], [x, 22, 30], 0xff7a20, 2.2); arrow("hd" + i, [x, -H - 2, 30], [x, -H - 20, 30], 0xff7a20, 2.2); });
+          label("heatU", "空気へ 熱がにげる → 上から冷える", [0, 28, 30], "big");
+          label("heatD", "地面へ 熱がにげる → 下から冷える", [0, -H - 26, 30], "big");
+        }
+        if (t < 0.22) label("lv", "熱い溶岩（約1000℃）", [(XL + xFront) / 2, -H / 2, 36], "big red");
+        else if (t < 0.76) label("lv", "まだ熱い溶岩", [0, -H / 2, 36], "red");
+        if (crack > 0.2 && t < 0.82) { label("ct", "上の面から割れ目がのびる ↓", [XR + 16, -dT / 2, 36]); label("cb", "下の面から割れ目がのびる ↑", [XR + 16, -H + dB / 2, 36]); }
+        if (t > 0.74 && t < 0.86) label("meet", "上と下からの割れ目が 真ん中で出会う", [0, -H / 2, 36], "big");
+        if (er > 0.5) { const pp = K("person", () => person()); pp.position.set(84, 1.2, zCut - 6); label("cliff", "柱が並んだがけ！", [0, 10, zCut + 2], "big"); }
+        insets(t > 0.3 && t < 0.8 ? [
+          { key: "mud", cap: "にている：どろがかわくと、ちぢんでひび割れる", draw: (g, n) => drawCracks(g, n, crack * 1.1, false, 5) },
+          { key: "hex", cap: "溶岩を上から見ると：六角形に割れていく", draw: (g, n) => drawCracks(g, n, crack * 1.1, true, 9) },
+        ] : []);
       };
     },
   });
