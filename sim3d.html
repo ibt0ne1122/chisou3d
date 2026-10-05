@@ -13,7 +13,7 @@
   header { display: flex; align-items: center; gap: 10px; padding: 8px 12px 4px; flex-wrap: wrap; }
   header h1 { font-size: 19px; margin: 0; white-space: nowrap; }
   header small { color: var(--sub); font-size: 12.5px; }
-  header a { margin-left: auto; font-size: 13px; color: var(--accent); }
+  header a:first-of-type { margin-left: auto; } header a { font-size: 13px; color: var(--accent); }
   #scenes { display: flex; gap: 6px; overflow-x: auto; padding: 4px 12px 8px; scrollbar-width: thin; -webkit-overflow-scrolling: touch; }
   #scenes .grp { flex: 0 0 auto; align-self: center; font-size: 12px; color: var(--sub); font-weight: bold; padding: 0 2px 0 8px; border-left: 3px solid var(--line); }
   #scenes .grp:first-child { border-left: 0; padding-left: 0; }
@@ -66,7 +66,7 @@
 <header>
   <h1>🌋 土地のでき方シミュレーター <span style="color:#1f7a8c">3D</span></h1>
   <small>下のつまみを指で右へスライドすると時間が進みます。図は指でなぞると回せます（2本指で拡大）</small>
-  <a href="sim.html">2Dの図で見る ›</a>
+  <a href="sim.html">2Dの図で見る ›</a><a href="./" style="margin-left:12px">🏠 入り口へ</a>
 </header>
 <nav id="scenes"></nav>
 <div id="explainBar"><div id="explain"></div><div id="age"></div></div>
@@ -89,8 +89,8 @@
     </div>
   </div>
 </footer>
-<script src="lib/three.min.js?v=20261005110019"></script>
-<script src="lib/OrbitControls.js?v=20261005110019"></script>
-<script src="js/sim3d.js?v=20261005110019"></script>
+<script src="lib/three.min.js?v=20261005133012"></script>
+<script src="lib/OrbitControls.js?v=20261005133012"></script>
+<script src="js/sim3d.js?v=20261005133012"></script>
 </body>
 </html>
