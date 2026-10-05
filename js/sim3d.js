@@ -1101,72 +1101,112 @@
     });
   }
   SCENES.push({
-    id: "column", group: "岩石", title: "柱状節理（六角形の柱の岩）〔発展〕", short: "⬡ 柱状節理", dur: 32,
-    cam: { pos: [80, 60, 150], target: [0, -18, 0] },
-    age: (t) => (t < 0.22 ? "噴火した日" : t < 0.8 ? "冷えていく（何年〜何十年もかけて）" : "それから長い年月"),
+    id: "column", group: "岩石", title: "柱状節理（六角形の柱の岩）〔発展〕　例：兵庫県の玄武洞", short: "⬡ 柱状節理", dur: 40,
+    cam: { pos: [95, 70, 200], target: [0, -18, 12] },
+    age: (t) => (t < 0.16 ? "噴火した日（約160万年前）" : t < 0.62 ? "冷えていく（何年〜何十年もかけて）" : ago(1600000 * Math.pow(1 - seg(t, 0.62, 0.97), 1.5))),
     stages: [
-      { t: 0, s: "溶岩がたまる", text: "噴火で流れ出たとても熱い溶岩（約1000℃）が、低い所に流れこんで、厚くたまります。" },
-      { t: 0.22, s: "熱がにげる", text: "溶岩は、空気にふれる上の面と、地面にふれる下の面から熱がにげて、外側から冷えて固まっていきます。" },
-      { t: 0.32, s: "ちぢんで割れる", text: "冷えて固まった岩は、少しちぢもうとします。でも、まわりとくっついているので引っぱられ、たえきれずに割れ目ができます。どろ水がかわくと、ちぢんでひび割れるのと にた しくみです。" },
-      { t: 0.45, s: "割れ目がのびる", text: "割れ目は、冷える面（上の面・下の面）に直角に入ります。冷えた部分がふえるにつれて、割れ目も少しずつ内側へのびていきます。上から見ると、六角形に近い形に分かれます。" },
-      { t: 0.74, s: "柱になる", text: "上からのびた割れ目と、下からのびた割れ目が真ん中で出会うと、全体が六角形の柱に分かれます。" },
-      { t: 0.82, s: "柱状節理", text: "長い年月でけずられると、柱が並んだがけが現れます。これを「柱状節理」といいます（例：兵庫県の玄武洞、福井県の東尋坊）。図をまわして、上からも見てみよう。" },
+      { t: 0, s: "溶岩がたまる", text: "約160万年前、火山の噴火で流れ出たとても熱い溶岩（約1100℃）が、低い所に流れこんで、厚くたまりました。" },
+      { t: 0.16, s: "熱がにげる", text: "溶岩は、空気にふれる上の面と、地面にふれる下の面から熱がにげて、外側から冷えて固まっていきます。" },
+      { t: 0.24, s: "ちぢんで割れる", text: "冷えて固まった岩は、少しちぢもうとします。でも、まわりとくっついているので引っぱられ、たえきれずに割れ目ができます。どろ水がかわくと、ちぢんでひび割れるのと にた しくみです。" },
+      { t: 0.34, s: "割れ目がのびる", text: "割れ目は、冷える面（上の面・下の面）に直角に入ります。冷えた部分がふえるにつれて、割れ目も少しずつ内側へのびていきます。上から見ると、六角形に近い形に分かれます。" },
+      { t: 0.54, s: "柱になる", text: "上からのびた割れ目と、下からのびた割れ目が真ん中で出会うと、岩全体が六角形の柱に分かれます。でも、このときはまだ地面の中で、外からは見えません。" },
+      { t: 0.62, s: "川が流れる", text: "それから長い年月がたちます。手前にも同じ岩が続いていて、そのふちに川が流れるようになりました（玄武洞では円山川）。" },
+      { t: 0.7, s: "川がけずる", text: "川の流れる水が、岩の下の方を少しずつけずります（しん食）。大雨で川の水がふえたときは、とくに強くけずります。雨水も、岩の割れ目にしみこんで、すき間を広げます。" },
+      { t: 0.8, s: "柱ごとくずれる", text: "岩はもともと柱の形に割れているので、下がけずられると、割れ目にそって柱ごとくずれ落ちます。くずれた岩は、川の水に運ばれていきます（運ぱん）。これが何度もくり返されて、がけが おくへ下がっていきます。" },
+      { t: 0.93, s: "柱状節理", text: "こうして、柱が並んだがけが現れました。これを「柱状節理」といいます。玄武洞は、円山川などにけずられて約6000年前に柱が現れ、そのあと江戸時代に人が石を切り出して、今のような洞になりました。福井県の東尋坊は、日本海の波がけずってできたがけです。" },
     ],
     build() {
-      const H = 40, XL = -70, XR = 70, ZB = -35, ZF = 35, Rh = 3.4;
+      const H = 40, XL = -70, XR = 70, ZB = -35, ZF = 35, ZF2 = 62, Rh = 3.4;
       const base = boxMesh(1, 1, 1, mat("mudstone")); root.add(base);
       const wallL = boxMesh(1, 1, 1, mat("sand", COL.oldrock)); const wallR = boxMesh(1, 1, 1, mat("sand", COL.oldrock)); root.add(wallL, wallR);
       const grassL = boxMesh(1, 1, 1, mat("grass")); const grassR = boxMesh(1, 1, 1, mat("grass")); root.add(grassL, grassR);
       const lavaM = new THREE.MeshLambertMaterial({ color: 0xff5a1f, emissive: 0xff3300, emissiveIntensity: 0.9 });
       const lava = boxMesh(1, 1, 1, lavaM); root.add(lava);
       const cells = [];
-      for (let q = -30; q <= 30; q++) for (let k = -12; k <= 12; k++) { const x = q * Rh * 1.5, z = (k + (q % 2 ? 0.5 : 0)) * Rh * Math.sqrt(3); if (x > XL + Rh * 0.8 && x < XR - Rh * 0.8 && z > ZB + Rh * 0.8 && z < ZF - Rh * 0.8) cells.push({ x, z }); }
-      const ZC0 = Math.min(...cells.map((c) => c.z)) - Rh * 0.95, ZC1 = Math.max(...cells.map((c) => c.z)) + Rh * 0.95, XC0 = Math.min(...cells.map((c) => c.x)) - Rh, XC1 = Math.max(...cells.map((c) => c.x)) + Rh;
+      for (let q = -30; q <= 30; q++) for (let k = -12; k <= 22; k++) { const x = q * Rh * 1.5, z = (k + (q % 2 ? 0.5 : 0)) * Rh * Math.sqrt(3); if (x > XL + Rh * 0.8 && x < XR - Rh * 0.8 && z > ZB + Rh * 0.8 && z < ZF2 - Rh * 0.8) cells.push({ x, z }); }
+      const ZC0 = Math.min(...cells.map((c) => c.z)) - Rh * 0.95, ZC1 = cells.filter((c) => c.z < ZF - Rh * 0.8).reduce((m, c) => Math.max(m, c.z), -1e9) + Rh * 0.95;
+      const XC0 = Math.min(...cells.map((c) => c.x)) - Rh, XC1 = Math.max(...cells.map((c) => c.x)) + Rh;
       const geo = new THREE.CylinderGeometry(1, 1, 1, 6);
-      const topM = new THREE.MeshLambertMaterial({ color: 0x3f4448 }), botM = new THREE.MeshLambertMaterial({ color: 0x4a4f53 });
-      const imT = new THREE.InstancedMesh(geo, topM, cells.length), imB = new THREE.InstancedMesh(geo, botM, cells.length);
-      imT.frustumCulled = imB.frustumCulled = false; root.add(imT, imB);
-      const crackBg = boxMesh(1, 1, 1, new THREE.MeshLambertMaterial({ color: 0x141516 })); root.add(crackBg); // 割れ目のすき間（暗い）
+      const topM = new THREE.MeshLambertMaterial({ color: 0x3f4448 }), botM = new THREE.MeshLambertMaterial({ color: 0x4a4f53 }), fallM = new THREE.MeshLambertMaterial({ color: 0x55595d });
+      const imT = new THREE.InstancedMesh(geo, topM, cells.length), imB = new THREE.InstancedMesh(geo, botM, cells.length), imF = new THREE.InstancedMesh(geo, fallM, cells.length);
+      imT.frustumCulled = imB.frustumCulled = imF.frustumCulled = false; root.add(imT, imB, imF);
+      const crackBg = boxMesh(1, 1, 1, new THREE.MeshLambertMaterial({ color: 0x141516 })); root.add(crackBg);
+      const front = boxMesh(1, 1, 1, mat("mudstone")); root.add(front); // 川の下の地面
+      const river = boxMesh(1, 1, 1, new THREE.MeshLambertMaterial({ color: COL.river, transparent: true, opacity: 0.85 })); river.renderOrder = 5; root.add(river);
+      const rr0 = rng(13), flowP = []; for (let i = 0; i < 90; i++) flowP.push({ ph: rr0(), w: rr0() });
+      const rainP = []; for (let i = 0; i < 300; i++) rainP.push({ x: -100 + rr0() * 200, z: -30 + rr0() * 110, ph: rr0() });
       const dummy = new THREE.Object3D();
       const setBox = (m, x0, x1, y0, y1, z0, z1) => { m.visible = x1 - x0 > 0.01 && y1 - y0 > 0.01 && z1 - z0 > 0.01; m.scale.set(Math.max(0.01, x1 - x0), Math.max(0.01, y1 - y0), Math.max(0.01, z1 - z0)); m.position.set((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2); };
+      const hide = (im, i) => { dummy.position.set(0, -999, 0); dummy.scale.set(0.0001, 0.0001, 0.0001); dummy.updateMatrix(); im.setMatrixAt(i, dummy.matrix); };
       return (t) => {
-        const flow = ease(seg(t, 0.02, 0.2)), cool = ease(seg(t, 0.22, 0.76)), crack = seg(t, 0.32, 0.5), er = ease(seg(t, 0.82, 0.96));
-        const zCut = lerp(ZF, 4, er); // けずられて、手前がなくなっていく
+        const flow = ease(seg(t, 0.02, 0.16)), cool = ease(seg(t, 0.16, 0.58)), crack = seg(t, 0.24, 0.4);
+        const ext = ease(seg(t, 0.6, 0.66)), cut = ease(seg(t, 0.68, 0.94)), riv = seg(t, 0.62, 0.66);
+        // 手前にも岩が続いている（ext）→ 川がけずって、がけが おくへ下がる（cut）
+        const zFront = lerp(ZF, ZF2, ext), zCut = Math.min(zFront, lerp(ZF2, 6, cut));
+        const riverY = lerp(-6, -H - 3, Math.min(1, cut * 1.6)), RW = 16;
         const dT = (H / 2) * cool, dB = (H / 2) * cool;
         setBox(base, -100, 100, -H - 40, -H, ZB, zCut);
         setBox(wallL, -100, XL, -H, 0, ZB, zCut); setBox(wallR, XR, 100, -H, 0, ZB, zCut);
         setBox(grassL, -100, XL, 0, 1.2, ZB, zCut); setBox(grassR, XR, 100, 0, 1.2, ZB, zCut);
+        setBox(K("wb", () => boxMesh(1, 1, 1, mat("sand", COL.oldrock))), XL, XR, -H, 0, ZB, ZC0);
         const xFront = lerp(XC0, XC1, flow);
-        setBox(K("wb", () => boxMesh(1, 1, 1, mat("sand", COL.oldrock))), XL, XR, -H, 0, ZB, ZC0); // おくの壁
         setBox(lava, XC0, Math.min(XC1, xFront), -H + dB, -dT, ZC0, Math.min(ZC1, zCut));
         lavaM.emissiveIntensity = 0.9 * (1 - 0.5 * cool);
-        // 冷えて固まった部分（上と下）＝六角形の柱。割れ目が開くと、柱のすき間が見える
-        const gap = 1 - 0.13 * crack, rr = Rh * gap;
-        const solid = cool > 0.001;
+        // 川と、川の下の地面
+        if (riv > 0) {
+          setBox(front, -100, 100, -H - 40, riverY - 1.5, zCut, zCut + RW + 12);
+          setBox(river, -100, 100, riverY - 1.5, riverY, zCut + 0.2, zCut + RW);
+          river.material.opacity = 0.85 * riv;
+          const fp = flowP.map((p) => [-100 + frac(p.ph + t * 6) * 200, riverY + 0.3, zCut + 1 + p.w * (RW - 2)]);
+          const pts = points("flow", 90, 0xffffff, 1.6, 0.9); setPoints(pts, fp);
+          label("riv", "川（流れる水）", [-80, riverY + 4, zCut + RW], "big");
+        } else { front.visible = river.visible = false; }
+        if (t > 0.68 && t < 0.92) {
+          const rp = rainP.map((p) => [p.x, lerp(60, -H, frac(p.ph + t * 30)), p.z]);
+          setPoints(points("rain", 300, 0x5aa9de, 1.0, 0.7), rp);
+        }
+        const gap = 1 - 0.13 * crack, rr = Rh * gap, solid = cool > 0.001;
         const zIn = Math.min(ZC1, zCut) - Rh * 1.3;
-        setBox(crackBg, XC0 + Rh * 1.3, XC1 - Rh * 1.3, -H + 0.2, -0.2, ZC0 + Rh * 1.3, zIn); crackBg.visible = solid && crack > 0;
+        setBox(crackBg, XC0 + Rh * 1.3, XC1 - Rh * 1.3, -H + 0.2, -0.2, ZC0 + Rh * 1.3, zIn); crackBg.visible = solid && crack > 0 && t < 0.6;
         if (crackBg.visible) { crackBg.scale.y = Math.max(0.01, dT - 0.4); crackBg.position.y = -dT / 2; }
-        const cb2 = K("cb2", () => boxMesh(1, 1, 1, new THREE.MeshLambertMaterial({ color: 0x141516 }))); setBox(cb2, XC0 + Rh * 1.3, XC1 - Rh * 1.3, -H + 0.2, -H + dB - 0.2, ZC0 + Rh * 1.3, zIn); cb2.visible = solid && crack > 0 && dB > 0.5;
+        const cb2 = K("cb2", () => boxMesh(1, 1, 1, new THREE.MeshLambertMaterial({ color: 0x141516 }))); setBox(cb2, XC0 + Rh * 1.3, XC1 - Rh * 1.3, -H + 0.2, -H + dB - 0.2, ZC0 + Rh * 1.3, zIn); cb2.visible = solid && crack > 0 && dB > 0.5 && t < 0.6;
         cells.forEach((c, i) => {
-          const vis = solid && c.x < xFront && c.z < zCut;
-          dummy.rotation.set(0, Math.PI / 6, 0);
-          const s1 = vis ? rr : 0.0001;
-          dummy.position.set(c.x, -dT / 2, c.z); dummy.scale.set(s1 * 1.155 * (crack > 0 ? 1 : 1.02), Math.max(0.01, dT), s1 * 1.155 * (crack > 0 ? 1 : 1.02)); dummy.updateMatrix(); imT.setMatrixAt(i, dummy.matrix);
-          dummy.position.set(c.x, -H + dB / 2, c.z); dummy.scale.set(s1 * 1.155, Math.max(0.01, dB), s1 * 1.155); dummy.updateMatrix(); imB.setMatrixAt(i, dummy.matrix);
+          const inLava = c.x < xFront && solid && c.z < zFront - Rh * 0.8;
+          const vis = inLava && c.z < zCut;
+          if (vis) {
+            dummy.rotation.set(0, Math.PI / 6, 0);
+            dummy.position.set(c.x, -dT / 2, c.z); dummy.scale.set(rr * 1.155, Math.max(0.01, dT), rr * 1.155); dummy.updateMatrix(); imT.setMatrixAt(i, dummy.matrix);
+            dummy.position.set(c.x, -H + dB / 2, c.z); dummy.scale.set(rr * 1.155, Math.max(0.01, dB), rr * 1.155); dummy.updateMatrix(); imB.setMatrixAt(i, dummy.matrix);
+          } else { hide(imT, i); hide(imB, i); }
+          // がけのふちの柱：割れ目にそって たおれて、川に落ち、流されていく
+          const f0 = (c.z - zCut) / 12, f = f0 + seg(t, 0.93, 0.99) * 1.3; // さいごは、くずれた岩もすべて流されていく
+          if (inLava && cut > 0 && f0 >= 0 && f < 1 && c.x + Math.pow(Math.max(0, f - 0.45) / 0.55, 2) * 70 < 98) {
+            const fall = Math.min(1, f * 2.2), carry = Math.max(0, f - 0.45) / 0.55;
+            dummy.rotation.set(fall * 1.45, Math.PI / 6, 0);
+            dummy.position.set(c.x + carry * carry * 70, lerp(-H / 2, riverY - 0.8, fall), c.z + fall * 10);
+            const sc = rr * 1.155 * (1 - 0.6 * carry);
+            dummy.scale.set(sc, H * (1 - 0.5 * carry), sc); dummy.updateMatrix(); imF.setMatrixAt(i, dummy.matrix);
+          } else hide(imF, i);
         });
-        imT.instanceMatrix.needsUpdate = imB.instanceMatrix.needsUpdate = true;
-        // 熱がにげる矢印
-        if (t > 0.2 && t < 0.78) {
+        imT.instanceMatrix.needsUpdate = imB.instanceMatrix.needsUpdate = imF.instanceMatrix.needsUpdate = true;
+        if (t > 0.14 && t < 0.58) {
           [-40, 0, 40].forEach((x, i) => { arrow("hu" + i, [x, 2, 30], [x, 22, 30], 0xff7a20, 2.2); arrow("hd" + i, [x, -H - 2, 30], [x, -H - 20, 30], 0xff7a20, 2.2); });
           label("heatU", "空気へ 熱がにげる → 上から冷える", [0, 28, 30], "big");
           label("heatD", "地面へ 熱がにげる → 下から冷える", [0, -H - 26, 30], "big");
         }
-        if (t < 0.22) label("lv", "熱い溶岩（約1000℃）", [(XL + xFront) / 2, -H / 2, 36], "big red");
-        else if (t < 0.76) label("lv", "まだ熱い溶岩", [0, -H / 2, 36], "red");
-        if (crack > 0.2 && t < 0.82) { label("ct", "上の面から割れ目がのびる ↓", [XR + 16, -dT / 2, 36]); label("cb", "下の面から割れ目がのびる ↑", [XR + 16, -H + dB / 2, 36]); }
-        if (t > 0.74 && t < 0.86) label("meet", "上と下からの割れ目が 真ん中で出会う", [0, -H / 2, 36], "big");
-        if (er > 0.5) { const pp = K("person", () => person()); pp.position.set(84, 1.2, zCut - 6); label("cliff", "柱が並んだがけ！", [0, 10, zCut + 2], "big"); }
-        insets(t > 0.3 && t < 0.8 ? [
+        if (t < 0.16) label("lv", "熱い溶岩（約1100℃）", [(XL + xFront) / 2, -H / 2, 36], "big red");
+        else if (t < 0.56) label("lv", "まだ熱い溶岩", [0, -H / 2, 36], "red");
+        if (crack > 0.2 && t < 0.58) { label("ct", "上の面から割れ目がのびる ↓", [XR + 16, -dT / 2, 36]); label("cb", "下の面から割れ目がのびる ↑", [XR + 16, -H + dB / 2, 36]); }
+        if (t > 0.54 && t < 0.62) label("meet", "上と下からの割れ目が 真ん中で出会う → 柱になった", [0, -H / 2, 36], "big");
+        if (t > 0.62 && t < 0.7) label("cont", "手前にも同じ岩が続いている（まだ地面の中）", [0, 6, zFront], "big");
+        if (t > 0.7 && t < 0.93) {
+          arrow("ero", [20, riverY + 8, zCut + 14], [20, riverY + 3, zCut + 2], 0x1565c0, 2.4);
+          label("ero1", "川の水が 岩の下をけずる（しん食）", [30, riverY + 14, zCut + 14], "big");
+          if (t > 0.8) { label("ero2", "割れ目にそって 柱ごとくずれる", [-30, -8, zCut + 4], "big red"); label("ero3", "くずれた岩は 川が運ぶ（運ぱん）", [70, riverY + 6, zCut + 10]); }
+          label("rain", "雨水", [-70, 40, 20]);
+        }
+        if (t > 0.93) { const pp = K("person", () => person()); pp.position.set(84, 1.2, zCut - 6); label("cliff", "柱が並んだがけ（柱状節理）！", [0, 10, zCut + 2], "big"); }
+        insets(t > 0.24 && t < 0.58 ? [
           { key: "mud", cap: "にている：どろがかわくと、ちぢんでひび割れる", draw: (g, n) => drawCracks(g, n, crack * 1.1, false, 5) },
           { key: "hex", cap: "溶岩を上から見ると：六角形に割れていく", draw: (g, n) => drawCracks(g, n, crack * 1.1, true, 9) },
         ] : []);
@@ -1214,7 +1254,7 @@
     qt.style.transform = "translate(-50%,-50%) scale(" + (1 + 0.25 * QI).toFixed(3) + ")";
     const st = cur.stages.filter((x) => T >= x.t - 1e-6).pop() || cur.stages[0], idx = cur.stages.indexOf(st);
     const ex = document.getElementById("explain");
-    if (ex.dataset.k !== cur.id + idx) { ex.innerHTML = '<span class="ttl">' + cur.title + '</span><span class="st">' + "①②③④⑤⑥⑦⑧"[idx] + " " + st.s + "</span><span class=\"body\">" + st.text + "</span>"; ex.dataset.k = cur.id + idx; }
+    if (ex.dataset.k !== cur.id + idx) { ex.innerHTML = '<span class="ttl">' + cur.title + '</span><span class="st">' + "①②③④⑤⑥⑦⑧⑨⑩"[idx] + " " + st.s + "</span><span class=\"body\">" + st.text + "</span>"; ex.dataset.k = cur.id + idx; }
     document.getElementById("age").textContent = cur.age ? "⏳ " + cur.age(T) : "";
     document.querySelectorAll("#ticks span").forEach((sp, i) => sp.classList.toggle("on", i === idx));
     // せまい画面では、となりと重なる目もりの文字をかくす（いまの場面の文字は必ず出す）
