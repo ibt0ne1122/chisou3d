@@ -37,7 +37,7 @@
       setTimeout(run, 0); // 1ファイル版：設定がすでに入っている（準備が終わってから始める）
     } else {
       const sc = document.createElement("script");
-      sc.src = entry.file + "?v=20261005133012";
+      sc.src = entry.file + "?v=20261012020235";
       sc.onload = run;
       sc.onerror = () => showError("場所の設定ファイル（" + entry.file + "）を読み込めませんでした。ZIPの場合は「すべて展開」してから開いてください。");
       document.body.appendChild(sc);
@@ -4132,6 +4132,7 @@
     if (S.lift) st.lift = 1;
     if (S.alignBores) st.al = 1;
     if (!S.pattern) st.nopat = 1;
+    const cb = o.cb || S.colorBy; if (cb && cb !== "layer") st.cb = cb; // 柱の色（ざっくり＝つぶの大きさの仲間）
     if (S.gapHide) { st.gh = S.gapHide; if (S.gapModel) st.gm = 1; }
     if (S.ve !== (S.site.defaultExaggeration || 3)) st.vz = S.ve;
     if (S.opacity < 1) st.op = S.opacity;
@@ -4180,6 +4181,7 @@
     setChk("chkLift", st.lift);
     if (!!st.al !== S.alignBores) S.setAlign(!!st.al);
     if (!st.nopat !== S.pattern) S.setPattern(!st.nopat);
+    if ((st.cb || "layer") !== S.colorBy) { $("colorBySelect").value = st.cb || "layer"; $("colorBySelect").dispatchEvent(new Event("change")); }
     if ((st.gh || 0) !== S.gapHide || !!st.gm !== S.gapModel) S.setGap(st.gh || 0, !!st.gm);
     if (st.marks) { S.boreMarks = Object.assign({}, st.marks); }
     S.hiddenBores = new Set(st.hid || []);
@@ -4258,7 +4260,32 @@
     $("shareOut").value = "";
     $("shareFileNote").classList.toggle("hidden", location.protocol !== "file:");
     buildShareUi();
+    renderShareHist();
     $("shareDialog").showModal();
+    await makeKidLink();
+  }
+  /** 前に配った画面（この端末に残す）：同じリンクは1つにまとめ、新しい順に20個まで */
+  function rememberShare(how) {
+    const link = $("shareOut").value; if (!link) return;
+    const title = $("shareTitle").value.trim() || S.site.title;
+    const list = store.get("chisou3d:shareHist", []).filter((h) => h.link !== link);
+    const d = new Date();
+    list.unshift({ title, link, how, date: (d.getMonth() + 1) + "/" + d.getDate() + " " + d.getHours() + ":" + String(d.getMinutes()).padStart(2, "0") });
+    store.set("chisou3d:shareHist", list.slice(0, 20));
+    renderShareHist();
+  }
+  function renderShareHist() {
+    const list = store.get("chisou3d:shareHist", []), box = $("shareHist");
+    $("shareHistBox").classList.toggle("hidden", !list.length);
+    box.innerHTML = list.map((h, i) => '<div class="shhist"><span><b>' + esc(h.title) + '</b><small>' + esc(h.date) + "（" + esc(h.how) + '）</small></span>' +
+      '<button type="button" data-i="' + i + '" data-a="copy">📋 コピー</button><button type="button" data-i="' + i + '" data-a="qr">🖨 QR</button><button type="button" data-i="' + i + '" data-a="del" title="一覧から消す">✕</button></div>').join("");
+    box.onclick = async (e) => {
+      const b = e.target.closest("button[data-a]"); if (!b) return;
+      const all = store.get("chisou3d:shareHist", []), h = all[+b.dataset.i]; if (!h) return;
+      if (b.dataset.a === "copy") { try { await navigator.clipboard.writeText(h.link); } catch (er) { prompt("このリンクをコピーしてください", h.link); } flashHint("📋 「" + h.title + "」のリンクをコピーしました"); }
+      if (b.dataset.a === "qr") { const w = window.open("", "_blank"); if (w) { w.document.write(qrSheetHtml(h.link, h.title)); w.document.close(); } }
+      if (b.dataset.a === "del") { all.splice(+b.dataset.i, 1); store.set("chisou3d:shareHist", all); renderShareHist(); }
+    };
   }
   /** 子どもの画面で「出す・出さない」をえらべるもの（キー → 画面の部品） */
   function kidUiTargets() {
@@ -4398,11 +4425,13 @@
     const bsel = document.querySelector('[name="shareBores"]:checked').value;
     const only = bsel === "picked" ? (S.lastPickIds || []) : bsel === "shown" && S.onlySel ? [...S.onlySel] : null;
     store.set("chisou3d:shareTitle", $("shareTitle").value.trim());
-    const st = captureState({ strokes: $("shareStrokes").checked, kid: { lock: $("shareLock").checked ? 1 : 0 }, form: true, ui: hide, only });
+    const st = captureState({ strokes: $("shareStrokes").checked, kid: { lock: $("shareLock").checked ? 1 : 0 }, form: true, ui: hide, only, cb: $("shareColorBy").value || null });
     S.shareK = await packState(st);
     $("shareOut").value = baseUrl() + "#k=" + S.shareK;
-    $("shareOut").select();
     showQr($("shareOut").value);
+    const len = $("shareOut").value.length;
+    $("shareLenNote").textContent = len > 900 ? "⚠ 中身が多いのでQRコードが細かくなっています。読みにくいときは、印刷を大きくするか、下の「入り口のページにも出す」で短いQRにしてください。" : "";
+    $("shareBoresNow").textContent = "（" + document.querySelector('[name="shareBores"]:checked').parentElement.textContent.replace(/「.*?」で/, "").trim() + "）";
     // 入り口ページに登録する文
     S.sharePid = S.sharePid || presetId();
     const title = $("shareTitle").value.trim() || S.site.title;
@@ -4414,10 +4443,22 @@
     S.formCfg = store.get("chisou3d:formCfg", null);
     $("btnShare").onclick = openShareDialog;
     $("shareMake").onclick = makeKidLink;
-    $("shareTry").onclick = async () => { await makeKidLink(); window.open($("shareOut").value, "_blank"); };
-    $("shareQrSave").onclick = () => download("QRコード-" + ($("shareTitle").value.trim() || S.site.title) + ".png", $("shareQr").toDataURL("image/png"));
-    $("shareQrPrint").onclick = () => {
-      const html = qrSheetHtml(S.qrLink, $("shareTitle").value.trim() || S.site.title), w = window.open("", "_blank");
+    // ①②を変えたら、リンクとQRを自動で作り直す
+    let shTimer = null, shBusy = null;
+    const remake = (e) => { if (e.target.closest("#shareOut, #sharePresetOut, #shareFormUrl, #shareHist")) return; clearTimeout(shTimer); shTimer = setTimeout(() => { shTimer = null; shBusy = makeKidLink(); }, 350); };
+    // コピー・印刷の前に、作り直しが終わるのを待つ（古いリンクを配らないように）
+    const fresh = async () => { if (shTimer) { clearTimeout(shTimer); shTimer = null; shBusy = makeKidLink(); } if (shBusy) await shBusy; if (!$("shareOut").value) await makeKidLink(); };
+    $("shareDialog").addEventListener("change", remake);
+    $("shareDialog").addEventListener("input", (e) => { if (e.target.id === "shareTitle") remake(e); });
+    $("shareDialog").addEventListener("click", (e) => { if (e.target.closest("#shareUiAll, #shareUiMin")) remake(e); });
+    // iPadのSafariは、待ったあとに開くとブロックするので、先に窓を開けてから中身を入れる
+    $("shareTry").onclick = async () => { const w = window.open("", "_blank"); await fresh(); if (w) w.location.href = $("shareOut").value; else location.href = $("shareOut").value; };
+    $("shareQrSave").onclick = async () => { await fresh(); rememberShare("QR画像"); download("QRコード-" + ($("shareTitle").value.trim() || S.site.title) + ".png", $("shareQr").toDataURL("image/png")); };
+    $("shareQrPrint").onclick = async () => {
+      const w = window.open("", "_blank");
+      await fresh();
+      rememberShare("QR印刷");
+      const html = qrSheetHtml(S.qrLink, $("shareTitle").value.trim() || S.site.title);
       if (w) { w.document.write(html); w.document.close(); } else download("QRコード.html", html, "text/html");
     };
     $("sharePresetCopy").onclick = async () => {
@@ -4428,8 +4469,9 @@
     $("sharePresetQr").onclick = async () => { if (!$("sharePresetOut").value) await makeKidLink(); showQr($("sharePresetUrl").textContent); flashHint("📱 登録したあとに使える、短いリンクのQRコードです"); };
     $("shareTitle").oninput = () => { S.sharePid = null; };
     $("shareCopy").onclick = async () => {
-      if (!$("shareOut").value) await makeKidLink();
+      await fresh();
       try { await navigator.clipboard.writeText($("shareOut").value); flashHint("📋 リンクをコピーしました"); } catch (e) { $("shareOut").select(); document.execCommand("copy"); flashHint("📋 リンクをコピーしました"); }
+      rememberShare("リンク");
     };
     $("shareFormSave").onclick = () => {
       const v = $("shareFormUrl").value.trim();

@@ -6,7 +6,7 @@
 <title>大地のつくり 3D土地模型</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css?v=20261005133012">
+<link rel="stylesheet" href="css/style.css?v=20261012020235">
 </head>
 <body>
 <div id="viewport"></div>
@@ -379,11 +379,22 @@
 <!-- 子ども用リンク・送り先 -->
 <dialog id="shareDialog" class="wide">
   <form method="dialog">
-    <h3>🔗 子ども用リンク（いまの画面を配る）</h3>
-    <p class="hint">いまの見え方（地図・範囲・高さの強調・カメラの向き・断面の線・「？」にした柱・お気に入りの色・はがした層・川や谷戸の表示）を、そのままリンクにします。ロイロノートやClassroomで配ると、子どもはこの画面から始められます。</p>
-    <label class="toggle"><input type="checkbox" id="shareLock"> 答え合わせ（模型の地層を見る・大地のでき方）を使えないようにする</label>
-    <label class="toggle"><input type="checkbox" id="shareStrokes"> 先生がかいた予想の線もいっしょに配る</label>
-    <details id="shareBoresBox" open><summary><b>📍 見せる柱状図</b></summary>
+    <h3>🔗 子どもに配る（いまの画面をそのまま配る）</h3>
+    <p class="hint">いまの見え方（地図・範囲・カメラの向き・断面の線・はがした層 など）が、そのまま子どもの画面になります。下の①〜③の順に進めてください。</p>
+    <div class="shstep"><b class="shno">①</b><div>
+      <label>配る画面の名前（入り口・QRの紙に出ます）<input id="shareTitle" type="text" placeholder="例：6年 断面図の予想（長津田小のまわり）"></label>
+    </div></div>
+    <div class="shstep"><b class="shno">②</b><div>
+      <b>子どもに見せる内容</b>
+      <label>柱状図の色と名前
+        <select id="shareColorBy">
+          <option value="">いまの設定のまま</option>
+          <option value="grain">ざっくり（れき・砂・どろ・火山灰の仲間で）</option>
+          <option value="layer">くわしく（地層の種類で）</option>
+        </select></label>
+      <label class="toggle"><input type="checkbox" id="shareLock"> 答え合わせ（模型の地層を見る・大地のでき方）を使えないようにする</label>
+      <label class="toggle"><input type="checkbox" id="shareStrokes"> 先生がかいた予想の線もいっしょに配る</label>
+    <details id="shareBoresBox"><summary><b>📍 見せる柱状図</b> <span id="shareBoresNow" class="hint"></span></summary>
       <label class="toggle"><input type="radio" name="shareBores" value="all" checked> 全部の柱を見せる</label>
       <label class="toggle"><input type="radio" name="shareBores" value="shown" id="shareBoresShown"> 「📍 表示する柱をえらぶ」でえらんだ柱だけ <b id="shareShownN"></b></label>
       <label class="toggle"><input type="radio" name="shareBores" value="picked" id="shareBoresPicked"> 「📍 柱状図を選択」でえらんだ柱だけ <b id="sharePickedN"></b></label>
@@ -394,13 +405,19 @@
       <div id="shareUi"></div>
     </details>
     <p class="hint">子どもの画面では「先生モード」は出ません。</p>
-    <label>配る画面の名前（入り口のページやQRコードの紙に出ます）<input id="shareTitle" type="text" placeholder="例：6年 断面図の予想（長津田小のまわり）"></label>
-    <div class="btnrow"><button type="button" id="shareMake" class="primary">リンクをつくる</button><button type="button" id="shareCopy">📋 コピー</button><button type="button" id="shareTry">👀 子どもの画面をためす</button></div>
-    <textarea id="shareOut" rows="3" readonly spellcheck="false"></textarea>
-    <div id="shareQrBox" class="hidden">
-      <div class="qrwrap"><canvas id="shareQr"></canvas><div><b id="shareQrTitle"></b><p class="hint">子どもは、タブレットのカメラでこのQRコードを読むと、この画面から始められます。</p>
-        <div class="btnrow"><button type="button" id="shareQrSave">🖼 QRコードを保存</button><button type="button" id="shareQrPrint">🖨 QRコードを印刷</button></div></div></div>
-    </div>
+    </div></div>
+    <div class="shstep"><b class="shno">③</b><div>
+      <b>配る</b>（①②を変えると、リンクとQRコードも自動で作り直されます）
+      <div class="btnrow shbig"><button type="button" id="shareCopy" class="primary">📋 リンクをコピー<small>ロイロノート・Classroomにはる</small></button><button type="button" id="shareQrPrint">🖨 QRコードを印刷<small>紙で配る・黒板にはる</small></button></div>
+      <div class="btnrow"><button type="button" id="shareTry">👀 子どもの画面をためす</button><button type="button" id="shareQrSave">🖼 QRコードを画像で保存</button><button type="button" id="shareMake" class="hidden">リンクをつくる</button></div>
+      <div id="shareQrBox" class="hidden">
+        <div class="qrwrap"><canvas id="shareQr"></canvas><div><b id="shareQrTitle"></b><p class="hint">子どもは、タブレットのカメラでこのQRコードを読むと、この画面から始められます。</p><p id="shareLenNote" class="hint"></p></div></div>
+      </div>
+      <details><summary class="hint">リンクの文字を見る</summary><textarea id="shareOut" rows="3" readonly spellcheck="false"></textarea></details>
+    </div></div>
+    <details id="shareHistBox"><summary><b>🗂 前に配った画面</b>（この端末に残ります）</summary>
+      <div id="shareHist"></div>
+    </details>
     <details id="sharePresetBox"><summary><b>🏠 入り口のページに登録する（短いQRコードになります）</b></summary>
       <p class="hint">登録すると、入り口のページ（場所をえらぶページ）に、この画面が「先生が準備した画面」として出ます。QRコードも小さく読みやすくなります。</p>
       <ol class="hint">
@@ -536,20 +553,20 @@
 
 <footer id="attribution">出典：<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">国土地理院（地理院タイル・標高タイル）</a> ／ 目印：<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap</a> ／ 地下の地層はボーリング資料からの推定です（<a href="#" id="attrMore">くわしく</a>）</footer>
 
-<script src="lib/three.min.js?v=20261005133012"></script>
-<script src="lib/OrbitControls.js?v=20261005133012"></script>
-<script src="lib/qrcode.js?v=20261005133012"></script>
+<script src="lib/three.min.js?v=20261012020235"></script>
+<script src="lib/OrbitControls.js?v=20261012020235"></script>
+<script src="lib/qrcode.js?v=20261012020235"></script>
 <script>window.CHISOU = { sites: {}, registerSite: function (s) { this.sites[s.id] = s; } };</script>
-<script src="js/geo.js?v=20261005133012"></script>
-<script src="js/geology.js?v=20261005133012"></script>
-<script src="js/pattern.js?v=20261005133012"></script>
-<script src="sites/sites.js?v=20261005133012"></script>
-<script src="js/section.js?v=20261005133012"></script>
-<script src="js/boringxml.js?v=20261005133012"></script>
-<script src="js/mvt.js?v=20261005133012"></script>
-<script src="js/yato_yokohama.js?v=20261005133012"></script>
-<script src="js/ngic_bookmarklet.js?v=20261005133012"></script>
-<script src="js/help.js?v=20261005133012"></script>
-<script src="js/app.js?v=20261005133012"></script>
+<script src="js/geo.js?v=20261012020235"></script>
+<script src="js/geology.js?v=20261012020235"></script>
+<script src="js/pattern.js?v=20261012020235"></script>
+<script src="sites/sites.js?v=20261012020235"></script>
+<script src="js/section.js?v=20261012020235"></script>
+<script src="js/boringxml.js?v=20261012020235"></script>
+<script src="js/mvt.js?v=20261012020235"></script>
+<script src="js/yato_yokohama.js?v=20261012020235"></script>
+<script src="js/ngic_bookmarklet.js?v=20261012020235"></script>
+<script src="js/help.js?v=20261012020235"></script>
+<script src="js/app.js?v=20261012020235"></script>
 </body>
 </html>

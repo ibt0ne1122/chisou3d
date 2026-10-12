@@ -592,3 +592,14 @@ a.btnlink.primary { background: var(--accent); color: #fff; border-color: var(--
 #qrDialog .qrwrap { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; margin: 8px 0; }
 #qrCanvas { width: 220px; height: 220px; image-rendering: pixelated; border: 1px solid var(--line); border-radius: 8px; }
 #qrUrl { word-break: break-all; font-size: 13px; }
+/* 子どもに配る：①②③の段 */
+#shareDialog .shstep { display: flex; gap: 10px; align-items: flex-start; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; margin: 10px 0; background: #fbfdfe; }
+#shareDialog .shstep > div { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+#shareDialog .shno { flex: 0 0 auto; width: 30px; height: 30px; border-radius: 50%; background: var(--accent); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 17px; }
+#shareDialog .shbig button { flex: 1; min-height: 58px; font-size: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
+#shareDialog .shbig button small { font-size: 11.5px; font-weight: normal; opacity: .85; }
+#shareDialog .qrwrap canvas { width: 170px; height: 170px; }
+#shareHist .shhist { display: flex; gap: 6px; align-items: center; border-bottom: 1px solid var(--line); padding: 6px 0; }
+#shareHist .shhist span { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+#shareHist .shhist small { color: var(--sub); font-size: 12px; }
+#shareHist .shhist button { padding: 4px 8px; font-size: 13px; }
