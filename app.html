@@ -6,7 +6,7 @@
 <title>大地のつくり 3D土地模型</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css?v=20261012020235">
+<link rel="stylesheet" href="css/style.css?v=20261018115543">
 </head>
 <body>
 <div id="viewport"></div>
@@ -452,15 +452,16 @@
   </form>
 </dialog>
 
-<!-- 3Dプリンター用（Bambu Lab A1 mini） -->
+<!-- 3Dプリンター用（Bambu Lab A1 mini／A2L） -->
 <dialog id="printDialog">
   <form method="dialog">
-    <h3>🧊 3Dプリンター用のデータ（Bambu Lab A1 mini）</h3>
+    <h3>🧊 3Dプリンター用のデータ（Bambu Lab）</h3>
     <p class="hint">いま画面に出している模型（範囲・はがした地層）で作ります。できたファイルを Bambu Studio で開くと、そのまま印刷の準備ができます。</p>
-    <label>大きさ（一辺）<select id="prSize"><option value="170" selected>170mm（A1 mini いっぱい）</option><option value="150">150mm</option><option value="120">120mm</option><option value="100">100mm（早く印刷できる）</option></select></label>
+    <label>プリンター<select id="prPrinter"><option value="a1mini">Bambu Lab A1 mini（180×180×180mm）</option><option value="a2l">Bambu Lab A2L（330×320×325mm）</option></select></label>
+    <label>大きさ（一辺）<select id="prSize"></select></label>
     <label>高さの強調<select id="prVe"></select></label>
     <label>土台の厚さ<select id="prBase"><option value="2">2mm</option><option value="3" selected>3mm</option><option value="5">5mm</option></select></label>
-    <label>色<select id="prColor"><option value="one">1色（地形だけ）</option><option value="layers">地層ごとに色分け（AMS lite で色をつける）</option></select></label>
+    <label>色<select id="prColor"><option value="one">1色（地形だけ）</option><option value="layers">地層ごとに色分け（AMSで色をつける）</option></select></label>
     <label>ファイルの形<select id="prFmt"><option value="3mf" selected>3MF（Bambu Studio 用・おすすめ）</option><option value="stl">STL（ほかのソフト用・1色だけ）</option></select></label>
     <p id="prInfo" class="hint"></p>
     <details class="hint"><summary>色分けのしかた（Bambu Studio）</summary>
@@ -553,20 +554,20 @@
 
 <footer id="attribution">出典：<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">国土地理院（地理院タイル・標高タイル）</a> ／ 目印：<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap</a> ／ 地下の地層はボーリング資料からの推定です（<a href="#" id="attrMore">くわしく</a>）</footer>
 
-<script src="lib/three.min.js?v=20261012020235"></script>
-<script src="lib/OrbitControls.js?v=20261012020235"></script>
-<script src="lib/qrcode.js?v=20261012020235"></script>
+<script src="lib/three.min.js?v=20261018115543"></script>
+<script src="lib/OrbitControls.js?v=20261018115543"></script>
+<script src="lib/qrcode.js?v=20261018115543"></script>
 <script>window.CHISOU = { sites: {}, registerSite: function (s) { this.sites[s.id] = s; } };</script>
-<script src="js/geo.js?v=20261012020235"></script>
-<script src="js/geology.js?v=20261012020235"></script>
-<script src="js/pattern.js?v=20261012020235"></script>
-<script src="sites/sites.js?v=20261012020235"></script>
-<script src="js/section.js?v=20261012020235"></script>
-<script src="js/boringxml.js?v=20261012020235"></script>
-<script src="js/mvt.js?v=20261012020235"></script>
-<script src="js/yato_yokohama.js?v=20261012020235"></script>
-<script src="js/ngic_bookmarklet.js?v=20261012020235"></script>
-<script src="js/help.js?v=20261012020235"></script>
-<script src="js/app.js?v=20261012020235"></script>
+<script src="js/geo.js?v=20261018115543"></script>
+<script src="js/geology.js?v=20261018115543"></script>
+<script src="js/pattern.js?v=20261018115543"></script>
+<script src="sites/sites.js?v=20261018115543"></script>
+<script src="js/section.js?v=20261018115543"></script>
+<script src="js/boringxml.js?v=20261018115543"></script>
+<script src="js/mvt.js?v=20261018115543"></script>
+<script src="js/yato_yokohama.js?v=20261018115543"></script>
+<script src="js/ngic_bookmarklet.js?v=20261018115543"></script>
+<script src="js/help.js?v=20261018115543"></script>
+<script src="js/app.js?v=20261018115543"></script>
 </body>
 </html>

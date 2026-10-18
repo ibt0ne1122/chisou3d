@@ -37,7 +37,7 @@
       setTimeout(run, 0); // 1ファイル版：設定がすでに入っている（準備が終わってから始める）
     } else {
       const sc = document.createElement("script");
-      sc.src = entry.file + "?v=20261012020235";
+      sc.src = entry.file + "?v=20261018115543";
       sc.onload = run;
       sc.onerror = () => showError("場所の設定ファイル（" + entry.file + "）を読み込めませんでした。ZIPの場合は「すべて展開」してから開いてください。");
       document.body.appendChild(sc);
@@ -1741,23 +1741,36 @@
     if (near) $("digNear").onclick = () => showBore(near.b.id);
   }
 
-  // ---------- 3Dプリンター用のデータ（Bambu Lab A1 mini 向け：3MF／STL） ----------
+  // ---------- 3Dプリンター用のデータ（Bambu Lab A1 mini／A2L 向け：3MF／STL） ----------
   //  いま画面に出している模型（半径・はがした地層・高さの強調）を、そのまま印刷用の形にする。
   //  A1 mini の造形サイズは 180×180×180mm。3MF は Bambu Studio でそのまま開けて、
   //  「地層ごとに色分け」にすると、地層が別々の部品になる（AMS lite で色を割り当てられる）。
-  const PRINT_MAX = 180;
+  // 造形サイズ（mm）：模型は正方形なので、一辺は短い方（A2L は 320mm）で決める
+  const PRINTERS = {
+    a1mini: { name: "A1 mini", w: 180, d: 180, h: 180, def: 170, sizes: [[170, "170mm（いっぱい）"], [150, "150mm"], [120, "120mm"], [100, "100mm（早く印刷できる）"]] },
+    a2l: { name: "A2L", w: 330, d: 320, h: 325, def: 250, sizes: [[300, "300mm（いっぱい・とても時間がかかる）"], [250, "250mm"], [200, "200mm"], [170, "170mm"], [120, "120mm（早く印刷できる）"]] },
+  };
+  const printer = () => PRINTERS[$("prPrinter").value] || PRINTERS.a1mini;
+  function fillPrintSizes(useDefault) {
+    const pr = printer(), old = useDefault ? pr.def : +$("prSize").value;
+    $("prSize").innerHTML = pr.sizes.map(([v, t]) => '<option value="' + v + '">' + t + "</option>").join("");
+    if (pr.sizes.some(([v]) => v === old)) $("prSize").value = old;
+  }
   function openPrintDialog() {
     const d = $("printDialog");
+    $("prPrinter").value = store.get("chisou3d:printer", "a1mini");
+    fillPrintSizes(!$("prSize").value);
     $("prVe").innerHTML = [["now", "今の表示と同じ（×" + S.ve + "）"], ["1", "×1（本当の形）"], ["2", "×2"], ["3", "×3"], ["5", "×5"]].map(([v, t]) => '<option value="' + v + '">' + t + "</option>").join("");
     const upd = () => {
       const o = printOpts(), h = o.heightMM;
       $("prInfo").innerHTML = "できあがり：<b>" + o.sizeMM + "mm × " + o.sizeMM + "mm、高さ 約" + h.toFixed(0) + "mm</b>（" + (o.color ? "地層ごとに色分け・" + o.bandsCount + "色" : "1色") + "）<br>" +
-        (h > PRINT_MAX - 5 ? '<span class="warn">⚠ 高すぎて A1 mini（180mm）に入りません。高さの強調を小さくしてください</span>' : "✅ Bambu Lab A1 mini（180×180×180mm）に入ります") +
+        (h > printer().h - 5 ? '<span class="warn">⚠ 高すぎて ' + printer().name + "（高さ" + printer().h + "mm）に入りません。高さの強調を小さくしてください</span>" : "✅ Bambu Lab " + printer().name + "（" + printer().w + "×" + printer().d + "×" + printer().h + "mm）に入ります") +
         (S.peel ? "<br>はがした地層は、はがしたままの形で作ります" : "") + (S.section ? "<br>※ 切った模型は、切る前の四角い形で作ります" : "");
       $("prFmt").querySelector('[value="stl"]').disabled = o.color;
       if (o.color && $("prFmt").value === "stl") $("prFmt").value = "3mf";
     };
     ["prSize", "prVe", "prBase", "prColor", "prFmt"].forEach((id) => ($(id).onchange = upd));
+    $("prPrinter").onchange = () => { store.set("chisou3d:printer", $("prPrinter").value); fillPrintSizes(true); upd(); };
     upd();
     $("prGo").onclick = async () => { $("prGo").disabled = true; $("prGo").textContent = "つくっています…"; try { await exportPrint(printOpts()); d.close(); } finally { $("prGo").disabled = false; $("prGo").textContent = "💾 保存する"; } };
     d.showModal();
@@ -1813,7 +1826,9 @@
   async function exportPrint(o) {
     const g = S.grid, N = g.n + 1, k = o.k;
     // 色分けは部品が多くなるので、少しあらくする（1辺 約110点）
-    const stride = o.color ? Math.max(1, Math.round((N - 1) / 110)) : Math.max(1, Math.round((N - 1) / 220));
+    // 大きく印刷するとき（A2L）は、そのぶん細かくする（色分け：約1.6mmごと／1色：約0.8mmごと）
+    const pts = o.color ? Math.min(180, Math.round(o.sizeMM / 1.6)) : Math.min(360, Math.round(o.sizeMM / 0.8));
+    const stride = Math.max(1, Math.round((N - 1) / pts));
     const zOf = (v) => Math.max(0, o.baseMM + (v - o.bottom) * k * o.ve);
     const P = (i, j, v) => [i * stride * g.step * k, (N - 1 - j * stride) * g.step * k, zOf(v)];
     const parts = [];
@@ -1827,7 +1842,7 @@
       const base = new Float32Array(o.top.length).fill(o.bottom - o.baseMM / (k * o.ve));
       parts.push(Object.assign(bandMesh(o.top, base, N, stride, P), { name: S.site.title, color: "#c8b89a" }));
     }
-    const name = "3D土地模型-" + S.site.title + "-" + o.sizeMM + "mm-高さ×" + o.ve + (o.color ? "-地層色分け" : "");
+    const name = "3D土地模型-" + S.site.title + "-" + printer().name.replace(/\s/g, "") + "-" + o.sizeMM + "mm-高さ×" + o.ve + (o.color ? "-地層色分け" : "");
     if (o.fmt === "stl") {
       const p = parts[0], cnt = p.T.length / 3, buf = new ArrayBuffer(84 + cnt * 50), dv = new DataView(buf);
       for (let q = 0; q < cnt; q++) { let off = 84 + q * 50 + 12; for (let r = 0; r < 3; r++) { const v = p.V[p.T[q * 3 + r]]; for (let c = 0; c < 3; c++) { dv.setFloat32(off, v[c], true); off += 4; } } }
