@@ -37,8 +37,14 @@
       setTimeout(run, 0); // 1ファイル版：設定がすでに入っている（準備が終わってから始める）
     } else {
       const sc = document.createElement("script");
-      sc.src = entry.file + "?v=20261029095424";
-      sc.onload = run;
+      sc.src = entry.file + "?v=20261029104246";
+      // 先生が配った写真メモ（sites/notes/<id>.js）：あればいっしょに読む。なくてもそのまま始める
+      sc.onload = custom ? run : () => {
+        const ns = document.createElement("script");
+        ns.src = "sites/notes/" + entry.id + ".js?t=" + Date.now();
+        ns.onload = ns.onerror = run;
+        document.body.appendChild(ns);
+      };
       sc.onerror = () => showError("場所の設定ファイル（" + entry.file + "）を読み込めませんでした。ZIPの場合は「すべて展開」してから開いてください。");
       document.body.appendChild(sc);
     }
@@ -1314,15 +1320,18 @@
   }
 
   // ---------- 気づきメモ ----------
+  /** 先生が配った写真メモ（公開版に入っているもの。消せない） */
+  const pubNotes = () => ((C.PUB_NOTES && C.PUB_NOTES[S.site.id]) || []).map((n) => Object.assign({ pub: true }, n));
+  const findNote = (id) => S.notes.find((n) => n.id === id) || pubNotes().find((n) => n.id === id);
   function buildNotes() {
     disposeGroup(groups.notes);
-    for (const nt of S.notes) {
+    for (const nt of pubNotes().concat(S.notes)) {
       const y = groundAt(nt.x, nt.z) * S.ve;
       const top = y + 60;
       const grp = new THREE.Group();
       grp.add(pinLine(nt.x, nt.z, y, top, 0x8a6d00));
       const txt = (nt.photo ? "📷 " : "") + wrapText(nt.text, 14) + (nt.author ? "\n― " + nt.author : "");
-      const lab = makeLabel(txt, { bg: nt.color || "#ffd54f", border: "rgba(0,0,0,0.3)", size: 13 });
+      const lab = makeLabel(nt.pub ? "📷 " + wrapText(nt.text, 14) : txt, { bg: nt.color || "#ffd54f", border: nt.pub ? "#1f7a8c" : "rgba(0,0,0,0.3)", size: 13 });
       lab.position.set(nt.x, top, nt.z);
       lab.userData.pick = { type: "note", id: nt.id };
       lab.userData.isLabel = true;
@@ -3029,8 +3038,14 @@
     setTimeout(() => $("noteText").focus(), 50);
   }
   function showNote(id) {
-    const nt = S.notes.find((n) => n.id === id);
+    const nt = findNote(id);
     if (!nt) return;
+    if (nt.pub) {
+      openDetail('<h3>📷 先生の写真メモ</h3><p style="font-size:17px;white-space:pre-wrap;background:' + esc(nt.color || "#ffd54f") + ';padding:10px;border-radius:8px">' + esc(nt.text) + "</p>" +
+        (nt.photo && /^sites\/notes\/[\w-]+\/[\w-]+\.jpg$/.test(nt.photo) ? '<a href="' + esc(nt.photo) + '" target="_blank" rel="noopener"><img class="log-image" src="' + esc(nt.photo) + '" alt="写真"></a>' : "") +
+        '<div class="meta">' + (nt.author ? esc(nt.author) : "") + "</div>");
+      return;
+    }
     openDetail('<h3>📝 気づきメモ</h3><p style="font-size:17px;white-space:pre-wrap;background:' + esc(nt.color) + ';padding:10px;border-radius:8px">' + esc(nt.text) + "</p>" +
       (nt.photo && /^data:image\/(jpeg|png);/.test(nt.photo) ? '<img class="log-image" src="' + nt.photo + '" alt="写真">' : "") +
       '<div class="meta">' + (nt.author ? esc(nt.author) + "　" : "") + esc(new Date(nt.time).toLocaleString("ja-JP")) + "</div>" +
@@ -3048,14 +3063,26 @@
     if (!S.notes.length) html += '<p class="meta">まだメモはありません。下の「📝 気づきメモ」を選んで、地図をタップすると置けます。</p>';
     html += '<ul class="notes-list">' + S.notes.map((n) =>
       '<li style="border-left-color:' + esc(n.color) + '">' + esc(n.text) + "<br><small>" + esc(n.author || "") + '</small><button data-go="' + n.id + '">見る</button></li>').join("") + "</ul>";
+    const pub = pubNotes();
+    if (pub.length) html += '<h4>📷 先生が配った写真メモ（' + pub.length + '）</h4><ul class="notes-list">' + pub.map((n) =>
+      '<li style="border-left-color:' + esc(n.color || "#1f7a8c") + '">📷 ' + esc(n.text) + '<button data-go="' + n.id + '">見る</button></li>').join("") + "</ul>";
     html += '<div class="actions"><button id="nExport">メモを書き出す</button><button id="nImport">メモを読み込む</button></div>' +
-      '<p class="hint">書き出したメモを先生の端末で読み込むと、クラス全員のメモを1つの模型に集められます。</p>';
+      '<p class="hint">書き出したメモを先生の端末で読み込むと、クラス全員のメモを1つの模型に集められます。</p>' +
+      (S.teacher ? '<div class="actions"><button id="nPub" class="primary">📤 写真メモを子どもに配る（ファイルにする）</button></div>' +
+        '<p class="hint">写真つきのメモだけを1つのファイルにします。そのファイルを Claude に送ると、公開版に入り、<b>どの端末・子どもに配るリンクでも</b>同じ場所に写真メモが出ます。子どもの顔・名札・表札などが写っていない写真にしてください。</p>' : "");
     openDetail(html);
     $("detailBody").querySelectorAll("[data-go]").forEach((btn) => (btn.onclick = () => {
-      const n = S.notes.find((x) => x.id === btn.dataset.go);
+      const n = findNote(btn.dataset.go);
       if (n) { focusOn(n.x, n.z, groundAt(n.x, n.z)); showNote(n.id); }
     }));
     $("nExport").onclick = () => openIO("export-notes");
+    if ($("nPub")) $("nPub").onclick = () => {
+      // 子どもに配る写真メモ：写真つきのメモ（と、その説明）だけをファイルにする → Claude に送ると公開版に入る
+      const list = S.notes.filter((n) => n.photo);
+      if (!list.length) { alert("写真つきのメモがありません。「📝 気づきメモ」で写真をつけてから押してください。"); return; }
+      download("写真メモ-" + S.site.id + "-" + stamp() + ".json", JSON.stringify({ kind: "chisou3d-photo-notes", site: S.site.id, notes: list }), "application/json");
+      flashHint("📤 写真メモ " + list.length + " 件をファイルにしました。このファイルを Claude に送ってください");
+    };
     $("nImport").onclick = () => openIO("import");
   }
 
