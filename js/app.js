@@ -37,7 +37,7 @@
       setTimeout(run, 0); // 1ファイル版：設定がすでに入っている（準備が終わってから始める）
     } else {
       const sc = document.createElement("script");
-      sc.src = entry.file + "?v=20261029094121";
+      sc.src = entry.file + "?v=20261029095424";
       sc.onload = run;
       sc.onerror = () => showError("場所の設定ファイル（" + entry.file + "）を読み込めませんでした。ZIPの場合は「すべて展開」してから開いてください。");
       document.body.appendChild(sc);
@@ -3621,9 +3621,11 @@
       S.boreNames = v; store.set("chisou3d:boreNames", v);
       $("qNames").classList.toggle("on", v === "name");
       $("qNames").textContent = BN[v][0]; $("qNames").title = BN[v][1];
+      $("boreNamesSelect").value = v;
       if (groups.bores) buildBores();
     };
     S.setBoreNames = setBoreNames;
+    $("boreNamesSelect").onchange = () => { setBoreNames($("boreNamesSelect").value); if (S.boreNames === "name" && !S.labels) { $("chkLabels").checked = true; $("chkLabels").dispatchEvent(new Event("change")); } };
     $("qNames").onclick = () => {
       setBoreNames({ name: "dot", dot: "none", none: "name" }[S.boreNames]);
       flashHint({ name: "🏷 柱の名前を出しました", dot: "● 名前をかくして、●の旗だけにしました", none: "🚫 柱の名前も●の旗も、かくしました（柱はそのまま）" }[S.boreNames]);
