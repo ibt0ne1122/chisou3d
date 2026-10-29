@@ -37,7 +37,7 @@
       setTimeout(run, 0); // 1ファイル版：設定がすでに入っている（準備が終わってから始める）
     } else {
       const sc = document.createElement("script");
-      sc.src = entry.file + "?v=20261029104246";
+      sc.src = entry.file + "?v=20261029111304";
       // 先生が配った写真メモ（sites/notes/<id>.js）：あればいっしょに読む。なくてもそのまま始める
       sc.onload = custom ? run : () => {
         const ns = document.createElement("script");
@@ -482,6 +482,8 @@
   /** 縦の壁（側面・断面）をつくる。samples: [{x,z,tops,bots}] */
   function wallMesh(samples) {
     const L = S.site.layers.length, ve = S.ve, from = 0;
+    // 模型を切ったときの「切り口の色を消す」（予想して色をぬる用）：切り口とまわりのかべを白く、境の線も出さない
+    const blank = !!(S.cutBlank && S.mode === "cut" && S.section);
     const terr = S.relief === "terrace" && S.peel === 0;
     const pos = [], col = [], lines = [], pat = [], puv = [], faceLayer = [];
     const c = new THREE.Color();
@@ -499,8 +501,8 @@
           ta = Math.min(ta, A); ba = Math.min(ba, A); tb = Math.min(tb, B); bb = Math.min(bb, B);
         }
         if (ta - ba < 0.01 && tb - bb < 0.01) continue;
-        c.set(strataColor(li));
-        const lp = layerPatOf(li), pn = C.Pattern.num(lp), pw = lp && lp.weak ? 1 : 0;
+        c.set(blank ? "#f6f3ec" : strataColor(li));
+        const lp = blank ? null : layerPatOf(li), pn = C.Pattern.num(lp), pw = lp && lp.weak ? 1 : 0;
         const v = [[a.x, ta, a.z], [b.x, tb, b.z], [b.x, bb, b.z], [a.x, ba, a.z]], du = [d0, d1, d1, d0];
         for (const t of [0, 1, 2, 0, 2, 3]) {
           pos.push(v[t][0], v[t][1] * ve, v[t][2]);
@@ -508,7 +510,7 @@
           pat.push(pn, pw); puv.push(du[t], v[t][1] * ve);
         }
         faceLayer.push(li, li);
-        if (!S.hideStrata) lines.push(a.x, ba * ve, a.z, b.x, bb * ve, b.z);
+        if (!S.hideStrata && !blank) lines.push(a.x, ba * ve, a.z, b.x, bb * ve, b.z);
       }
       let ta = sa < L ? a.tops[sa] : a.bots[L - 1], tb = sb < L ? b.tops[sb] : b.bots[L - 1];
       if (terr) { ta = Math.min(ta, terraceOf(a.g)); tb = Math.min(tb, terraceOf(b.g)); }
@@ -521,7 +523,7 @@
     g.setAttribute("puv", new THREE.Float32BufferAttribute(puv, 2));
     g.computeVertexNormals();
     const mesh = new THREE.Mesh(g, clipMat(C.Pattern.material3d(new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }), Math.max(6, S.site.half * 0.011))));
-    mesh.userData.pick = { type: "strata" }; // 層をタップすると、何の土かの説明
+    if (!blank) mesh.userData.pick = { type: "strata" }; // 層をタップすると、何の土かの説明（色を消しているときは ひみつ）
     mesh.userData.faceLayer = faceLayer;
     const lg = new THREE.BufferGeometry();
     lg.setAttribute("position", new THREE.Float32BufferAttribute(lines, 3));
@@ -718,18 +720,25 @@
   // ---------- 先生の仲間分け（資料の土の名前 → 先生が決めた仲間） ----------
   //  g：[{n:名前, c:色, k:[ふくまれる言葉], f:先に見る, d:説明}]、m：{資料の名前: 仲間の番号}（1つずつ決めたもの）
   const DEFAULT_GROUPS = {
+    v: 2,
     g: [
-      { n: "盛り土", c: "#bdb3a3", k: ["盛土", "埋土", "表土", "客土", "舗装", "アスファルト", "コンクリート"], f: 1, d: "家や道路をつくるときに、人が盛った土" },
-      { n: "火山灰の仲間", c: "#b5523b", k: ["ローム", "火山灰", "軽石", "スコリア", "凝灰", "浮石", "黒ボク", "黒ぼく"], f: 1, d: "火山からふき出されて、降り積もった物" },
-      { n: "れき", c: "#c8955a", k: ["礫", "れき", "レキ", "玉石", "砂利"], d: "つぶが2mm以上" },
+      { n: "火山灰", c: "#b5523b", k: ["ローム", "火山灰", "軽石", "スコリア", "凝灰", "浮石", "黒ボク", "黒ぼく"], f: 1, d: "火山からふき出されて、降り積もった物（関東ローム層など）" },
+      { n: "泥岩", c: "#5f6f80", k: ["泥岩", "土丹", "固結"], d: "どろが長い年月でおし固められてできた岩" },
+      { n: "シルト", c: "#8f9fa6", k: ["シルト", "粘土", "粘性土", "泥", "どろ", "腐植", "有機質", "泥炭"], d: "どろの仲間。砂より小さいつぶ（ねん土もここにまとめています）" },
       { n: "砂", c: "#e6cf7e", k: ["砂"], d: "つぶが0.06〜2mm" },
-      { n: "シルト", c: "#a8b59a", k: ["シルト"], d: "砂より小さく、ねん土より大きいつぶ（0.005〜0.06mm）" },
-      { n: "ねん土（どろ）", c: "#7d8f99", k: ["粘土", "粘性土", "泥", "どろ", "腐植", "有機質", "泥炭"], d: "とても小さいつぶ（0.005mm以下）" },
-      { n: "かたい岩", c: "#5f6f80", k: ["泥岩", "土丹", "固結", "岩"], d: "どろなどが長い年月でかたまった岩" },
+      { n: "れき", c: "#c8955a", k: ["礫", "れき", "レキ", "玉石", "砂利"], d: "つぶが2mm以上" },
+      { n: "盛り土", c: "#bdb3a3", k: ["盛土", "埋土", "表土", "客土", "舗装", "アスファルト", "コンクリート"], f: 1, d: "家や道路をつくるときに、人が盛った土" },
     ],
     m: {},
   };
-  const groupsCfg = () => S.groupsShared || store.get("chisou3d:groups", null) || DEFAULT_GROUPS;
+  // 前のはじめの仲間分け（名前を変えていないもの）は、新しいはじめの仲間分けにおきかえる
+  const OLD_DEFAULT_NAMES = "盛り土,火山灰の仲間,れき,砂,シルト,ねん土（どろ）,かたい岩";
+  function storedGroups() {
+    const g = store.get("chisou3d:groups", null);
+    if (g && !g.v && g.g && g.g.map((x) => x.n).join(",") === OLD_DEFAULT_NAMES && !Object.keys(g.m || {}).length) return null;
+    return g;
+  }
+  const groupsCfg = () => S.groupsShared || storedGroups() || DEFAULT_GROUPS;
   /** 資料の土の名前 → 仲間の番号（-1 は どれでもない） */
   function groupIdx(soil, cfg) {
     cfg = cfg || groupsCfg();
@@ -1950,6 +1959,61 @@
     return new Blob([...chunks, ...central, new Uint8Array(e.buffer)], { type: "model/3mf" });
   }
 
+  // ---------- 模型の切り口を印刷する ----------
+  /** 切り口を正面から大きく写した画像（名札などは消す）。印刷用 */
+  function captureCutImage() {
+    const sec = S.section;
+    if (!sec || !sec.straight) { renderer.render(scene, camera); return renderer.domElement.toDataURL("image/png"); }
+    const sgn = S.sectionFlip ? -1 : 1;
+    const nx = sec.uz * sgn, nz = -sec.ux * sgn;
+    const smp = sec.samples, mid = smp[Math.floor(smp.length / 2)];
+    let gMax = -Infinity; for (const q of smp) gMax = Math.max(gMax, q.g);
+    const yTop = gMax * S.ve, yBot = S.model.base * S.ve, cy = (yTop + yBot) / 2;
+    // 画像の形は、切り口の形に合わせる（上下に少しだけよゆう）
+    const W = 2400, H = Math.round(Math.min(1300, Math.max(420, (W * ((yTop - yBot) * 1.3)) / (sec.length * 1.06))));
+    const half = Math.tan(((camera.fov / 2) * Math.PI) / 180);
+    const dist = Math.max((sec.length / 2) * 1.06 / (half * (W / H)), ((yTop - yBot) / 2) * 1.25 / half);
+    // いまの見え方を覚えておく
+    const keep = { pos: camera.position.clone(), q: camera.quaternion.clone(), aspect: camera.aspect, size: renderer.getSize(new THREE.Vector2()), pr: renderer.getPixelRatio() };
+    const hidden = [];
+    scene.traverse((o) => { if ((o.isSprite || o.userData.isLabel) && o.visible) { o.visible = false; hidden.push(o); } });
+    camera.clearViewOffset();
+    camera.aspect = W / H; camera.updateProjectionMatrix();
+    camera.position.set(mid.x - nx * dist, cy, mid.z - nz * dist);
+    camera.lookAt(mid.x, cy, mid.z);
+    renderer.setPixelRatio(1); renderer.setSize(W, H, false);
+    const bg = scene.background; scene.background = new THREE.Color(0xffffff);
+    renderer.render(scene, camera);
+    const img = renderer.domElement.toDataURL("image/png");
+    // もとにもどす
+    scene.background = bg;
+    hidden.forEach((o) => (o.visible = true));
+    renderer.setPixelRatio(keep.pr); renderer.setSize(keep.size.x, keep.size.y);
+    camera.position.copy(keep.pos); camera.quaternion.copy(keep.q); camera.aspect = keep.aspect; camera.updateProjectionMatrix();
+    updateViewOffset();
+    controls.update();
+    renderer.render(scene, camera);
+    return img;
+  }
+  function printCut() {
+    const w = window.open("", "_blank"); // iPadのSafari向けに、先に窓を開ける
+    const img = captureCutImage();
+    const blank = !!S.cutBlank;
+    const legend = blank ? "" : '<div class="lg">' + S.visLayers.map((i) => { const l = S.site.layers[i]; return '<span><i style="background:' + l.color + '"></i>' + esc(l.short || l.name) + "</span>"; }).join("") + "</div>";
+    const html = '<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>模型の切り口</title><style>' +
+      '@page{size:A4 landscape;margin:10mm}body{font-family:"BIZ UDPGothic","Hiragino Kaku Gothic ProN",sans-serif;margin:0;color:#1f2a33}' +
+      "h1{font-size:22px;margin:0 0 4px}.sub{font-size:14px;margin:0 0 6px}.row{display:flex;gap:24px;font-size:15px;margin:4px 0 8px}.row span{border-bottom:1px solid #999;min-width:200px;display:inline-block}" +
+      "img{width:100%;max-height:120mm;object-fit:contain;border:1px solid #ccc;border-radius:6px}.lg{display:flex;flex-wrap:wrap;gap:10px;font-size:13px;margin:6px 0}.lg i{display:inline-block;width:14px;height:14px;border:1px solid #555;margin-right:3px;vertical-align:-2px}" +
+      ".memo{margin-top:8px;font-size:15px}.memo div{border-bottom:1px solid #bbb;height:26px}@media print{button{display:none}}</style></head><body>" +
+      "<h1>" + (blank ? "模型の切り口：地層を予想して色をぬろう" : "模型の切り口（地層のようす）") + "</h1>" +
+      '<p class="sub">' + esc(S.site.title) + "　　" + (blank ? "※白い切り口に、地層の重なりを予想してかきこもう。柱は本物のボーリング資料です。" : "※ボーリング資料からの推定です。") + "　高さの強調：×" + S.ve + "</p>" +
+      '<div class="row">月　日（　）<span></span>名前・班：<span style="min-width:320px"></span></div>' +
+      '<img src="' + img + '" alt="模型の切り口">' + legend +
+      '<div class="memo">予想したわけ・気づいたこと<div></div><div></div><div></div></div>' +
+      '<button onclick="print()" style="margin-top:10px;font-size:16px;padding:6px 16px">🖨 印刷する</button></body></html>';
+    if (w) { w.document.write(html); w.document.close(); } else download("模型の切り口-" + stamp() + ".html", html, "text/html");
+  }
+
   // ---------- 断面図の予想ワークシート（印刷用） ----------
   function printWorksheet() {
     if (!secView || !secView.data || $("sectionSheet").classList.contains("hidden")) {
@@ -2542,6 +2606,7 @@
   }
   function clearSection() {
     $("cutBar").classList.add("hidden");
+    if (S.cutBlank) setTimeout(buildWalls, 0); // 切り口の色を消していたら、まわりのかべの色をもどす
     if (S.preSectionView) {
       // 断面を作る前に見ていた位置へ、なめらかにもどす
       const v = S.preSectionView, p0 = camera.position.clone(), t0 = controls.target.clone(), t1 = performance.now();
@@ -3486,7 +3551,7 @@
     $("grpReset").onclick = () => { if (confirm("はじめの仲間分けにもどしますか？（1つずつ決めた所も消えます）")) { cfg = JSON.parse(JSON.stringify(DEFAULT_GROUPS)); draw(); } };
     $("grpSave").onclick = () => {
       readList();
-      store.set("chisou3d:groups", cfg);
+      cfg.v = 2; store.set("chisou3d:groups", cfg);
       S.groupsShared = null;
       $("groupDialog").close();
       if (S.colorBy !== "custom") $("colorBySelect").value = "custom";
@@ -4102,6 +4167,7 @@
       S.mode = "section";
       document.querySelectorAll("#modebar button[data-mode]").forEach((b) => b.classList.toggle("active", b.dataset.mode === "section"));
       $("cutBar").classList.add("hidden");
+      if (S.cutBlank) { buildWalls(); buildSectionRibbon(); }
       S.sectionPts = S.section.pts.slice();
       openSectionSheet();
       setHint("");
@@ -4109,6 +4175,10 @@
     const setCutOpt = (k, id) => { $(id).checked = S[k]; $(id).onchange = () => { S[k] = $(id).checked; store.set("chisou3d:" + k, S[k]); buildSectionRibbon(); }; };
     setCutOpt("cutNoData", "cutNoData");
     setCutOpt("cutReal", "cutReal");
+    S.cutBlank = store.get("chisou3d:cutBlank", false);
+    $("cutBlank").checked = S.cutBlank;
+    $("cutBlank").onchange = () => { S.cutBlank = $("cutBlank").checked; store.set("chisou3d:cutBlank", S.cutBlank); buildWalls(); buildSectionRibbon(); };
+    $("cutPrint").onclick = printCut;
     $("cutRedo").onclick = () => { clearSection(); S.sectionPts = []; updateMarkers(); $("cutGuideBar").classList.remove("hidden"); syncCutGuideUI(); buildCutGuide(); setHint(modeHint()); };
     // 切る線（赤いガイド）の向き・位置・切る
     $("cutAng").oninput = () => { S.cutGuide.ang = (+$("cutAng").value * Math.PI) / 180; syncCutGuideUI(); buildCutGuide(); };
