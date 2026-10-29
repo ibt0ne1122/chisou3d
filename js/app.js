@@ -37,7 +37,7 @@
       setTimeout(run, 0); // 1ファイル版：設定がすでに入っている（準備が終わってから始める）
     } else {
       const sc = document.createElement("script");
-      sc.src = entry.file + "?v=20261018115543";
+      sc.src = entry.file + "?v=20261029094121";
       sc.onload = run;
       sc.onerror = () => showError("場所の設定ファイル（" + entry.file + "）を読み込めませんでした。ZIPの場合は「すべて展開」してから開いてください。");
       document.body.appendChild(sc);
@@ -709,13 +709,42 @@
     applyVisibility();
   }
 
-  /** ボーリングの1区間の色：地層の種類で／つぶの大きさで（先生・子どもが切りかえ） */
+  // ---------- 先生の仲間分け（資料の土の名前 → 先生が決めた仲間） ----------
+  //  g：[{n:名前, c:色, k:[ふくまれる言葉], f:先に見る, d:説明}]、m：{資料の名前: 仲間の番号}（1つずつ決めたもの）
+  const DEFAULT_GROUPS = {
+    g: [
+      { n: "盛り土", c: "#bdb3a3", k: ["盛土", "埋土", "表土", "客土", "舗装", "アスファルト", "コンクリート"], f: 1, d: "家や道路をつくるときに、人が盛った土" },
+      { n: "火山灰の仲間", c: "#b5523b", k: ["ローム", "火山灰", "軽石", "スコリア", "凝灰", "浮石", "黒ボク", "黒ぼく"], f: 1, d: "火山からふき出されて、降り積もった物" },
+      { n: "れき", c: "#c8955a", k: ["礫", "れき", "レキ", "玉石", "砂利"], d: "つぶが2mm以上" },
+      { n: "砂", c: "#e6cf7e", k: ["砂"], d: "つぶが0.06〜2mm" },
+      { n: "シルト", c: "#a8b59a", k: ["シルト"], d: "砂より小さく、ねん土より大きいつぶ（0.005〜0.06mm）" },
+      { n: "ねん土（どろ）", c: "#7d8f99", k: ["粘土", "粘性土", "泥", "どろ", "腐植", "有機質", "泥炭"], d: "とても小さいつぶ（0.005mm以下）" },
+      { n: "かたい岩", c: "#5f6f80", k: ["泥岩", "土丹", "固結", "岩"], d: "どろなどが長い年月でかたまった岩" },
+    ],
+    m: {},
+  };
+  const groupsCfg = () => S.groupsShared || store.get("chisou3d:groups", null) || DEFAULT_GROUPS;
+  /** 資料の土の名前 → 仲間の番号（-1 は どれでもない） */
+  function groupIdx(soil, cfg) {
+    cfg = cfg || groupsCfg();
+    const s0 = String(soil || "");
+    if (cfg.m && cfg.m[s0] != null && cfg.g[cfg.m[s0]]) return cfg.m[s0];
+    for (let i = 0; i < cfg.g.length; i++) if (cfg.g[i].f && cfg.g[i].k.some((k) => k && s0.includes(k))) return i;
+    let best = -1, bi = -1, bl = 0;
+    cfg.g.forEach((g, i) => { if (g.f) return; for (const k of g.k) { if (!k) continue; const j = s0.lastIndexOf(k); if (j >= 0 && (j + k.length > bi + bl || (j + k.length === bi + bl && k.length > bl))) { best = i; bi = j; bl = k.length; } } });
+    return best;
+  }
+  const OTHER_GROUP = { n: "その他", c: "#cccccc", d: "" };
+  const groupOf = (sg) => { const cfg = groupsCfg(), i = groupIdx(sg.soil, cfg); return i >= 0 ? cfg.g[i] : OTHER_GROUP; };
+  /** ボーリングの1区間の色：地層の種類で／つぶの大きさで／先生の仲間分けで（先生・子どもが切りかえ） */
   function segColor(sg) {
+    if (S.colorBy === "custom") return groupOf(sg).c;
     if (S.colorBy === "grain") return C.GRAINS[C.BoringXML.grainOf(sg.soil, sg.layer)].color;
     const l = sg.layer && S.site.layers.find((x) => x.id === sg.layer);
     return l ? l.color : "#999999";
   }
   function segName(sg) {
+    if (S.colorBy === "custom") return groupOf(sg).n;
     if (S.colorBy === "grain") return C.GRAINS[C.BoringXML.grainOf(sg.soil, sg.layer)].name;
     const l = sg.layer && S.site.layers.find((x) => x.id === sg.layer);
     return l ? l.short || l.name : sg.soil;
@@ -2746,7 +2775,8 @@
       S.visLayers.includes(i) ? '<span><i style="background:' + l.color + '"></i>' + originTag(l) + esc(l.short || l.name) + "</span>" : "").join("");
     const grainHtml = ["gravel", "sand", "mud", "ash", "fill"].map((g) => '<span title="' + esc(C.GRAINS[g].desc) + '"><i style="background:' + C.GRAINS[g].color + '"></i>' + C.GRAINS[g].name + "</span>").join("");
     const patHtml = S.pattern ? "　<b>柄（まじっている物）：</b>" + ["dots", "circ", "dash", "vee"].map((id) => "<span>" + patSwatch("#dfe3e0", { id }).replace('width="22" height="22"', 'width="18" height="18"') + esc(C.Pattern.NAMES[id]) + "</span>").join("") : "";
-    $("secLegend").innerHTML = (S.colorBy === "grain" ? "<b>柱の色（つぶ）：</b>" + grainHtml + "　<b>模型の地層：</b>" : "<b>地層の色：</b>") + layersHtml + patHtml +
+    const custHtml = S.colorBy === "custom" ? groupsCfg().g.map((g) => '<span title="' + esc(g.d || "") + '"><i style="background:' + g.c + '"></i>' + esc(g.n) + "</span>").join("") : "";
+    $("secLegend").innerHTML = (S.colorBy === "grain" ? "<b>柱の色（つぶ）：</b>" + grainHtml + "　<b>模型の地層：</b>" : S.colorBy === "custom" ? "<b>柱の色（仲間）：</b>" + custHtml + "　<b>模型の地層：</b>" : "<b>地層の色：</b>") + layersHtml + patHtml +
       '<span class="hint">💧水のはたらき　🌋火山のはたらき　👷人がつくった</span>';
   }
   /** 断面にのっているボーリングを、1本ずつ「見せる／かくす」 */
@@ -2874,7 +2904,7 @@
       svg += '<text x="' + (colX - 6) + '" y="' + (y2 + 4) + '" font-size="11" text-anchor="end" fill="#333">' + s.to.toFixed(1) + "</text>";
       const ly = Math.max((y1 + y2) / 2 + 4, lastLabelY + 13);
       lastLabelY = ly;
-      svg += '<text x="' + (colX + colW + 8) + '" y="' + ly + '" font-size="12" fill="#1f2a33">' + esc(s.soil || (L ? L.short : "")) + (s.n != null && s.n !== "" ? "（N=" + esc(s.n) + "）" : "") + (s.relabeled ? "＊" : "") + "</text>";
+      svg += '<text x="' + (colX + colW + 8) + '" y="' + ly + '" font-size="12" fill="#1f2a33">' + (s.soil && S.colorBy !== "layer" && segName(s) !== s.soil ? '<tspan font-weight="bold">' + esc(segName(s)) + '</tspan><tspan font-size="10" fill="#5a6873">（' + esc(s.soil) + "）</tspan>" : esc(s.soil || (L ? L.short : ""))) + (s.n != null && s.n !== "" ? "（N=" + esc(s.n) + "）" : "") + (s.relabeled ? "＊" : "") + "</text>";
     }
     svg += '<text x="' + (colX - 6) + '" y="' + (y0 + 4) + '" font-size="11" text-anchor="end" fill="#333">0</text>';
     svg += "</svg>";
@@ -2965,7 +2995,7 @@
       const y1 = top + sg.from * pxm, y2 = top + sg.to * pxm;
       g.fillStyle = segColor(sg); g.fillRect(colX, y1, colW, Math.max(2, y2 - y1));
       g.strokeStyle = "#333"; g.lineWidth = 1.5; g.strokeRect(colX, y1, colW, Math.max(2, y2 - y1));
-      const gr = C.GRAINS[C.BoringXML.grainOf(sg.soil, sg.layer)];
+      const gr = S.colorBy === "custom" ? { name: groupOf(sg).n } : C.GRAINS[C.BoringXML.grainOf(sg.soil, sg.layer)];
       const ly = Math.max((y1 + y2) / 2 + 8, lastY + 26);
       lastY = ly;
       g.fillStyle = "#1f2a33"; g.font = "22px " + font;
@@ -3282,8 +3312,10 @@
       '<li><span class="sw">' + patSwatch("#dfe3e0", { id: "dots", weak: true }) + "</span><div>柄がまばら＝少しまじる（〇〇混り）<small>こい柄は「〇〇質」（かなりまじる）</small></div></li>";
     // つぶの大きさの凡例
     const gl = $("grainLegend");
-    gl.innerHTML = ["gravel", "sand", "mud", "ash", "fill"].map((g) => '<li><span class="sw" style="background:' + C.GRAINS[g].color + '"></span><div>' + C.GRAINS[g].name + "<small>" + esc(C.GRAINS[g].desc) + "</small></div></li>").join("");
-    gl.classList.toggle("hidden", S.colorBy !== "grain");
+    gl.innerHTML = S.colorBy === "custom"
+      ? groupsCfg().g.map((g) => '<li><span class="sw" style="background:' + g.c + '"></span><div>' + esc(g.n) + "<small>" + esc(g.d || "") + "</small></div></li>").join("")
+      : ["gravel", "sand", "mud", "ash", "fill"].map((g) => '<li><span class="sw" style="background:' + C.GRAINS[g].color + '"></span><div>' + C.GRAINS[g].name + "<small>" + esc(C.GRAINS[g].desc) + "</small></div></li>").join("");
+    gl.classList.toggle("hidden", S.colorBy === "layer");
     $("peelRange").max = Math.max(0, S.visLayers.length - 1);
     $("peelRange").value = S.peel;
     updatePeelLabel();
@@ -3381,7 +3413,79 @@
     }
   }
 
+  /** 仲間分けを決める画面 */
+  function openGroupDialog() {
+    let cfg = JSON.parse(JSON.stringify(groupsCfg()));
+    cfg.m = cfg.m || {};
+    // この場所の資料の名前（多い順）
+    const cnt = {};
+    for (const b of S.allBores || S.bores) for (const sg of b.segs) if (sg.soil) cnt[sg.soil] = (cnt[sg.soil] || 0) + 1;
+    const soils = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a] || a.localeCompare(b, "ja"));
+    const draw = () => {
+      $("grpList").innerHTML = cfg.g.map((g, i) => '<div class="grprow" data-i="' + i + '">' +
+        '<input type="color" data-f="c" value="' + g.c + '"><input type="text" data-f="n" value="' + esc(g.n) + '" placeholder="仲間の名前">' +
+        '<input type="text" data-f="k" value="' + esc(g.k.join("、")) + '" placeholder="ふくまれる言葉（、で区切る）">' +
+        '<label class="toggle"><input type="checkbox" data-f="f"' + (g.f ? " checked" : "") + '>先に見る</label>' +
+        '<input type="text" data-f="d" value="' + esc(g.d || "") + '" placeholder="説明（凡例に出ます）">' +
+        '<button type="button" data-del="' + i + '" title="この仲間を消す">✕</button></div>').join("");
+      const opts = (sel) => '<option value="">自動</option>' + cfg.g.map((g, i) => '<option value="' + i + '"' + (sel === i ? " selected" : "") + ">" + esc(g.n) + "</option>").join("");
+      $("grpSoils").innerHTML = soils.length ? '<table class="grptbl"><tr><th>資料の土の名前</th><th>数</th><th>仲間</th></tr>' + soils.map((so) => {
+        const auto = groupIdx(so, { g: cfg.g, m: {} }), fixed = cfg.m[so];
+        return '<tr><td>' + esc(so) + "</td><td>" + cnt[so] + '</td><td><select data-soil="' + esc(so) + '">' + opts(fixed != null ? fixed : null).replace('<option value="">自動</option>', '<option value="">自動（' + esc(auto >= 0 ? cfg.g[auto].n : "その他") + "）</option>") + "</select></td></tr>";
+      }).join("") + "</table>" : '<p class="hint">この場所には、まだ資料がありません。</p>';
+    };
+    const readList = () => {
+      $("grpList").querySelectorAll(".grprow").forEach((row) => {
+        const g = cfg.g[+row.dataset.i];
+        g.c = row.querySelector('[data-f="c"]').value;
+        g.n = row.querySelector('[data-f="n"]').value.trim() || "（名前なし）";
+        g.k = row.querySelector('[data-f="k"]').value.split(/[、,，\s]+/).map((x) => x.trim()).filter(Boolean);
+        g.f = row.querySelector('[data-f="f"]').checked ? 1 : 0;
+        g.d = row.querySelector('[data-f="d"]').value.trim();
+      });
+    };
+    $("grpList").onchange = () => { readList(); draw(); };
+    $("grpList").onclick = (e) => {
+      const d = e.target.closest("[data-del]"); if (!d) return;
+      readList();
+      const i = +d.dataset.del;
+      cfg.g.splice(i, 1);
+      // 1つずつ決めた所の番号をずらす
+      for (const k in cfg.m) { if (cfg.m[k] === i) delete cfg.m[k]; else if (cfg.m[k] > i) cfg.m[k]--; }
+      draw();
+    };
+    $("grpSoils").onchange = (e) => { const sel = e.target.closest("[data-soil]"); if (!sel) return; if (sel.value === "") delete cfg.m[sel.dataset.soil]; else cfg.m[sel.dataset.soil] = +sel.value; };
+    $("grpAdd").onclick = () => { readList(); cfg.g.push({ n: "新しい仲間", c: "#88aa66", k: [], d: "" }); draw(); };
+    $("grpReset").onclick = () => { if (confirm("はじめの仲間分けにもどしますか？（1つずつ決めた所も消えます）")) { cfg = JSON.parse(JSON.stringify(DEFAULT_GROUPS)); draw(); } };
+    $("grpSave").onclick = () => {
+      readList();
+      store.set("chisou3d:groups", cfg);
+      S.groupsShared = null;
+      $("groupDialog").close();
+      if (S.colorBy !== "custom") $("colorBySelect").value = "custom";
+      $("colorBySelect").dispatchEvent(new Event("change"));
+      flashHint("✏️ 仲間分けを決めました。柱の色と名前が、この仲間で出ます");
+    };
+    draw();
+    $("groupDialog").showModal();
+  }
+  /** 先生どうしで共有するリンク（子ども用のしばりはつけない） */
+  async function openTeacherShare() {
+    const only = S.onlySel ? [...S.onlySel] : [];
+    const st = captureState({ strokes: true, tonly: only });
+    const link = baseUrl() + "#k=" + (await packState(st));
+    $("tshareOut").value = link;
+    drawQr($("tshareQr"), link);
+    $("tshareInfo").innerHTML = "えらんだ柱：<b>" + only.length + "本</b>" + (only.length ? "" : "（☰パネルの「📍 表示する柱をえらぶ」で、えらんでから開くと入ります）") +
+      "　柱の色：<b>" + ({ layer: "地層の種類", grain: "つぶの大きさ", custom: "先生の仲間分け" }[S.colorBy] || "") + "</b>" +
+      (location.protocol === "file:" ? '<br><span class="warn">⚠ パソコンの中のファイルを開いているので、ほかの人は開けません。公開しているアドレスで開いてから作ってください。</span>' : "");
+    $("tshareDialog").showModal();
+  }
   function initUI() {
+    $("btnGroups").onclick = openGroupDialog;
+    $("btnTShare").onclick = openTeacherShare;
+    $("tshareCopy").onclick = async () => { try { await navigator.clipboard.writeText($("tshareOut").value); } catch (e) { $("tshareOut").select(); document.execCommand("copy"); } flashHint("📋 先生用のリンクをコピーしました"); };
+    $("tshareQrSave").onclick = () => download("QRコード-先生用-" + S.site.title + ".png", $("tshareQr").toDataURL("image/png"));
     S.colorBy = store.get("chisou3d:colorBy", "layer");
     $("colorBySelect").value = S.colorBy;
     $("colorBySelect").onchange = () => {
@@ -4148,6 +4252,8 @@
     if (S.alignBores) st.al = 1;
     if (!S.pattern) st.nopat = 1;
     const cb = o.cb || S.colorBy; if (cb && cb !== "layer") st.cb = cb; // 柱の色（ざっくり＝つぶの大きさの仲間）
+    if (cb === "custom") st.grp = groupsCfg(); // 先生の仲間分けも、いっしょに送る
+    if (o.tonly && o.tonly.length) { st.tonly = o.tonly; if (S.onlyOn) st.ton = 1; } // 先生どうし：えらんだ柱（受け取った側で足し合わせる）
     if (S.gapHide) { st.gh = S.gapHide; if (S.gapModel) st.gm = 1; }
     if (S.ve !== (S.site.defaultExaggeration || 3)) st.vz = S.ve;
     if (S.opacity < 1) st.op = S.opacity;
@@ -4196,7 +4302,19 @@
     setChk("chkLift", st.lift);
     if (!!st.al !== S.alignBores) S.setAlign(!!st.al);
     if (!st.nopat !== S.pattern) S.setPattern(!st.nopat);
-    if ((st.cb || "layer") !== S.colorBy) { $("colorBySelect").value = st.cb || "layer"; $("colorBySelect").dispatchEvent(new Event("change")); }
+    if (st.grp && st.grp.g) S.groupsShared = st.grp; // 送られてきた仲間分け（この画面の間だけ使う）
+    if (st.tonly) {
+      // 先生どうしの共有：えらんだ柱を、もともとえらんでいた柱に足し合わせる
+      const known = new Set((S.allBores || S.bores).map((b) => b.id)), before = S.onlySel ? S.onlySel.size : 0;
+      const sel = new Set([...(S.onlySel || []), ...st.tonly.filter((id) => known.has(id))]);
+      S.onlySel = sel.size ? sel : null;
+      S.onlyOn = !!S.onlySel && (!!st.ton || S.onlyOn);
+      S.showOnly = S.onlyOn ? S.onlySel : null;
+      store.set(key("showOnly"), S.onlySel ? [...S.onlySel] : null); store.set(key("showOnlyOn"), !!S.onlyOn);
+      applyShowOnlyList(); updateOnlyBoresUI();
+      setTimeout(() => flashHint("👥 共有された柱 " + st.tonly.length + " 本を足しました（えらんだ柱：" + before + "本 → " + (S.onlySel ? S.onlySel.size : 0) + "本）"), 1200);
+    }
+    if ((st.cb || "layer") !== S.colorBy || st.grp) { $("colorBySelect").value = st.cb || "layer"; $("colorBySelect").dispatchEvent(new Event("change")); }
     if ((st.gh || 0) !== S.gapHide || !!st.gm !== S.gapModel) S.setGap(st.gh || 0, !!st.gm);
     if (st.marks) { S.boreMarks = Object.assign({}, st.marks); }
     S.hiddenBores = new Set(st.hid || []);

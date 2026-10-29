@@ -603,3 +603,18 @@ a.btnlink.primary { background: var(--accent); color: #fff; border-color: var(--
 #shareHist .shhist span { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 #shareHist .shhist small { color: var(--sub); font-size: 12px; }
 #shareHist .shhist button { padding: 4px 8px; font-size: 13px; }
+/* 仲間分けを決める画面 */
+#groupDialog .grprow { display: grid; grid-template-columns: 40px 1fr 2fr auto 32px; grid-template-areas: "c n k f x" ". d d d d"; gap: 4px 6px; align-items: center; border-bottom: 1px solid var(--line); padding: 6px 0; }
+#groupDialog .grprow [data-f="c"] { grid-area: c; width: 38px; height: 32px; padding: 0; border: 1px solid var(--line); border-radius: 6px; }
+#groupDialog .grprow [data-f="n"] { grid-area: n; font-weight: bold; }
+#groupDialog .grprow [data-f="k"] { grid-area: k; }
+#groupDialog .grprow label { grid-area: f; font-size: 12.5px; white-space: nowrap; }
+#groupDialog .grprow [data-f="d"] { grid-area: d; font-size: 13px; }
+#groupDialog .grprow [data-del] { grid-area: x; padding: 4px; }
+#groupDialog .grptbl { width: 100%; border-collapse: collapse; font-size: 14px; }
+#groupDialog .grptbl th, #groupDialog .grptbl td { border-bottom: 1px solid var(--line); padding: 4px 6px; text-align: left; }
+#groupDialog .grptbl td:nth-child(2) { color: var(--sub); text-align: right; width: 3em; }
+#groupDialog .grptbl select { width: 100%; }
+#groupDialog #grpSoils { max-height: 40vh; overflow-y: auto; }
+@media (max-width: 600px) { #groupDialog .grprow { grid-template-columns: 40px 1fr 32px; grid-template-areas: "c n x" "k k k" "f f f" "d d d"; } }
+#tshareDialog .qrwrap canvas { width: 150px; height: 150px; }
