@@ -37,7 +37,7 @@
       setTimeout(run, 0); // 1ファイル版：設定がすでに入っている（準備が終わってから始める）
     } else {
       const sc = document.createElement("script");
-      sc.src = entry.file + "?v=20261029111304";
+      sc.src = entry.file + "?v=20261029120429";
       // 先生が配った写真メモ（sites/notes/<id>.js）：あればいっしょに読む。なくてもそのまま始める
       sc.onload = custom ? run : () => {
         const ns = document.createElement("script");
@@ -730,6 +730,29 @@
       { n: "盛り土", c: "#bdb3a3", k: ["盛土", "埋土", "表土", "客土", "舗装", "アスファルト", "コンクリート"], f: 1, d: "家や道路をつくるときに、人が盛った土" },
     ],
     m: {},
+  };
+  // 見本の仲間分け（「✏️ 仲間分けを決める」のボタンで選ぶ）
+  const G_ASH = ["ローム", "火山灰", "軽石", "スコリア", "凝灰", "浮石", "黒ボク", "黒ぼく"], G_FILL = ["盛土", "埋土", "表土", "客土", "舗装", "アスファルト", "コンクリート"];
+  const G_GRAVEL = ["礫", "れき", "レキ", "玉石", "砂利"], G_MUDSTONE = ["泥岩", "土丹", "固結"];
+  const GROUP_PRESETS = {
+    textbook: { label: "📘 教科書どおり（れき・砂・どろ・火山灰・泥岩）", v: 2, m: {}, g: [
+      { n: "れき", c: "#c8955a", k: G_GRAVEL, d: "つぶが2mm以上。流れる水に運ばれて、角がとれて丸い" },
+      { n: "砂", c: "#e6cf7e", k: ["砂"], d: "つぶが約0.06〜2mm" },
+      { n: "どろ", c: "#8f9fa6", k: ["シルト", "粘土", "粘性土", "泥", "どろ", "腐植", "有機質", "泥炭"], d: "つぶが約0.06mm以下（資料の「シルト」「粘土」も どろ）" },
+      { n: "火山灰", c: "#b5523b", k: G_ASH, f: 1, d: "火山からふき出された物。つぶが角ばっている（関東ローム層など）" },
+      { n: "泥岩", c: "#5f6f80", k: G_MUDSTONE, d: "どろが長い年月でおし固められてできた岩石" },
+      { n: "盛り土", c: "#bdb3a3", k: G_FILL, f: 1, d: "家や道路をつくるときに、人が盛った土（教科書にはない）" },
+    ] },
+    five: { label: "🖐 5つ（火山灰・泥岩・シルト・砂・れき）", v: 2, m: {}, g: DEFAULT_GROUPS.g },
+    detail: { label: "🔍 くわしく（シルトと粘土を分ける）", v: 2, m: {}, g: [
+      { n: "火山灰", c: "#b5523b", k: G_ASH, f: 1, d: "火山からふき出されて、降り積もった物（関東ローム層など）" },
+      { n: "泥岩", c: "#5f6f80", k: G_MUDSTONE, d: "どろが長い年月でおし固められてできた岩" },
+      { n: "粘土", c: "#7d8a99", k: ["粘土", "粘性土", "泥", "どろ", "腐植", "有機質", "泥炭"], d: "どろの中で、いちばん小さいつぶ（約0.005mm以下）。ぬれるとねばる" },
+      { n: "シルト", c: "#a3b1a8", k: ["シルト"], d: "どろの中で、粘土より少し大きいつぶ（約0.005〜0.06mm）" },
+      { n: "砂", c: "#e6cf7e", k: ["砂"], d: "つぶが約0.06〜2mm" },
+      { n: "れき", c: "#c8955a", k: G_GRAVEL, d: "つぶが2mm以上" },
+      { n: "盛り土", c: "#bdb3a3", k: G_FILL, f: 1, d: "家や道路をつくるときに、人が盛った土" },
+    ] },
   };
   // 前のはじめの仲間分け（名前を変えていないもの）は、新しいはじめの仲間分けにおきかえる
   const OLD_DEFAULT_NAMES = "盛り土,火山灰の仲間,れき,砂,シルト,ねん土（どろ）,かたい岩";
@@ -3549,6 +3572,15 @@
     $("grpSoils").onchange = (e) => { const sel = e.target.closest("[data-soil]"); if (!sel) return; if (sel.value === "") delete cfg.m[sel.dataset.soil]; else cfg.m[sel.dataset.soil] = +sel.value; };
     $("grpAdd").onclick = () => { readList(); cfg.g.push({ n: "新しい仲間", c: "#88aa66", k: [], d: "" }); draw(); };
     $("grpReset").onclick = () => { if (confirm("はじめの仲間分けにもどしますか？（1つずつ決めた所も消えます）")) { cfg = JSON.parse(JSON.stringify(DEFAULT_GROUPS)); draw(); } };
+    $("grpPresets").innerHTML = Object.entries(GROUP_PRESETS).map(([k, p]) => '<button type="button" data-preset="' + k + '">' + esc(p.label) + "</button>").join("");
+    $("grpPresets").onclick = (e) => {
+      const b = e.target.closest("[data-preset]"); if (!b) return;
+      if (Object.keys(cfg.m || {}).length && !confirm("見本の仲間分けにすると、1つずつ決めた所は消えます。よいですか？")) return;
+      const pr = GROUP_PRESETS[b.dataset.preset];
+      cfg = JSON.parse(JSON.stringify({ v: 2, g: pr.g, m: {} }));
+      draw();
+      flashHint(pr.label + " にしました。「決める」を押すと使えます");
+    };
     $("grpSave").onclick = () => {
       readList();
       cfg.v = 2; store.set("chisou3d:groups", cfg);

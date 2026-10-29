@@ -6,7 +6,7 @@
 <title>大地のつくり 3D土地模型</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css?v=20261029111304">
+<link rel="stylesheet" href="css/style.css?v=20261029120429">
 </head>
 <body>
 <div id="viewport"></div>
@@ -394,6 +394,8 @@
   <form method="dialog">
     <h3>✏️ 柱状図の仲間分け（先生が決める）</h3>
     <p class="hint">資料の土の名前はたくさんあるので、子どもに見せる「仲間」にまとめます。柱の色と、柱のとなりの名前が、この仲間の名前になります（資料の名前は（ ）に小さく出ます）。</p>
+    <p><b>見本からえらぶ</b>（えらんでから、下で直せます）</p>
+    <div id="grpPresets" class="btnrow wrap"></div>
     <details open><summary><b>① 仲間（名前・色・ふくまれる言葉）</b></summary>
       <p class="hint">「ふくまれる言葉」は、資料の名前の中にその言葉があると、その仲間になります。いくつかあるときは「、」で区切ります。「シルト質砂」のように2つあるときは、<b>後ろの言葉</b>（＝主な土：砂）で決めます。「先に見る」にチェックした仲間（盛り土・火山灰など）は、名前のどこかにあれば先に決まります。</p>
       <div id="grpList"></div>
@@ -598,20 +600,20 @@
 
 <footer id="attribution">出典：<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">国土地理院（地理院タイル・標高タイル）</a> ／ 目印：<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap</a> ／ 地下の地層はボーリング資料からの推定です（<a href="#" id="attrMore">くわしく</a>）</footer>
 
-<script src="lib/three.min.js?v=20261029111304"></script>
-<script src="lib/OrbitControls.js?v=20261029111304"></script>
-<script src="lib/qrcode.js?v=20261029111304"></script>
+<script src="lib/three.min.js?v=20261029120429"></script>
+<script src="lib/OrbitControls.js?v=20261029120429"></script>
+<script src="lib/qrcode.js?v=20261029120429"></script>
 <script>window.CHISOU = { sites: {}, registerSite: function (s) { this.sites[s.id] = s; } };</script>
-<script src="js/geo.js?v=20261029111304"></script>
-<script src="js/geology.js?v=20261029111304"></script>
-<script src="js/pattern.js?v=20261029111304"></script>
-<script src="sites/sites.js?v=20261029111304"></script>
-<script src="js/section.js?v=20261029111304"></script>
-<script src="js/boringxml.js?v=20261029111304"></script>
-<script src="js/mvt.js?v=20261029111304"></script>
-<script src="js/yato_yokohama.js?v=20261029111304"></script>
-<script src="js/ngic_bookmarklet.js?v=20261029111304"></script>
-<script src="js/help.js?v=20261029111304"></script>
-<script src="js/app.js?v=20261029111304"></script>
+<script src="js/geo.js?v=20261029120429"></script>
+<script src="js/geology.js?v=20261029120429"></script>
+<script src="js/pattern.js?v=20261029120429"></script>
+<script src="sites/sites.js?v=20261029120429"></script>
+<script src="js/section.js?v=20261029120429"></script>
+<script src="js/boringxml.js?v=20261029120429"></script>
+<script src="js/mvt.js?v=20261029120429"></script>
+<script src="js/yato_yokohama.js?v=20261029120429"></script>
+<script src="js/ngic_bookmarklet.js?v=20261029120429"></script>
+<script src="js/help.js?v=20261029120429"></script>
+<script src="js/app.js?v=20261029120429"></script>
 </body>
 </html>

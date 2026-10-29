@@ -618,3 +618,4 @@ a.btnlink.primary { background: var(--accent); color: #fff; border-color: var(--
 #groupDialog #grpSoils { max-height: 40vh; overflow-y: auto; }
 @media (max-width: 600px) { #groupDialog .grprow { grid-template-columns: 40px 1fr 32px; grid-template-areas: "c n x" "k k k" "f f f" "d d d"; } }
 #tshareDialog .qrwrap canvas { width: 150px; height: 150px; }
+#grpPresets { flex-wrap: wrap; } #grpPresets button { flex: 1 1 220px; }
