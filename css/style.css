@@ -619,3 +619,4 @@ a.btnlink.primary { background: var(--accent); color: #fff; border-color: var(--
 @media (max-width: 600px) { #groupDialog .grprow { grid-template-columns: 40px 1fr 32px; grid-template-areas: "c n x" "k k k" "f f f" "d d d"; } }
 #tshareDialog .qrwrap canvas { width: 150px; height: 150px; }
 #grpPresets { flex-wrap: wrap; } #grpPresets button { flex: 1 1 220px; }
+#detail .thickrow { display: block; margin: 6px 0 2px; font-size: 14px; }

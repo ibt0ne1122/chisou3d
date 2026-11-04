@@ -37,7 +37,7 @@
       setTimeout(run, 0); // 1ファイル版：設定がすでに入っている（準備が終わってから始める）
     } else {
       const sc = document.createElement("script");
-      sc.src = entry.file + "?v=20261104070403";
+      sc.src = entry.file + "?v=20261104073610";
       // 先生が配った写真メモ（sites/notes/<id>.js）：あればいっしょに読む。なくてもそのまま始める
       sc.onload = custom ? run : () => {
         const ns = document.createElement("script");
@@ -2978,6 +2978,18 @@
   S.showLayerInfo = showLayerInfo;
 
   // ---------- ボーリング資料の表示 ----------
+  /** 層の厚さの表し方（10cmより うすいときは cm まで） */
+  function fmtThick(t) { return t < 0.095 ? Math.round(t * 100) + "cm" : (Math.round(t * 10) / 10).toFixed(1) + "m"; }
+  /** 厚さをはかるまとまり：地層の種類で見ているときは1区間ずつ、仲間分けのときは となり合う同じ仲間をまとめる */
+  function thickRuns(b) {
+    const out = [];
+    for (const sg of b.segs) {
+      const nm = S.colorBy === "layer" ? null : segName(sg), last = out[out.length - 1];
+      if (nm && last && last.name === nm && Math.abs(last.to - sg.from) < 0.01) { last.to = sg.to; last.segs.push(sg); }
+      else out.push({ name: nm, from: sg.from, to: sg.to, segs: [sg] });
+    }
+    return out;
+  }
   function showBore(id) {
     const b = S.bores.find((x) => x.id === id);
     if (!b) return;
@@ -3001,11 +3013,19 @@
       svg += '<text x="' + (colX - 6) + '" y="' + (y2 + 4) + '" font-size="11" text-anchor="end" fill="#333">' + s.to.toFixed(1) + "</text>";
       const ly = Math.max((y1 + y2) / 2 + 4, lastLabelY + 13);
       lastLabelY = ly;
-      svg += '<text x="' + (colX + colW + 8) + '" y="' + ly + '" font-size="12" fill="#1f2a33">' + (s.soil && S.colorBy !== "layer" && segName(s) !== s.soil ? '<tspan font-weight="bold">' + esc(segName(s)) + '</tspan><tspan font-size="10" fill="#5a6873">（' + esc(s.soil) + "）</tspan>" : esc(s.soil || (L ? L.short : ""))) + (s.n != null && s.n !== "" ? "（N=" + esc(s.n) + "）" : "") + (s.relabeled ? "＊" : "") + "</text>";
+      const thinRun = S.showThick && thickRuns(b).find((r) => r.segs.includes(s) && (r.to - r.from) * pxm < 11 && r.segs[0] === s);
+      svg += '<text x="' + (colX + colW + 8) + '" y="' + ly + '" font-size="12" fill="#1f2a33">' + (s.soil && S.colorBy !== "layer" && segName(s) !== s.soil ? '<tspan font-weight="bold">' + esc(segName(s)) + '</tspan><tspan font-size="10" fill="#5a6873">（' + esc(s.soil) + "）</tspan>" : esc(s.soil || (L ? L.short : ""))) + (s.n != null && s.n !== "" ? "（N=" + esc(s.n) + "）" : "") + (s.relabeled ? "＊" : "") + (thinRun ? '<tspan font-weight="bold" fill="#1f5f73"> 厚さ' + fmtThick(thinRun.to - thinRun.from) + "</tspan>" : "") + "</text>";
     }
     svg += '<text x="' + (colX - 6) + '" y="' + (y0 + 4) + '" font-size="11" text-anchor="end" fill="#333">0</text>';
+    // 層の厚さ（m）：柱の中にかく。仲間分けのときは、となり合う同じ仲間をまとめた厚さ
+    if (S.showThick) for (const r of thickRuns(b)) {
+      const y1 = y0 + r.from * pxm, y2 = y0 + r.to * pxm, hpx = y2 - y1;
+      if (hpx < 11) continue; // うすすぎて字が入らない層は、右の名前のあとに書く
+      svg += '<text x="' + (colX + colW / 2) + '" y="' + ((y1 + y2) / 2 + 4) + '" font-size="11.5" font-weight="bold" text-anchor="middle" fill="#1f2a33" stroke="#fff" stroke-width="3" paint-order="stroke">' + fmtThick(r.to - r.from) + "</text>";
+    }
     svg += "</svg>";
     const elevTxt = isNaN(b.elev) ? "不明" : b.elev.toFixed(1) + "m";
+    const thickRow = '<label class="toggle thickrow"><input type="checkbox" id="dThick"' + (S.showThick ? " checked" : "") + "> 📏 層の厚さ（m）を柱の中に出す</label>";
     const demTxt = isNaN(b.demElev) ? "" : "（地図の標高 " + b.demElev.toFixed(1) + "m）";
     let markHtml;
     const cur = S.boreMarks[id] || "";
@@ -3023,7 +3043,7 @@
           (S.alignBores ? "（今は地面にそろえてかいています）" : "") : "") +
       (b.source ? "<br>出典：" + esc(b.source) : "") +
       (b.url ? '<br><a href="' + esc(b.url) + '" target="_blank" rel="noopener">元の資料を開く ↗</a>' : "") + "</div>";
-    html += svg;
+    html += thickRow + svg;
     if (b.segs.some((s) => s.relabeled)) html += '<p class="hint">＊古い地層より下にあるので、ローム層・沖積層ではなく、まわりの地層（大昔の火山灰などがまじった うすい層）として色をつけています。</p>';
     if (b.image) html += '<a href="' + esc(b.image) + '" target="_blank" rel="noopener"><img class="log-image" src="' + esc(b.image) + '" alt="柱状図の画像"></a>';
     if (!b.sample && b.source) {
@@ -3056,6 +3076,7 @@
       setHint("✂️ 断面のもう1か所（B）をタップ（となりのボーリングをタップすると2本をくらべられます）");
     };
     if ($("dEdit")) $("dEdit").onclick = () => openBoreDialog(b);
+    if ($("dThick")) $("dThick").onchange = () => { S.showThick = $("dThick").checked; store.set("chisou3d:showThick", S.showThick); showBore(id); };
   }
 
   function openDetail(html) {
@@ -3096,7 +3117,7 @@
       const ly = Math.max((y1 + y2) / 2 + 8, lastY + 26);
       lastY = ly;
       g.fillStyle = "#1f2a33"; g.font = "22px " + font;
-      g.fillText(gr.name + "　（" + (sg.soil || "") + "）", colX + colW + 20, ly);
+      g.fillText(gr.name + "　（" + (sg.soil || "") + "）" + (S.showThick ? "　厚さ " + fmtThick(sg.to - sg.from) : ""), colX + colW + 20, ly);
     }
     g.fillStyle = "#1f2a33"; g.font = "bold 24px " + font;
     g.fillText("気づいたこと・考えたこと", 40, 1060);
@@ -3610,6 +3631,7 @@
     $("btnTShare").onclick = openTeacherShare;
     $("tshareCopy").onclick = async () => { try { await navigator.clipboard.writeText($("tshareOut").value); } catch (e) { $("tshareOut").select(); document.execCommand("copy"); } flashHint("📋 先生用のリンクをコピーしました"); };
     $("tshareQrSave").onclick = () => download("QRコード-先生用-" + S.site.title + ".png", $("tshareQr").toDataURL("image/png"));
+    S.showThick = store.get("chisou3d:showThick", true);
     S.colorBy = store.get("chisou3d:colorBy", "layer");
     $("colorBySelect").value = S.colorBy;
     $("colorBySelect").onchange = () => {
@@ -4384,6 +4406,7 @@
     if (!S.pattern) st.nopat = 1;
     const cb = o.cb || S.colorBy; if (cb && cb !== "layer") st.cb = cb; // 柱の色（ざっくり＝つぶの大きさの仲間）
     if (cb === "custom") st.grp = groupsCfg(); // 先生の仲間分けも、いっしょに送る
+    if (!S.showThick) st.nothick = 1; // 層の厚さを出さない（子どもに計算させるとき）
     if (o.tonly && o.tonly.length) { st.tonly = o.tonly; if (S.onlyOn) st.ton = 1; } // 先生どうし：えらんだ柱（受け取った側で足し合わせる）
     if (S.gapHide) { st.gh = S.gapHide; if (S.gapModel) st.gm = 1; }
     if (S.ve !== (S.site.defaultExaggeration || 3)) st.vz = S.ve;
@@ -4433,6 +4456,7 @@
     setChk("chkLift", st.lift);
     if (!!st.al !== S.alignBores) S.setAlign(!!st.al);
     if (!st.nopat !== S.pattern) S.setPattern(!st.nopat);
+    S.showThick = !st.nothick;
     if (st.grp && st.grp.g) S.groupsShared = st.grp; // 送られてきた仲間分け（この画面の間だけ使う）
     if (st.tonly) {
       // 先生どうしの共有：えらんだ柱を、もともとえらんでいた柱に足し合わせる
