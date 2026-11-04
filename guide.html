@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>自分の学校で作る｜3D土地模型 作り方ガイド</title>
+<style>
+  :root { --bg:#eef4f7; --panel:#fff; --ink:#1f2a33; --sub:#5a6873; --accent:#1f7a8c; --line:#d5e1e7; --warn:#9a5b00; --warn-soft:#fff4dc; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:"BIZ UDPGothic","Hiragino Kaku Gothic ProN","Meiryo",sans-serif; background:var(--bg); color:var(--ink); line-height:1.8; font-size:16px; }
+  main { max-width:820px; margin:0 auto; padding:24px 16px 48px; }
+  h1 { font-size:25px; margin:0 0 4px; line-height:1.4; }
+  .lead { color:var(--sub); margin:0 0 18px; }
+  nav.toc { background:var(--panel); border-radius:14px; padding:12px 18px; box-shadow:0 2px 10px rgba(0,0,0,.06); margin-bottom:18px; }
+  nav.toc ol { margin:6px 0 0; padding-left:1.6em; }
+  nav.toc a { color:var(--accent); }
+  section.step { background:var(--panel); border-radius:14px; padding:16px 20px; margin:16px 0; box-shadow:0 2px 10px rgba(0,0,0,.06); scroll-margin-top:12px; }
+  section.step h2 { font-size:20px; margin:0 0 6px; display:flex; gap:10px; align-items:center; line-height:1.4; }
+  .no { flex:0 0 auto; width:34px; height:34px; border-radius:50%; background:var(--accent); color:#fff; display:inline-flex; align-items:center; justify-content:center; font-size:18px; }
+  ol, ul { padding-left:1.4em; } li { margin:4px 0; }
+  .go { display:inline-flex; align-items:center; gap:6px; background:var(--accent); color:#fff; text-decoration:none; border-radius:10px; padding:8px 14px; font-weight:bold; margin:4px 6px 4px 0; }
+  .go.sub { background:#fff; color:var(--accent); border:1px solid var(--accent); }
+  .url { font-size:12.5px; color:var(--sub); word-break:break-all; }
+  .tip { background:#eaf6f8; border-left:4px solid var(--accent); border-radius:8px; padding:8px 12px; margin:10px 0; font-size:15px; }
+  .warn { background:var(--warn-soft); border-left:4px solid var(--warn); border-radius:8px; padding:8px 12px; margin:10px 0; font-size:15px; color:#5c3a00; }
+  .term { font-size:14.5px; color:var(--sub); }
+  kbd, .btn { display:inline-block; border:1px solid #c9d6dc; background:#f7fafb; border-radius:6px; padding:0 6px; font-size:.92em; white-space:nowrap; }
+  table { border-collapse:collapse; width:100%; font-size:15px; margin:6px 0; }
+  th, td { border-bottom:1px solid var(--line); padding:6px 8px; text-align:left; vertical-align:top; }
+  .bm { display:inline-block; background:#fff3c4; border:2px dashed #c9a000; color:#5c4500; border-radius:10px; padding:6px 14px; font-weight:bold; text-decoration:none; cursor:grab; }
+  details { margin:8px 0; } summary { cursor:pointer; font-weight:bold; }
+  footer { font-size:13px; color:var(--sub); margin-top:24px; }
+  footer a { color:var(--accent); }
+  @media (max-width:600px) { body { font-size:15px; } h1 { font-size:21px; } section.step { padding:14px; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>🏫 自分の学校のまわりで、3D土地模型を作る</h1>
+  <p class="lead">6年理科「大地のつくり」で使う3D土地模型を、先生が自分の学校の地域で作るための手順です。上から順に、リンクを開きながら進めてください。プログラムを書く必要はありません。</p>
+
+  <nav class="toc">
+    <b>手順（全部で30分〜1時間くらい）</b>
+    <ol>
+      <li><a href="#s1">模型の画面を開いて「先生モード」にする</a></li>
+      <li><a href="#s2">学校の場所（緯度・経度）を調べる</a>　…地理院地図</li>
+      <li><a href="#s3">新しい場所の模型をつくる</a>　…地形・地図・川は自動</li>
+      <li><a href="#s4">ボーリング資料（柱状図）を集める</a>　…国土地盤情報データベース</li>
+      <li><a href="#s5">柱状図を模型に読み込む</a></li>
+      <li><a href="#s6">授業で見やすく整える</a></li>
+      <li><a href="#s7">保存する・ほかの端末や子どもに配る</a></li>
+      <li><a href="#s8">困ったとき</a></li>
+    </ol>
+  </nav>
+
+  <div class="tip"><b>用意するもの</b>：インターネットにつながる<b>パソコン</b>（Edge か Chrome）がいちばん楽です。iPad でも作れますが、ボーリング資料をまとめて集める方法（手順4のB）はパソコンだけです。</div>
+
+  <section class="step" id="s1">
+    <h2><span class="no">1</span>模型の画面を開いて「先生モード」にする</h2>
+    <p><a class="go" href="app.html" target="_blank" rel="noopener">🧊 3D土地模型を開く ↗</a><a class="go sub" href="./" target="_blank" rel="noopener">🏠 入り口（場所えらび）↗</a></p>
+    <ol>
+      <li>どの学校の模型でもよいので開きます（はじめは長津田小学校のまわりが開きます）。</li>
+      <li>左上の <span class="btn">☰</span> でパネルを開き、いちばん下の <span class="btn">先生モード</span> にチェックを入れます。</li>
+      <li>チェックのすぐ下に、先生用のボタン（<span class="btn">📄 柱状図XMLを読み込む</span>・<span class="btn">＋ 新しい場所の模型をつくる</span> など）が出ます。</li>
+    </ol>
+    <p class="term">※ 先生モードは、子どもに配る画面には出ません。</p>
+  </section>
+
+  <section class="step" id="s2">
+    <h2><span class="no">2</span>学校の場所（緯度・経度）を調べる</h2>
+    <p class="term">緯度・経度（いど・けいど）＝地球の上の場所を表す2つの数字。たとえば長津田小は「35.530280, 139.490678」です。</p>
+    <p><a class="go" href="https://maps.gsi.go.jp/" target="_blank" rel="noopener">🗾 地理院地図を開く ↗</a><br><span class="url">https://maps.gsi.go.jp/</span></p>
+    <ol>
+      <li>左上の検索らんに学校名（または住所）を入れて、学校の場所を表示します。</li>
+      <li>模型の<b>まん中にしたい所</b>（ふつうは校舎）で、パソコンは<b>右クリック</b>、iPad は<b>長押し</b>します。</li>
+      <li>出てきた画面の上の方にある <b>「35.xxxxxx,139.xxxxxx」</b> のような数字（緯度・経度）をコピーします。</li>
+    </ol>
+    <div class="tip">手順3の画面の <span class="btn">🔍 場所をさがす</span> に学校名を入れるだけでも、だいたいの場所が入ります（国土地理院の住所検索を使います）。中心をきっちり決めたいときは、地理院地図でコピーした数字を使ってください。</div>
+  </section>
+
+  <section class="step" id="s3">
+    <h2><span class="no">3</span>新しい場所の模型をつくる</h2>
+    <ol>
+      <li>先生モードのボタンの <span class="btn">＋ 新しい場所の模型をつくる</span> を押します。</li>
+      <li><b>学校名</b>を入れ、<b>「緯度・経度をまとめて貼り付け」</b>に、手順2でコピーした数字を貼ります（緯度・経度のらんに自動で入ります）。</li>
+      <li><b>範囲（半径）</b>をえらびます。はじめは <b>1km</b> がおすすめです（2km四方の模型になります）。</li>
+      <li><span class="btn">この場所でつくる</span> を押します。</li>
+    </ol>
+    <p>これだけで、<b>国土地理院の地形（標高）・地図・航空写真・川・目印（駅・学校・公園など）</b>が自動で入った模型ができます。</p>
+    <div class="warn">この時点では、地面の下の地層は「仮」です。手順4・5でボーリング資料を入れると、本物の資料から地層が推定されます。</div>
+  </section>
+
+  <section class="step" id="s4">
+    <h2><span class="no">4</span>ボーリング資料（柱状図）を集める</h2>
+    <p class="term">ボーリング＝工事の前に地面に細い穴をほって、どんな土が何mの深さにあるかを調べたもの。その記録の図が「柱状図（ちゅうじょうず）」です。全国の公共工事の柱状図が、インターネットで公開されています。</p>
+    <p><a class="go" href="https://publicweb.ngic.or.jp/public/publicweb.php" target="_blank" rel="noopener">🗾 国土地盤情報データベースを開く ↗</a><br><span class="url">https://publicweb.ngic.or.jp/public/publicweb.php</span></p>
+    <p>開いたら、利用規約を読んで <b>「閲覧」</b> を押し、地図を学校のあたりまで動かします。地図の上の印が、ボーリングをした場所です。</p>
+
+    <h3>A．1本ずつ集める（かんたん・iPad でもできる）</h3>
+    <ol>
+      <li>地図の<b>ボーリングの印</b>を押します。</li>
+      <li>出てきた画面で <b>「XML」</b>（ボーリング交換用データ）をダウンロードします。</li>
+      <li>使いたい柱の数だけくり返します（学校の近く・丘の上・谷の中など、高さのちがう所から <b>10本くらい</b> あると、地層の重なりが分かりやすくなります）。</li>
+    </ol>
+
+    <h3>B．まわりの柱をまとめて集める（パソコン向け・おすすめ）</h3>
+    <ol>
+      <li>下の黄色いボタン <b>「📥 柱状図あつめ」</b> を、マウスでつかんで、ブラウザの<b>お気に入りバー</b>に落とします（1回だけでOK）。<br>
+        <span id="bmHolder"></span>
+        <details><summary>お気に入りバーが見えない・ドラッグできないとき</summary>
+          <ul>
+            <li>お気に入りバーを出す：Edge・Chrome とも <kbd>Ctrl</kbd>＋<kbd>Shift</kbd>＋<kbd>B</kbd></li>
+            <li>ドラッグできないときは <span class="btn">📋 コピー</span> を押し、お気に入りを新しく作って、その「URL」のらんに貼り付けます（名前は「柱状図あつめ」など）。</li>
+          </ul>
+        </details>
+      </li>
+      <li>国土地盤情報データベースの「閲覧」の地図を開いたまま、お気に入りの <b>「📥 柱状図あつめ」</b> を押します。</li>
+      <li>「模型の中心の緯度,経度」と「半径」を聞かれます。手順2の数字と、手順3でえらんだ半径（m）を入れて OK。</li>
+      <li>まわりの柱状図を、間をあけながら1本ずつ集めます（<b>200本で10分くらい</b>。そのまま待ちます）。</li>
+      <li>終わると <b>「柱状図まとめ_○本.json」</b> というファイルがダウンロードされます。</li>
+    </ol>
+    <div class="warn">データベースに負担をかけないよう、集める間かくを空けています。何度も続けて動かすと「access interval is too short」と出て、しばらく使えなくなることがあります。そのときは時間をおいてからにしてください。</div>
+
+    <details><summary>ほかの柱状図の入手先（横浜市・国の工事）</summary>
+      <ul>
+        <li><a href="https://wmap.city.yokohama.lg.jp/" target="_blank" rel="noopener">横浜市「よこはまっぷ」地盤View ↗</a>：横浜市の公共工事の柱状図。画面で見て、模型の柱とくらべる資料に使えます（この模型には読み込めない形式です）。</li>
+        <li><a href="https://www.kunijiban.pwri.go.jp/" target="_blank" rel="noopener">国土地盤情報検索サイト KuniJiban ↗</a>：国の工事の柱状図。XMLがダウンロードできるものは、そのまま読み込めます。</li>
+      </ul>
+    </details>
+  </section>
+
+  <section class="step" id="s5">
+    <h2><span class="no">5</span>柱状図を模型に読み込む</h2>
+    <ol>
+      <li>手順3で作った模型を開き、先生モードの <span class="btn">📄 柱状図XMLを読み込む</span> を押します。</li>
+      <li>ダウンロードした <b>XML</b>（何本でもまとめてえらべます）か、<b>「柱状図まとめ_○本.json」</b> をえらびます。</li>
+      <li>読み込むと、<b>資料の土の名前 → 模型の層</b>（盛土・ローム層・沖積層・ねんど・砂・れき・泥岩）の当てはめの一覧が出ます。</li>
+      <li>ちがうと思う所は、一覧の <span class="btn">✏️ 当てはめを直す</span> で変えます（あとから直すときは、柱をタップして開く画面の <span class="btn">✏️ 編集</span>）。</li>
+    </ol>
+    <table>
+      <tr><th>自動の当てはめのきまり（例）</th><th>模型の層</th></tr>
+      <tr><td>盛土・埋土・表土</td><td>人が盛った土</td></tr>
+      <tr><td>ローム・火山灰・凝灰質〜・軽石</td><td>関東ローム層（火山灰）</td></tr>
+      <tr><td>腐植土・有機質〜、N値4以下のやわらかいシルト・粘土</td><td>沖積層（谷にたまった新しい層）</td></tr>
+      <tr><td>泥岩・土丹・固結〜</td><td>泥岩</td></tr>
+      <tr><td>そのほかは、名前の<b>いちばん後ろ</b>の土で決める（砂礫→れき、礫混じり砂→砂、砂質シルト→シルト）</td><td>れき・砂・ねんど</td></tr>
+    </table>
+    <p class="term">N値＝重りを落として、土に棒が30cmささるまでの回数。小さいほどやわらかい土。</p>
+  </section>
+
+  <section class="step" id="s6">
+    <h2><span class="no">6</span>授業で見やすく整える</h2>
+    <ul>
+      <li><b>柱の色と名前を教科書の言葉に</b>：☰パネルの「ボーリングの柱の色分け」で <b>「先生の仲間分けで」</b> → <span class="btn">✏️ 仲間分けを決める</span> → 見本の <b>「📘 教科書どおり（れき・砂・どろ・火山灰・泥岩）」</b> → <span class="btn">決める</span>。資料の名前がたくさんあっても、教科書の仲間にまとまります。</li>
+      <li><b>柱の名前をかくしてピンだけに</b>：☰パネルの「柱の名前（🔍の名札）」で <b>「ピン（●）だけ出す」</b>。</li>
+      <li><b>使う柱をしぼる</b>：☰パネルの <span class="btn">📍 表示する柱をえらぶ</span> で、授業で使う柱だけをえらびます。</li>
+      <li><b>高さを強調</b>：☰パネルの「高さを強調」で、デコボコを見やすくします（×3〜×5）。</li>
+      <li><b>写真をつける</b>：下の <span class="btn">📝 気づきメモ</span> で、模型の上に写真つきのメモを置けます。</li>
+      <li><b>予想用のプリント</b>：<span class="btn">🔪 模型を切る</span> →「切り口の色を消す」→ <span class="btn">🖨 印刷</span> で、色をぬって予想するワークシートが作れます。断面図の画面からも印刷できます。</li>
+    </ul>
+  </section>
+
+  <section class="step" id="s7">
+    <h2><span class="no">7</span>保存する・ほかの端末や子どもに配る</h2>
+    <div class="warn"><b>画面で作った場所と、読み込んだ柱状図は、その端末のブラウザの中だけに保存されます。</b>ブラウザの履歴やデータを消すと消えます。ほかの端末や子どもの端末からは、そのままでは開けません。</div>
+    <table>
+      <tr><th>したいこと</th><th>方法</th></tr>
+      <tr><td>データを残しておく・別の端末に移す</td><td>先生モードの <span class="btn">データを書き出す</span> → <span class="btn">ファイルに保存</span>。別の端末では、同じ学校名・緯度経度・半径で手順3をしてから、<span class="btn">データを読み込む</span>。</td></tr>
+      <tr><td>子どもの端末で開けるようにする</td><td>書き出したファイルを、この模型を管理している先生に送ると、<b>公開版</b>に入れられます。公開版に入ると、入り口のページにカードとQRコードが出て、どの端末からでも開けます。</td></tr>
+      <tr><td>決まった画面を子どもに配る（公開版に入った後）</td><td>先生モードの <span class="btn">🔗 子ども用リンク・送り先</span> → ①名前 ②見せる内容 ③ <span class="btn">📋 リンクをコピー</span>（ロイロノート・Classroom へ）か <span class="btn">🖨 QRコードを印刷</span>。</td></tr>
+      <tr><td>ほかの先生と画面を共有する</td><td><span class="btn">👥 いまの画面を先生に共有</span>。えらんだ柱は、受け取った先生の柱に足し合わされます。</td></tr>
+    </table>
+  </section>
+
+  <section class="step" id="s8">
+    <h2><span class="no">8</span>困ったとき</h2>
+    <details><summary>地形や地図が出ない・真っ白</summary><p>インターネットにつながっているか確かめてください。学校のフィルタで国土地理院（cyberjapandata.gsi.go.jp）が止められていると出ません。少し待ってから開き直すと出ることもあります。</p></details>
+    <details><summary>ボーリングの印が少ない・ない</summary><p>半径を広げて（手順3で 1.5km〜2km）集め直してください。住宅地では、学校や道路・下水道の工事の資料が多いです。</p></details>
+    <details><summary>「柱状図あつめ」を押しても何も起きない</summary><p>国土地盤情報データベースで「閲覧」を押して<b>地図が出ている画面</b>で押してください。トップページでは動きません。</p></details>
+    <details><summary>柱が地面からうき上がったり、うまったりして見える</summary><p>資料をとった時と今とで、地面の高さが変わっている（土地を造成した）所があります。☰パネルの「柱の高さ」で<b>今の地面にそろえる</b>か、「資料と今の地図の高さが大きくずれた柱をかくす」で<b>5m以上・10m以上</b>ずれた柱を外せます。</p></details>
+    <details><summary>地層の当てはめがおかしい</summary><p>先生モードで柱をタップして開く画面の <span class="btn">✏️ 編集</span> で、1本ずつ直せます。子どもに見せる名前だけを変えたいときは、<span class="btn">✏️ 仲間分けを決める</span> を使います。</p></details>
+    <details><summary>iPad で作りたい</summary><p>手順1〜3と、手順4のA（1本ずつ）・手順5はiPadでもできます。ダウンロードしたXMLは「ファイル」アプリに入るので、読み込むときにそこからえらびます。</p></details>
+  </section>
+
+  <section class="step">
+    <h2>📚 出典・使い方のきまり</h2>
+    <ul>
+      <li>地形・地図・航空写真・目印：<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">国土地理院（地理院タイル）↗</a>。模型の画面の下に出典を表示しています。</li>
+      <li>ボーリング柱状図：<a href="https://publicweb.ngic.or.jp/public/publicweb.php" target="_blank" rel="noopener">国土地盤情報データベース（国土地盤情報センター）↗</a>。資料を使うときは出典を示すきまりがあるので、各柱の画面に出典を表示しています。</li>
+      <li>地面の下の地層は、ボーリング資料をもとにした<b>推定</b>です。柱と柱の間は、実際とちがうことがあります。</li>
+    </ul>
+  </section>
+
+  <footer>
+    <p><a href="./">🏠 入り口（場所えらび）にもどる</a>　｜　<a href="app.html">🧊 3D土地模型を開く</a></p>
+  </footer>
+</main>
+<script src="js/ngic_bookmarklet.js?v=20261104070403"></script>
+<script>
+  (function () {
+    var h = document.getElementById("bmHolder"), code = window.CHISOU && CHISOU.NGIC_BOOKMARKLET;
+    if (!h || !code) return;
+    var a = document.createElement("a");
+    a.href = code; a.className = "bm"; a.textContent = "📥 柱状図あつめ";
+    a.onclick = function (e) { e.preventDefault(); alert("このボタンは、押すのではなく、お気に入りバーにドラッグして登録します。"); };
+    var b = document.createElement("button");
+    b.type = "button"; b.className = "btn"; b.textContent = "📋 コピー"; b.style.marginLeft = "8px";
+    b.onclick = function () {
+      (navigator.clipboard ? navigator.clipboard.writeText(code) : Promise.reject()).then(function () { b.textContent = "コピーしました。お気に入りのURL欄に貼り付けてください"; },
+        function () { prompt("これをコピーして、お気に入りのURL欄に貼り付けてください", code); });
+    };
+    h.appendChild(a); h.appendChild(b);
+  })();
+</script>
+</body>
+</html>

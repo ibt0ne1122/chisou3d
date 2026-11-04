@@ -6,7 +6,7 @@
 <title>大地のつくり 3D土地模型</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css?v=20261029120429">
+<link rel="stylesheet" href="css/style.css?v=20261104070403">
 </head>
 <body>
 <div id="viewport"></div>
@@ -165,6 +165,7 @@
         </div>
         <select id="siteSelect"></select>
         <button id="btnNewSite" type="button">＋ 新しい場所の模型をつくる</button>
+        <a class="btnlink" href="guide.html" target="_blank" rel="noopener">📘 自分の学校で作る（作り方ガイド）↗</a>
       </div>
     </section>
   </div>
@@ -553,7 +554,7 @@
       <select id="nsRadius"><option value="500">0.5km</option><option value="1000" selected>1km</option><option value="1500">1.5km</option><option value="2000">2km</option><option value="3000">3km</option></select>
     </label>
     <p id="nsMsg" class="hint strong"></p>
-    <p class="hint"><a href="https://maps.gsi.go.jp/" target="_blank" rel="noopener">地理院地図を開く ↗</a>　作った場所は、この端末のブラウザに保存されます。</p>
+    <p class="hint"><a href="https://maps.gsi.go.jp/" target="_blank" rel="noopener">地理院地図を開く ↗</a>　<a href="guide.html" target="_blank" rel="noopener">📘 作り方ガイド（はじめから順に）↗</a>　作った場所は、この端末のブラウザに保存されます。</p>
     <details class="nshelp" open>
       <summary>📥 ボーリング資料（柱状図）を入れる方法　—　国土地盤情報データベースから</summary>
       <p class="linkrow"><a class="btnlink primary" href="https://publicweb.ngic.or.jp/public/publicweb.php" target="_blank" rel="noopener">🗾 国土地盤情報データベースを開く ↗</a>
@@ -600,20 +601,20 @@
 
 <footer id="attribution">出典：<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">国土地理院（地理院タイル・標高タイル）</a> ／ 目印：<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap</a> ／ 地下の地層はボーリング資料からの推定です（<a href="#" id="attrMore">くわしく</a>）</footer>
 
-<script src="lib/three.min.js?v=20261029120429"></script>
-<script src="lib/OrbitControls.js?v=20261029120429"></script>
-<script src="lib/qrcode.js?v=20261029120429"></script>
+<script src="lib/three.min.js?v=20261104070403"></script>
+<script src="lib/OrbitControls.js?v=20261104070403"></script>
+<script src="lib/qrcode.js?v=20261104070403"></script>
 <script>window.CHISOU = { sites: {}, registerSite: function (s) { this.sites[s.id] = s; } };</script>
-<script src="js/geo.js?v=20261029120429"></script>
-<script src="js/geology.js?v=20261029120429"></script>
-<script src="js/pattern.js?v=20261029120429"></script>
-<script src="sites/sites.js?v=20261029120429"></script>
-<script src="js/section.js?v=20261029120429"></script>
-<script src="js/boringxml.js?v=20261029120429"></script>
-<script src="js/mvt.js?v=20261029120429"></script>
-<script src="js/yato_yokohama.js?v=20261029120429"></script>
-<script src="js/ngic_bookmarklet.js?v=20261029120429"></script>
-<script src="js/help.js?v=20261029120429"></script>
-<script src="js/app.js?v=20261029120429"></script>
+<script src="js/geo.js?v=20261104070403"></script>
+<script src="js/geology.js?v=20261104070403"></script>
+<script src="js/pattern.js?v=20261104070403"></script>
+<script src="sites/sites.js?v=20261104070403"></script>
+<script src="js/section.js?v=20261104070403"></script>
+<script src="js/boringxml.js?v=20261104070403"></script>
+<script src="js/mvt.js?v=20261104070403"></script>
+<script src="js/yato_yokohama.js?v=20261104070403"></script>
+<script src="js/ngic_bookmarklet.js?v=20261104070403"></script>
+<script src="js/help.js?v=20261104070403"></script>
+<script src="js/app.js?v=20261104070403"></script>
 </body>
 </html>
