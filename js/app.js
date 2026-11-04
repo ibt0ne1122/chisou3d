@@ -37,7 +37,7 @@
       setTimeout(run, 0); // 1ファイル版：設定がすでに入っている（準備が終わってから始める）
     } else {
       const sc = document.createElement("script");
-      sc.src = entry.file + "?v=20261104074601";
+      sc.src = entry.file + "?v=20261104075338";
       // 先生が配った写真メモ（sites/notes/<id>.js）：あればいっしょに読む。なくてもそのまま始める
       sc.onload = custom ? run : () => {
         const ns = document.createElement("script");
@@ -3014,7 +3014,7 @@
     const layers = S.site.layers;
     const byId = {};
     layers.forEach((l) => (byId[l.id] = l));
-    const W = 320, colX = 70, colW = 56;
+    const W = S.straw ? 372 : 320, colX = 70, colW = 56; // ストローの長さを出すときは、右に列をふやす
     const depth = Math.max(b.depth, 1);
     const pxm = Math.min(22, Math.max(6, 380 / depth));
     const H = depth * pxm + 40;
@@ -3040,6 +3040,18 @@
       const y1 = y0 + r.from * pxm, y2 = y0 + r.to * pxm, hpx = y2 - y1;
       if (hpx < 11) continue; // うすすぎて字が入らない層は、右の名前のあとに書く
       svg += '<text x="' + (colX + colW / 2) + '" y="' + ((y1 + y2) / 2 + 4) + '" font-size="11.5" font-weight="bold" text-anchor="middle" fill="#1f2a33" stroke="#fff" stroke-width="3" paint-order="stroke">' + fmtThick(r.to - r.from) + "</text>";
+    }
+    // ストローの長さ：柱状図の右に、層ごとにならべる（同じ高さに）
+    if (S.straw) {
+      const sc = S.strawScale || 5;
+      svg += '<text x="' + (W - 4) + '" y="12" font-size="11" text-anchor="end" fill="#1f5f73" font-weight="bold">✂ストロー（' + sc + "m→1cm）</text>";
+      let lastY = -99;
+      for (const r of thickRuns(b)) {
+        const y1 = y0 + r.from * pxm, y2 = y0 + r.to * pxm, c = (r.to - r.from) / sc, mm = Math.round(c * 10);
+        const ly = Math.max((y1 + y2) / 2 + 4, lastY + 13); lastY = ly;
+        svg += '<line x1="' + (W - 62) + '" y1="' + (y1 + 1) + '" x2="' + (W - 62) + '" y2="' + (y2 - 1) + '" stroke="' + segColor(r.segs[0]) + '" stroke-width="5" stroke-linecap="round"/>';
+        svg += '<text x="' + (W - 4) + '" y="' + ly + '" font-size="12" font-weight="bold" text-anchor="end" fill="#1f5f73">' + (mm < 1 ? "1mm未満" : (Math.round(c * 10) / 10).toFixed(1) + "cm") + "</text>";
+      }
     }
     svg += "</svg>";
     const elevTxt = isNaN(b.elev) ? "不明" : b.elev.toFixed(1) + "m";
