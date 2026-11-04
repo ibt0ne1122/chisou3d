@@ -37,7 +37,7 @@
       setTimeout(run, 0); // 1ファイル版：設定がすでに入っている（準備が終わってから始める）
     } else {
       const sc = document.createElement("script");
-      sc.src = entry.file + "?v=20261104073610";
+      sc.src = entry.file + "?v=20261104074126";
       // 先生が配った写真メモ（sites/notes/<id>.js）：あればいっしょに読む。なくてもそのまま始める
       sc.onload = custom ? run : () => {
         const ns = document.createElement("script");
@@ -2990,6 +2990,24 @@
     }
     return out;
   }
+  /** ストローで立体柱状図をつくるための長さ（例：5m を 1cm） */
+  function strawTable(b) {
+    const sc = S.strawScale || 5;
+    const head = '<label class="toggle thickrow"><input type="checkbox" id="dStraw"' + (S.straw ? " checked" : "") + "> ✂️ ストローで作る長さを出す</label>";
+    if (!S.straw) return head;
+    const runs = thickRuns(b), cm = (m) => m / sc;
+    const fmt = (m) => { const c = cm(m), mm = Math.round(c * 10); return (mm < 1 ? "1mmより短い" : (Math.round(c * 10) / 10).toFixed(1) + "cm（" + mm + "mm）"); };
+    let rows = runs.map((r, i) => {
+      const sg = r.segs[0], nm = r.name || (sg.soil || segName(sg));
+      return "<tr><td>" + (i + 1) + '</td><td><i class="sw" style="background:' + segColor(sg) + '"></i>' + esc(nm) + "</td><td>" + fmtThick(r.to - r.from) + '</td><td class="cut">' + fmt(r.to - r.from) + "</td></tr>";
+    }).join("");
+    const total = b.segs.length ? b.segs[b.segs.length - 1].to : 0;
+    rows += '<tr class="sum"><td></td><td>ぜんぶ</td><td>' + fmtThick(total) + '</td><td class="cut">' + fmt(total) + "</td></tr>";
+    return head + '<div class="strawbox"><div class="strawhead"><b>✂️ ストローの長さ</b>　縮尺 <select id="dStrawScale">' +
+      [1, 2, 5, 10].map((v) => '<option value="' + v + '"' + (v === sc ? " selected" : "") + ">" + v + "mを1cm</option>").join("") + "</select></div>" +
+      '<table class="strawtbl"><tr><th></th><th>上から順に</th><th>厚さ</th><th>ストロー</th></tr>' + rows + "</table>" +
+      '<p class="hint">上の層から順に、この長さでストローを切って、色をぬって（または色つきのストローで）つなげます。' + (runs.some((r) => cm(r.to - r.from) < 0.1) ? "「1mmより短い」層は、とてもうすいので、1mmにするか となりの層にまとめましょう。" : "") + "</p></div>";
+  }
   function showBore(id) {
     const b = S.bores.find((x) => x.id === id);
     if (!b) return;
@@ -3043,7 +3061,7 @@
           (S.alignBores ? "（今は地面にそろえてかいています）" : "") : "") +
       (b.source ? "<br>出典：" + esc(b.source) : "") +
       (b.url ? '<br><a href="' + esc(b.url) + '" target="_blank" rel="noopener">元の資料を開く ↗</a>' : "") + "</div>";
-    html += thickRow + svg;
+    html += thickRow + svg + strawTable(b);
     if (b.segs.some((s) => s.relabeled)) html += '<p class="hint">＊古い地層より下にあるので、ローム層・沖積層ではなく、まわりの地層（大昔の火山灰などがまじった うすい層）として色をつけています。</p>';
     if (b.image) html += '<a href="' + esc(b.image) + '" target="_blank" rel="noopener"><img class="log-image" src="' + esc(b.image) + '" alt="柱状図の画像"></a>';
     if (!b.sample && b.source) {
@@ -3077,6 +3095,8 @@
     };
     if ($("dEdit")) $("dEdit").onclick = () => openBoreDialog(b);
     if ($("dThick")) $("dThick").onchange = () => { S.showThick = $("dThick").checked; store.set("chisou3d:showThick", S.showThick); showBore(id); };
+    if ($("dStraw")) $("dStraw").onchange = () => { S.straw = $("dStraw").checked; store.set("chisou3d:straw", S.straw); showBore(id); };
+    if ($("dStrawScale")) $("dStrawScale").onchange = () => { S.strawScale = +$("dStrawScale").value; store.set("chisou3d:strawScale", S.strawScale); showBore(id); };
   }
 
   function openDetail(html) {
@@ -3632,6 +3652,8 @@
     $("tshareCopy").onclick = async () => { try { await navigator.clipboard.writeText($("tshareOut").value); } catch (e) { $("tshareOut").select(); document.execCommand("copy"); } flashHint("📋 先生用のリンクをコピーしました"); };
     $("tshareQrSave").onclick = () => download("QRコード-先生用-" + S.site.title + ".png", $("tshareQr").toDataURL("image/png"));
     S.showThick = store.get("chisou3d:showThick", true);
+    S.straw = store.get("chisou3d:straw", true);
+    S.strawScale = store.get("chisou3d:strawScale", 5);
     S.colorBy = store.get("chisou3d:colorBy", "layer");
     $("colorBySelect").value = S.colorBy;
     $("colorBySelect").onchange = () => {
@@ -4407,6 +4429,7 @@
     const cb = o.cb || S.colorBy; if (cb && cb !== "layer") st.cb = cb; // 柱の色（ざっくり＝つぶの大きさの仲間）
     if (cb === "custom") st.grp = groupsCfg(); // 先生の仲間分けも、いっしょに送る
     if (!S.showThick) st.nothick = 1; // 層の厚さを出さない（子どもに計算させるとき）
+    if (!S.straw) st.nostraw = 1; else if (S.strawScale !== 5) st.ss = S.strawScale; // ストローの長さ
     if (o.tonly && o.tonly.length) { st.tonly = o.tonly; if (S.onlyOn) st.ton = 1; } // 先生どうし：えらんだ柱（受け取った側で足し合わせる）
     if (S.gapHide) { st.gh = S.gapHide; if (S.gapModel) st.gm = 1; }
     if (S.ve !== (S.site.defaultExaggeration || 3)) st.vz = S.ve;
@@ -4457,6 +4480,7 @@
     if (!!st.al !== S.alignBores) S.setAlign(!!st.al);
     if (!st.nopat !== S.pattern) S.setPattern(!st.nopat);
     S.showThick = !st.nothick;
+    S.straw = !st.nostraw; S.strawScale = st.ss || 5;
     if (st.grp && st.grp.g) S.groupsShared = st.grp; // 送られてきた仲間分け（この画面の間だけ使う）
     if (st.tonly) {
       // 先生どうしの共有：えらんだ柱を、もともとえらんでいた柱に足し合わせる

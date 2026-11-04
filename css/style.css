@@ -620,3 +620,13 @@ a.btnlink.primary { background: var(--accent); color: #fff; border-color: var(--
 #tshareDialog .qrwrap canvas { width: 150px; height: 150px; }
 #grpPresets { flex-wrap: wrap; } #grpPresets button { flex: 1 1 220px; }
 #detail .thickrow { display: block; margin: 6px 0 2px; font-size: 14px; }
+/* ストローで立体柱状図をつくる */
+#detail .strawbox { border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; margin: 6px 0; background: #fbfdfe; }
+#detail .strawhead { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 14px; }
+#detail .strawhead select { width: auto; padding: 2px 4px; }
+#detail .strawtbl { width: 100%; border-collapse: collapse; font-size: 14px; margin: 6px 0 2px; }
+#detail .strawtbl th, #detail .strawtbl td { border-bottom: 1px solid var(--line); padding: 3px 4px; text-align: left; }
+#detail .strawtbl td:first-child { color: var(--sub); width: 1.6em; }
+#detail .strawtbl .cut { font-weight: bold; color: #1f5f73; white-space: nowrap; }
+#detail .strawtbl .sum td { border-bottom: 0; font-weight: bold; }
+#detail .strawtbl i.sw { display: inline-block; width: 12px; height: 12px; border: 1px solid #555; margin-right: 4px; vertical-align: -1px; }
