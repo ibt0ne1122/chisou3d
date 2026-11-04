@@ -631,3 +631,4 @@ a.btnlink.primary { background: var(--accent); color: #fff; border-color: var(--
 #detail .strawtbl .sum td { border-bottom: 0; font-weight: bold; }
 #detail .strawtbl i.sw { display: inline-block; width: 12px; height: 12px; border: 1px solid #555; margin-right: 4px; vertical-align: -1px; }
 #detail .jumprow { display: flex; gap: 6px; flex-wrap: wrap; margin: 4px 0 8px; } #detail .jumprow button { flex: 1 1 140px; font-size: 14px; padding: 6px 8px; background: #eaf6f8; border: 1px solid #1f7a8c; color: #1f5f73; border-radius: 10px; }
+#detail .strawrow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; } #detail .strawrow select { width: auto; padding: 2px 4px; font-size: 13px; }

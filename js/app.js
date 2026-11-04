@@ -37,7 +37,7 @@
       setTimeout(run, 0); // 1ファイル版：設定がすでに入っている（準備が終わってから始める）
     } else {
       const sc = document.createElement("script");
-      sc.src = entry.file + "?v=20261104075338";
+      sc.src = entry.file + "?v=20261104080402";
       // 先生が配った写真メモ（sites/notes/<id>.js）：あればいっしょに読む。なくてもそのまま始める
       sc.onload = custom ? run : () => {
         const ns = document.createElement("script");
@@ -2991,22 +2991,10 @@
     return out;
   }
   /** ストローで立体柱状図をつくるための長さ（例：5m を 1cm） */
-  function strawTable(b) {
+  function strawTable() {
     const sc = S.strawScale || 5;
-    const head = '<label class="toggle thickrow"><input type="checkbox" id="dStraw"' + (S.straw ? " checked" : "") + "> ✂️ ストローで作る長さを出す</label>";
-    if (!S.straw) return head;
-    const runs = thickRuns(b), cm = (m) => m / sc;
-    const fmt = (m) => { const c = cm(m), mm = Math.round(c * 10); return (mm < 1 ? "1mmより短い" : (Math.round(c * 10) / 10).toFixed(1) + "cm（" + mm + "mm）"); };
-    let rows = runs.map((r, i) => {
-      const sg = r.segs[0], nm = r.name || (sg.soil || segName(sg));
-      return "<tr><td>" + (i + 1) + '</td><td><i class="sw" style="background:' + segColor(sg) + '"></i>' + esc(nm) + "</td><td>" + fmtThick(r.to - r.from) + '</td><td class="cut">' + fmt(r.to - r.from) + "</td></tr>";
-    }).join("");
-    const total = b.segs.length ? b.segs[b.segs.length - 1].to : 0;
-    rows += '<tr class="sum"><td></td><td>ぜんぶ</td><td>' + fmtThick(total) + '</td><td class="cut">' + fmt(total) + "</td></tr>";
-    return head + '<div class="strawbox"><div class="strawhead"><b>✂️ ストローの長さ</b>　縮尺 <select id="dStrawScale">' +
-      [1, 2, 5, 10].map((v) => '<option value="' + v + '"' + (v === sc ? " selected" : "") + ">" + v + "mを1cm</option>").join("") + "</select></div>" +
-      '<table class="strawtbl"><tr><th></th><th>上から順に</th><th>厚さ</th><th>ストロー</th></tr>' + rows + "</table>" +
-      '<p class="hint">上の層から順に、この長さでストローを切って、色をぬって（または色つきのストローで）つなげます。' + (runs.some((r) => cm(r.to - r.from) < 0.1) ? "「1mmより短い」層は、とてもうすいので、1mmにするか となりの層にまとめましょう。" : "") + "</p></div>";
+    return '<div class="toggle thickrow strawrow"><label><input type="checkbox" id="dStraw"' + (S.straw ? " checked" : "") + "> ✂️ ストローで作る長さを柱の横に出す</label>" +
+      '<select id="dStrawScale" title="ストローの縮尺">' + [1, 2, 5, 10].map((v) => '<option value="' + v + '"' + (v === sc ? " selected" : "") + ">" + v + "mを1cm</option>").join("") + "</select></div>";
   }
   function showBore(id) {
     const b = S.bores.find((x) => x.id === id);
@@ -3014,12 +3002,12 @@
     const layers = S.site.layers;
     const byId = {};
     layers.forEach((l) => (byId[l.id] = l));
-    const W = S.straw ? 372 : 320, colX = 70, colW = 56; // ストローの長さを出すときは、右に列をふやす
+    const SW = S.straw ? 54 : 0, W = 320 + SW, colX = 70, colW = 56, nameX = colX + colW + 8 + SW; // ストローの長さは、柱のすぐ右の列に
     const depth = Math.max(b.depth, 1);
     const pxm = Math.min(22, Math.max(6, 380 / depth));
     const H = depth * pxm + 40;
     let svg = '<svg viewBox="0 0 ' + W + " " + H + '" width="100%" style="max-width:' + W + 'px" font-family="inherit">';
-    svg += '<text x="4" y="12" font-size="11" fill="#5a6873">深さ(m)</text><text x="' + (colX + colW + 8) + '" y="12" font-size="11" fill="#5a6873">土の名前・N値</text>';
+    svg += '<text x="4" y="12" font-size="11" fill="#5a6873">深さ(m)</text><text x="' + nameX + '" y="12" font-size="11" fill="#5a6873">土の名前・N値</text>';
     const y0 = 22;
     let lastLabelY = -99;
     for (const s of b.segs) {
@@ -3032,7 +3020,7 @@
       const ly = Math.max((y1 + y2) / 2 + 4, lastLabelY + 13);
       lastLabelY = ly;
       const thinRun = S.showThick && thickRuns(b).find((r) => r.segs.includes(s) && (r.to - r.from) * pxm < 11 && r.segs[0] === s);
-      svg += '<text x="' + (colX + colW + 8) + '" y="' + ly + '" font-size="12" fill="#1f2a33">' + (s.soil && S.colorBy !== "layer" && segName(s) !== s.soil ? '<tspan font-weight="bold">' + esc(segName(s)) + '</tspan><tspan font-size="10" fill="#5a6873">（' + esc(s.soil) + "）</tspan>" : esc(s.soil || (L ? L.short : ""))) + (s.n != null && s.n !== "" ? "（N=" + esc(s.n) + "）" : "") + (s.relabeled ? "＊" : "") + (thinRun ? '<tspan font-weight="bold" fill="#1f5f73"> 厚さ' + fmtThick(thinRun.to - thinRun.from) + "</tspan>" : "") + "</text>";
+      svg += '<text x="' + nameX + '" y="' + ly + '" font-size="12" fill="#1f2a33">' + (s.soil && S.colorBy !== "layer" && segName(s) !== s.soil ? '<tspan font-weight="bold">' + esc(segName(s)) + '</tspan><tspan font-size="10" fill="#5a6873">（' + esc(s.soil) + "）</tspan>" : esc(s.soil || (L ? L.short : ""))) + (s.n != null && s.n !== "" ? "（N=" + esc(s.n) + "）" : "") + (s.relabeled ? "＊" : "") + (thinRun ? '<tspan font-weight="bold" fill="#1f5f73"> 厚さ' + fmtThick(thinRun.to - thinRun.from) + "</tspan>" : "") + "</text>";
     }
     svg += '<text x="' + (colX - 6) + '" y="' + (y0 + 4) + '" font-size="11" text-anchor="end" fill="#333">0</text>';
     // 層の厚さ（m）：柱の中にかく。仲間分けのときは、となり合う同じ仲間をまとめた厚さ
@@ -3041,16 +3029,16 @@
       if (hpx < 11) continue; // うすすぎて字が入らない層は、右の名前のあとに書く
       svg += '<text x="' + (colX + colW / 2) + '" y="' + ((y1 + y2) / 2 + 4) + '" font-size="11.5" font-weight="bold" text-anchor="middle" fill="#1f2a33" stroke="#fff" stroke-width="3" paint-order="stroke">' + fmtThick(r.to - r.from) + "</text>";
     }
-    // ストローの長さ：柱状図の右に、層ごとにならべる（同じ高さに）
+    // ストローの長さ：柱のすぐ右の列に、層ごとに（その層の色の線と長さ）
     if (S.straw) {
-      const sc = S.strawScale || 5;
-      svg += '<text x="' + (W - 4) + '" y="12" font-size="11" text-anchor="end" fill="#1f5f73" font-weight="bold">✂ストロー（' + sc + "m→1cm）</text>";
+      const sc = S.strawScale || 5, sx = colX + colW + 4;
+      svg += '<text x="' + (sx + SW / 2) + '" y="12" font-size="10.5" text-anchor="middle" fill="#1f5f73" font-weight="bold">✂ストロー</text>';
       let lastY = -99;
       for (const r of thickRuns(b)) {
         const y1 = y0 + r.from * pxm, y2 = y0 + r.to * pxm, c = (r.to - r.from) / sc, mm = Math.round(c * 10);
+        svg += '<line x1="' + (sx + 4) + '" y1="' + (y1 + 1.5) + '" x2="' + (sx + 4) + '" y2="' + Math.max(y1 + 1.5, y2 - 1.5) + '" stroke="' + segColor(r.segs[0]) + '" stroke-width="5" stroke-linecap="round"/>';
         const ly = Math.max((y1 + y2) / 2 + 4, lastY + 13); lastY = ly;
-        svg += '<line x1="' + (W - 62) + '" y1="' + (y1 + 1) + '" x2="' + (W - 62) + '" y2="' + (y2 - 1) + '" stroke="' + segColor(r.segs[0]) + '" stroke-width="5" stroke-linecap="round"/>';
-        svg += '<text x="' + (W - 4) + '" y="' + ly + '" font-size="12" font-weight="bold" text-anchor="end" fill="#1f5f73">' + (mm < 1 ? "1mm未満" : (Math.round(c * 10) / 10).toFixed(1) + "cm") + "</text>";
+        svg += '<text x="' + (sx + 10) + '" y="' + ly + '" font-size="12" font-weight="bold" fill="#1f5f73">' + (mm < 1 ? "1mm未満" : (Math.round(c * 10) / 10).toFixed(1) + "cm") + "</text>";
       }
     }
     svg += "</svg>";
@@ -3074,7 +3062,7 @@
           (S.alignBores ? "（今は地面にそろえてかいています）" : "") : "") +
       (b.source ? "<br>出典：" + esc(b.source) : "") +
       (b.url ? '<br><a href="' + esc(b.url) + '" target="_blank" rel="noopener">元の資料を開く ↗</a>' : "") + "</div>";
-    html += '<div id="dColAnchor"></div>' + thickRow + svg + '<div id="dStrawAnchor"></div>' + strawTable(b);
+    html += '<div id="dColAnchor"></div>' + thickRow + strawTable() + svg;
     if (b.segs.some((s) => s.relabeled)) html += '<p class="hint">＊古い地層より下にあるので、ローム層・沖積層ではなく、まわりの地層（大昔の火山灰などがまじった うすい層）として色をつけています。</p>';
     if (b.image) html += '<a href="' + esc(b.image) + '" target="_blank" rel="noopener"><img class="log-image" src="' + esc(b.image) + '" alt="柱状図の画像"></a>';
     if (!b.sample && b.source) {
@@ -3109,7 +3097,7 @@
     if ($("dEdit")) $("dEdit").onclick = () => openBoreDialog(b);
     if ($("dThick")) $("dThick").onchange = () => { S.showThick = $("dThick").checked; store.set("chisou3d:showThick", S.showThick); showBore(id); };
     const jump = (anchor) => { const a = $(anchor); if (a) a.scrollIntoView({ behavior: "smooth", block: "start" }); };
-    $("dJumpStraw").onclick = () => { if (!S.straw) { S.straw = true; store.set("chisou3d:straw", true); showBore(id); setTimeout(() => jump("dStrawAnchor"), 50); } else jump("dStrawAnchor"); };
+    $("dJumpStraw").onclick = () => { if (!S.straw) { S.straw = true; store.set("chisou3d:straw", true); showBore(id); setTimeout(() => jump("dColAnchor"), 50); } else jump("dColAnchor"); };
     $("dJumpCol").onclick = () => jump("dColAnchor");
     if ($("dStraw")) $("dStraw").onchange = () => { S.straw = $("dStraw").checked; store.set("chisou3d:straw", S.straw); showBore(id); };
     if ($("dStrawScale")) $("dStrawScale").onchange = () => { S.strawScale = +$("dStrawScale").value; store.set("chisou3d:strawScale", S.strawScale); showBore(id); };
