@@ -37,7 +37,7 @@
       setTimeout(run, 0); // 1ファイル版：設定がすでに入っている（準備が終わってから始める）
     } else {
       const sc = document.createElement("script");
-      sc.src = entry.file + "?v=20261104074231";
+      sc.src = entry.file + "?v=20261104074601";
       // 先生が配った写真メモ（sites/notes/<id>.js）：あればいっしょに読む。なくてもそのまま始める
       sc.onload = custom ? run : () => {
         const ns = document.createElement("script");
@@ -3052,6 +3052,7 @@
       MARK_COLORS.map((m) => '<button type="button" class="sw' + (cur === m.c ? " on" : "") + '" data-mc="' + m.c + '" title="' + m.n + '" style="background:' + m.c + '"></button>').join("") +
       (Object.keys(S.boreMarks).length ? '<button type="button" id="dMarkClear" class="link">全部もどす</button>' : "") + "</div>";
     let html = "<h3>" + esc(b.name) + "</h3>";
+    html += '<div class="jumprow"><button type="button" id="dJumpStraw">✂️ ストローで作る長さ</button><button type="button" id="dJumpCol">📏 柱状図と層の厚さ</button></div>';
     html += markHtml;
     if (b.sample) html += '<div class="warnbox">⚠ ' + esc(S.site.sample.note || "仮のデータです") + "</div>";
     html += '<div class="meta">地面の標高：<b>' + elevTxt + "</b> " + (typeof b.elevation === "number" ? demTxt : "") +
@@ -3061,7 +3062,7 @@
           (S.alignBores ? "（今は地面にそろえてかいています）" : "") : "") +
       (b.source ? "<br>出典：" + esc(b.source) : "") +
       (b.url ? '<br><a href="' + esc(b.url) + '" target="_blank" rel="noopener">元の資料を開く ↗</a>' : "") + "</div>";
-    html += thickRow + svg + strawTable(b);
+    html += '<div id="dColAnchor"></div>' + thickRow + svg + '<div id="dStrawAnchor"></div>' + strawTable(b);
     if (b.segs.some((s) => s.relabeled)) html += '<p class="hint">＊古い地層より下にあるので、ローム層・沖積層ではなく、まわりの地層（大昔の火山灰などがまじった うすい層）として色をつけています。</p>';
     if (b.image) html += '<a href="' + esc(b.image) + '" target="_blank" rel="noopener"><img class="log-image" src="' + esc(b.image) + '" alt="柱状図の画像"></a>';
     if (!b.sample && b.source) {
@@ -3095,6 +3096,9 @@
     };
     if ($("dEdit")) $("dEdit").onclick = () => openBoreDialog(b);
     if ($("dThick")) $("dThick").onchange = () => { S.showThick = $("dThick").checked; store.set("chisou3d:showThick", S.showThick); showBore(id); };
+    const jump = (anchor) => { const a = $(anchor); if (a) a.scrollIntoView({ behavior: "smooth", block: "start" }); };
+    $("dJumpStraw").onclick = () => { if (!S.straw) { S.straw = true; store.set("chisou3d:straw", true); showBore(id); setTimeout(() => jump("dStrawAnchor"), 50); } else jump("dStrawAnchor"); };
+    $("dJumpCol").onclick = () => jump("dColAnchor");
     if ($("dStraw")) $("dStraw").onchange = () => { S.straw = $("dStraw").checked; store.set("chisou3d:straw", S.straw); showBore(id); };
     if ($("dStrawScale")) $("dStrawScale").onchange = () => { S.strawScale = +$("dStrawScale").value; store.set("chisou3d:strawScale", S.strawScale); showBore(id); };
   }
