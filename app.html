@@ -6,7 +6,7 @@
 <title>大地のつくり 3D土地模型</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css?v=20261109081148">
+<link rel="stylesheet" href="css/style.css?v=20261109081507">
 </head>
 <body>
 <div id="viewport"></div>
@@ -510,7 +510,7 @@
     <label>高さの強調<select id="prVe"></select></label>
     <label>土台の厚さ<select id="prBase"><option value="2">2mm</option><option value="3" selected>3mm</option><option value="5">5mm</option></select></label>
     <label>色<select id="prColor"><option value="one">1色（地形だけ）</option><option value="layers">地層ごとに色分け（AMSで色をつける）</option></select></label>
-    <label>柱状図の柱<select id="prBores"><option value="0">入れない</option><option value="1" selected>いま表示している柱を、地面の上に立てる（高さは模型と同じ）</option><option value="2">いま表示している柱を、地面の上に立てる（たてに2倍）</option><option value="3">いま表示している柱を、地面の上に立てる（たてに3倍）</option></select></label>
+    <label>柱状図の地点<select id="prBores"><option value="0">印を付けない</option><option value="1" selected>いま表示している柱の地点に、小さな印（赤い丸）を付ける</option></select></label>
     <label>ファイルの形<select id="prFmt"><option value="3mf" selected>3MF（Bambu Studio 用・おすすめ）</option><option value="stl">STL（ほかのソフト用・1色だけ）</option></select></label>
     <p id="prInfo" class="hint"></p>
     <details class="hint"><summary>色分けのしかた（Bambu Studio）</summary>
@@ -603,20 +603,20 @@
 
 <footer id="attribution">出典：<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">国土地理院（地理院タイル・標高タイル）</a> ／ 目印：<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap</a> ／ 地下の地層はボーリング資料からの推定です（<a href="#" id="attrMore">くわしく</a>）</footer>
 
-<script src="lib/three.min.js?v=20261109081148"></script>
-<script src="lib/OrbitControls.js?v=20261109081148"></script>
-<script src="lib/qrcode.js?v=20261109081148"></script>
+<script src="lib/three.min.js?v=20261109081507"></script>
+<script src="lib/OrbitControls.js?v=20261109081507"></script>
+<script src="lib/qrcode.js?v=20261109081507"></script>
 <script>window.CHISOU = { sites: {}, registerSite: function (s) { this.sites[s.id] = s; } };</script>
-<script src="js/geo.js?v=20261109081148"></script>
-<script src="js/geology.js?v=20261109081148"></script>
-<script src="js/pattern.js?v=20261109081148"></script>
-<script src="sites/sites.js?v=20261109081148"></script>
-<script src="js/section.js?v=20261109081148"></script>
-<script src="js/boringxml.js?v=20261109081148"></script>
-<script src="js/mvt.js?v=20261109081148"></script>
-<script src="js/yato_yokohama.js?v=20261109081148"></script>
-<script src="js/ngic_bookmarklet.js?v=20261109081148"></script>
-<script src="js/help.js?v=20261109081148"></script>
-<script src="js/app.js?v=20261109081148"></script>
+<script src="js/geo.js?v=20261109081507"></script>
+<script src="js/geology.js?v=20261109081507"></script>
+<script src="js/pattern.js?v=20261109081507"></script>
+<script src="sites/sites.js?v=20261109081507"></script>
+<script src="js/section.js?v=20261109081507"></script>
+<script src="js/boringxml.js?v=20261109081507"></script>
+<script src="js/mvt.js?v=20261109081507"></script>
+<script src="js/yato_yokohama.js?v=20261109081507"></script>
+<script src="js/ngic_bookmarklet.js?v=20261109081507"></script>
+<script src="js/help.js?v=20261109081507"></script>
+<script src="js/app.js?v=20261109081507"></script>
 </body>
 </html>

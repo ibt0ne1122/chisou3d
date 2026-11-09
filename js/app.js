@@ -49,7 +49,7 @@
       setTimeout(run, 0); // 1ファイル版：設定がすでに入っている（準備が終わってから始める）
     } else {
       const sc = document.createElement("script");
-      sc.src = entry.file + "?v=20261109081148";
+      sc.src = entry.file + "?v=20261109081507";
       // 先生が配った写真メモ（sites/notes/<id>.js）：あればいっしょに読む。なくてもそのまま始める
       sc.onload = custom ? run : () => {
         const ns = document.createElement("script");
@@ -1860,7 +1860,7 @@
       $("prInfo").innerHTML = "できあがり：<b>" + o.sizeMM + "mm × " + o.sizeMM + "mm、高さ 約" + h.toFixed(0) + "mm</b>（" + (o.color ? "地層ごとに色分け・" + o.bandsCount + "色" : "1色") + "）<br>" +
         (h > printer().h - 5 ? '<span class="warn">⚠ 高すぎて ' + printer().name + "（高さ" + printer().h + "mm）に入りません。高さの強調を小さくしてください</span>" : "✅ Bambu Lab " + printer().name + "（" + printer().w + "×" + printer().d + "×" + printer().h + "mm）に入ります") +
         (S.peel ? "<br>はがした地層は、はがしたままの形で作ります" : "") + (S.section ? "<br>※ 切った模型は、切る前の四角い形で作ります" : "");
-      $("prInfo").innerHTML += "<br>柱状図の柱：" + (o.boreMul ? "<b>" + o.bores.length + "本</b>（いま画面に出している柱。☰パネルの「📍 表示する柱をえらぶ」で しぼれます）" + (o.bores.length ? "。柱は色ごとに別の部品になるので、Bambu Studio で色をつけられます" : "") : "入れない");
+      $("prInfo").innerHTML += "<br>柱状図の地点の印：" + (o.bores.length ? "<b>" + o.bores.length + "か所</b>（いま画面に出している柱。☰パネルの「📍 表示する柱をえらぶ」で しぼれます）。印は別の部品（赤）になるので、Bambu Studio で色をつけられます" : "付けない");
       $("prFmt").querySelector('[value="stl"]').disabled = o.color;
       if (o.color && $("prFmt").value === "stl") $("prFmt").value = "3mf";
     };
@@ -1877,11 +1877,9 @@
     let hi = -Infinity, lo = Infinity; for (let i = 0; i < top.length; i++) { hi = Math.max(hi, top[i]); lo = Math.min(lo, top[i]); }
     const bottom = color ? S.model.base : lo;
     const bands = color ? printBands(top).length : 1;
-    // 柱状図の柱（いま画面に出している柱＝子どもに見せている柱）を、地面の上に立てる
-    const boreMul = +$("prBores").value, bores = boreMul ? printBores() : [];
-    let colTop = hi;
-    for (const b of bores) colTop = Math.max(colTop, printGroundAt(top, b) + b.depth * boreMul);
-    return { sizeMM, ve, baseMM, color, fmt: $("prFmt").value, k, top, bottom, heightMM: baseMM + (colTop - bottom) * k * ve, bandsCount: bands, bores, boreMul };
+    // 柱状図の地点（いま画面に出している柱＝子どもに見せている柱）に、小さな印を付ける
+    const bores = +$("prBores").value ? printBores() : [];
+    return { sizeMM, ve, baseMM, color, fmt: $("prFmt").value, k, top, bottom, heightMM: baseMM + (hi - bottom) * k * ve + (bores.length ? MARK_H : 0), bandsCount: bands, bores };
   }
   /** 3Dプリンターに入れる柱：いま画面に出している柱（「？」にした柱・範囲の外は入れない） */
   function printBores() {
@@ -1907,20 +1905,21 @@
       T.push(bc, b1, b0); // 下
     }
   }
-  /** 柱状図の柱を、色ごとの部品にする（となり合う同じ色はまとめる）。地面に 0.4mm うめて立てる */
+  /** 柱状図の地点の印：地面にのる低い丸（赤）。地下の柱状図は、この真下にある */
+  const MARK_H = 1.2;
   function boreParts(o, zOf) {
-    const g = S.grid, k = o.k, r = Math.max(1.6, Math.min(3, o.sizeMM / 80)), byColor = new Map();
+    const g = S.grid, k = o.k, r = Math.max(1.5, Math.min(2.5, o.sizeMM / 100)), part = { name: "柱状図の地点", color: "#d0342c", V: [], T: [] };
     for (const b of o.bores) {
-      const cx = (b.x + g.half) * k, cy = (g.half - b.z) * k, zg = zOf(printGroundAt(o.top, b)), D = b.depth;
-      for (const run of thickRuns(b)) {
-        const sg = run.segs[0], col = segColor(sg);
-        const z0 = zg + (D - run.to) * o.boreMul * k * o.ve, z1 = zg + (D - run.from) * o.boreMul * k * o.ve;
-        if (z1 - z0 < 0.05) continue;
-        if (!byColor.has(col)) byColor.set(col, { name: "柱：" + (S.colorBy === "layer" ? (S.site.layers.find((l) => l.id === sg.layer) || {}).short || sg.soil : segName(sg)), color: col, V: [], T: [] });
-        prismMesh(cx, cy, run.to === D ? z0 - 0.4 : z0, z1, r, byColor.get(col)); // いちばん下（地面にふれる所）は、少しうめる
+      const cx = (b.x + g.half) * k, cy = (g.half - b.z) * k;
+      // まわりの地面がでこぼこでも、印が地面からうかないように、いちばん低い所からうめる
+      let zLow = Infinity, zHigh = -Infinity;
+      for (const [dx, dz] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const zz = zOf(printGroundAt(o.top, { x: b.x + (dx * r) / k, z: b.z + (dz * r) / k }));
+        zLow = Math.min(zLow, zz); zHigh = Math.max(zHigh, zz);
       }
+      prismMesh(cx, cy, zLow - 0.6, zHigh + MARK_H, r, part);
     }
-    return [...byColor.values()];
+    return part.T.length ? [part] : [];
   }
   /** 地層ごとの「上の面・下の面」（いまの表面から土台まで、すきまなく重ねる） */
   function printBands(top) {
@@ -1985,7 +1984,7 @@
       if (o.fmt === "stl") for (const p of bp) { const off = parts[0].V.length; parts[0].V.push(...p.V); for (const t of p.T) parts[0].T.push(t + off); }
       else parts.push(...bp);
     }
-    const name = "3D土地模型-" + S.site.title + "-" + printer().name.replace(/\s/g, "") + "-" + o.sizeMM + "mm-高さ×" + o.ve + (o.color ? "-地層色分け" : "") + (o.bores.length ? "-柱" + o.bores.length + "本" : "");
+    const name = "3D土地模型-" + S.site.title + "-" + printer().name.replace(/\s/g, "") + "-" + o.sizeMM + "mm-高さ×" + o.ve + (o.color ? "-地層色分け" : "") + (o.bores.length ? "-地点" + o.bores.length : "");
     if (o.fmt === "stl") {
       const p = parts[0], cnt = p.T.length / 3, buf = new ArrayBuffer(84 + cnt * 50), dv = new DataView(buf);
       for (let q = 0; q < cnt; q++) { let off = 84 + q * 50 + 12; for (let r = 0; r < 3; r++) { const v = p.V[p.T[q * 3 + r]]; for (let c = 0; c < 3; c++) { dv.setFloat32(off, v[c], true); off += 4; } } }
