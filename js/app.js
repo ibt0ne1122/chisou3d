@@ -49,7 +49,7 @@
       setTimeout(run, 0); // 1ファイル版：設定がすでに入っている（準備が終わってから始める）
     } else {
       const sc = document.createElement("script");
-      sc.src = entry.file + "?v=20261109081507";
+      sc.src = entry.file + "?v=20261109082525";
       // 先生が配った写真メモ（sites/notes/<id>.js）：あればいっしょに読む。なくてもそのまま始める
       sc.onload = custom ? run : () => {
         const ns = document.createElement("script");
@@ -1860,11 +1860,12 @@
       $("prInfo").innerHTML = "できあがり：<b>" + o.sizeMM + "mm × " + o.sizeMM + "mm、高さ 約" + h.toFixed(0) + "mm</b>（" + (o.color ? "地層ごとに色分け・" + o.bandsCount + "色" : "1色") + "）<br>" +
         (h > printer().h - 5 ? '<span class="warn">⚠ 高すぎて ' + printer().name + "（高さ" + printer().h + "mm）に入りません。高さの強調を小さくしてください</span>" : "✅ Bambu Lab " + printer().name + "（" + printer().w + "×" + printer().d + "×" + printer().h + "mm）に入ります") +
         (S.peel ? "<br>はがした地層は、はがしたままの形で作ります" : "") + (S.section ? "<br>※ 切った模型は、切る前の四角い形で作ります" : "");
+      $("prInfo").innerHTML += "<br>裏の穴：" + (o.holeD ? "<b>" + o.holeBores.length + "か所・直径" + o.holeD + "mm</b>（底から、地面の" + HOLE_SKIN + "mm下まで。穴が入るように土台は" + o.baseMM + "mm）" : "あけない");
       $("prInfo").innerHTML += "<br>柱状図の地点の印：" + (o.bores.length ? "<b>" + o.bores.length + "か所</b>（いま画面に出している柱。☰パネルの「📍 表示する柱をえらぶ」で しぼれます）。印は別の部品（赤）になるので、Bambu Studio で色をつけられます" : "付けない");
       $("prFmt").querySelector('[value="stl"]').disabled = o.color;
       if (o.color && $("prFmt").value === "stl") $("prFmt").value = "3mf";
     };
-    ["prSize", "prVe", "prBase", "prColor", "prFmt", "prBores"].forEach((id) => ($(id).onchange = upd));
+    ["prSize", "prVe", "prBase", "prColor", "prFmt", "prBores", "prHole"].forEach((id) => ($(id).onchange = upd));
     $("prPrinter").onchange = () => { store.set("chisou3d:printer", $("prPrinter").value); fillPrintSizes(true); upd(); };
     upd();
     $("prGo").onclick = async () => { $("prGo").disabled = true; $("prGo").textContent = "つくっています…"; try { await exportPrint(printOpts()); d.close(); } finally { $("prGo").disabled = false; $("prGo").textContent = "💾 保存する"; } };
@@ -1872,14 +1873,18 @@
   }
   /** 印刷の設定と、高さ（mm）の見積もり */
   function printOpts() {
-    const sizeMM = +$("prSize").value, ve = $("prVe").value === "now" ? S.ve : +$("prVe").value, baseMM = +$("prBase").value, color = $("prColor").value === "layers";
+    const sizeMM = +$("prSize").value, ve = $("prVe").value === "now" ? S.ve : +$("prVe").value, color = $("prColor").value === "layers";
+    // 箸の穴をあけるときは、谷の所でも穴が入るように、土台を 8mm 以上にする
+    const baseMM = Math.max(+$("prBase").value, +$("prHole").value ? 8 : 0);
     const g = S.grid, k = sizeMM / (2 * g.half), top = surfaceHeights();
     let hi = -Infinity, lo = Infinity; for (let i = 0; i < top.length; i++) { hi = Math.max(hi, top[i]); lo = Math.min(lo, top[i]); }
     const bottom = color ? S.model.base : lo;
     const bands = color ? printBands(top).length : 1;
     // 柱状図の地点（いま画面に出している柱＝子どもに見せている柱）に、小さな印を付ける
     const bores = +$("prBores").value ? printBores() : [];
-    return { sizeMM, ve, baseMM, color, fmt: $("prFmt").value, k, top, bottom, heightMM: baseMM + (hi - bottom) * k * ve + (bores.length ? MARK_H : 0), bandsCount: bands, bores };
+    // 裏から箸をさす穴（直径 mm。0 は あけない）
+    const holeD = +$("prHole").value, holeBores = holeD ? printBores() : [];
+    return { sizeMM, ve, baseMM, color, fmt: $("prFmt").value, k, top, bottom, heightMM: baseMM + (hi - bottom) * k * ve + (bores.length ? MARK_H : 0), bandsCount: bands, bores, holeD, holeBores };
   }
   /** 3Dプリンターに入れる柱：いま画面に出している柱（「？」にした柱・範囲の外は入れない） */
   function printBores() {
@@ -1904,6 +1909,36 @@
       T.push(tc, t0, t1); // 上
       T.push(bc, b1, b0); // 下
     }
+  }
+  /** 裏から箸をさす穴の計画：穴の中の格子点（q）と、穴の天井の高さ（m）。うすすぎて あけられない所は skipped */
+  const HOLE_SKIN = 2; // 穴の上に残す厚さ（mm）。地面に穴が出ないように
+  function holePlan(o, stride) {
+    const out = { list: [], skipped: [] };
+    if (!o.holeD || !o.holeBores.length) return out;
+    const g = S.grid, N = g.n + 1, k = o.k, kv = k * o.ve;
+    // 格子をあらく取るので、そのぶん穴を少し大きくして、箸が奥まで入るようにする
+    const rM = (o.holeD / 2) / k + stride * g.step * 0.75;
+    const baseM = (o.color ? S.model.base : o.bottom) - o.baseMM / kv;
+    for (const b of o.holeBores) {
+      const i0 = Math.round((b.x + g.half) / g.step), j0 = Math.round((b.z + g.half) / g.step), ri = Math.ceil(rM / g.step) + 1;
+      const qs = []; let topMin = Infinity;
+      for (let j = Math.max(0, j0 - ri); j <= Math.min(N - 1, j0 + ri); j++) for (let i = Math.max(0, i0 - ri); i <= Math.min(N - 1, i0 + ri); i++) {
+        const x = -g.half + i * g.step, z = -g.half + j * g.step;
+        if (Math.hypot(x - b.x, z - b.z) > rM) continue;
+        const q = j * N + i; qs.push(q); topMin = Math.min(topMin, o.top[q]);
+      }
+      const ceil = topMin - HOLE_SKIN / kv;
+      if (!qs.length || (ceil - baseM) * kv < 3) { out.skipped.push(b); continue; } // 3mm より浅い穴は あけない
+      out.list.push({ b, qs, ceil, depthMM: (ceil - baseM) * kv });
+    }
+    return out;
+  }
+  /** 穴の所だけ、下の面を穴の天井まで上げる（上の面より上にはしない） */
+  function holeBottom(top, bot, holes) {
+    if (!holes.list.length) return bot;
+    const nb = Float32Array.from(bot);
+    for (const h of holes.list) for (const q of h.qs) nb[q] = Math.min(top[q], Math.max(nb[q], h.ceil));
+    return nb;
   }
   /** 柱状図の地点の印：地面にのる低い丸（赤）。地下の柱状図は、この真下にある */
   const MARK_H = 1.2;
@@ -1969,22 +2004,25 @@
     const zOf = (v) => Math.max(0, o.baseMM + (v - o.bottom) * k * o.ve);
     const P = (i, j, v) => [i * stride * g.step * k, (N - 1 - j * stride) * g.step * k, zOf(v)];
     const parts = [];
+    // 裏から箸をさす穴：柱状図の地点の真下を、底から「地面の HOLE_SKIN mm 下」まで くりぬく
+    const holes = holePlan(o, stride);
     if (o.color) {
       // いちばん下の地層を、土台の厚さの分だけ下にのばす
       const bands = printBands(o.top);
       const base = new Float32Array(o.top.length).fill(S.model.base - o.baseMM / (k * o.ve));
       bands[bands.length - 1] = Object.assign({}, bands[bands.length - 1], { bot: base });
-      for (const bd of bands) { const L = S.site.layers[bd.li]; parts.push(Object.assign(bandMesh(bd.top, bd.bot, N, stride, P), { name: L.short || L.name, color: L.color })); }
+      for (const bd of bands) { const L = S.site.layers[bd.li]; parts.push(Object.assign(bandMesh(bd.top, holeBottom(bd.top, bd.bot, holes), N, stride, P), { name: L.short || L.name, color: L.color })); }
     } else {
       const base = new Float32Array(o.top.length).fill(o.bottom - o.baseMM / (k * o.ve));
-      parts.push(Object.assign(bandMesh(o.top, base, N, stride, P), { name: S.site.title, color: "#c8b89a" }));
+      parts.push(Object.assign(bandMesh(o.top, holeBottom(o.top, base, holes), N, stride, P), { name: S.site.title, color: "#c8b89a" }));
     }
+    S.lastHoleInfo = holes;
     if (o.bores.length) {
       const bp = boreParts(o, zOf);
       if (o.fmt === "stl") for (const p of bp) { const off = parts[0].V.length; parts[0].V.push(...p.V); for (const t of p.T) parts[0].T.push(t + off); }
       else parts.push(...bp);
     }
-    const name = "3D土地模型-" + S.site.title + "-" + printer().name.replace(/\s/g, "") + "-" + o.sizeMM + "mm-高さ×" + o.ve + (o.color ? "-地層色分け" : "") + (o.bores.length ? "-地点" + o.bores.length : "");
+    const name = "3D土地模型-" + S.site.title + "-" + printer().name.replace(/\s/g, "") + "-" + o.sizeMM + "mm-高さ×" + o.ve + (o.color ? "-地層色分け" : "") + (o.bores.length ? "-地点" + o.bores.length : "") + (o.holeD ? "-穴" + o.holeD + "mm" : "");
     if (o.fmt === "stl") {
       const p = parts[0], cnt = p.T.length / 3, buf = new ArrayBuffer(84 + cnt * 50), dv = new DataView(buf);
       for (let q = 0; q < cnt; q++) { let off = 84 + q * 50 + 12; for (let r = 0; r < 3; r++) { const v = p.V[p.T[q * 3 + r]]; for (let c = 0; c < 3; c++) { dv.setFloat32(off, v[c], true); off += 4; } } }
@@ -1994,6 +2032,7 @@
       const blob = await make3MF(parts, S.site.title);
       download(name + ".3mf", blob, "model/3mf");
     }
+    if (S.lastHoleInfo && S.lastHoleInfo.skipped.length) alert("模型がうすくて、穴をあけられなかった地点が " + S.lastHoleInfo.skipped.length + " か所あります（" + S.lastHoleInfo.skipped.map((b) => b.name).slice(0, 3).join("、") + (S.lastHoleInfo.skipped.length > 3 ? " など" : "") + "）。土台を厚くするか、高さの強調を大きくしてください。");
     flashHint("🧊 3Dプリンター用のデータを保存しました（" + o.sizeMM + "mm、高さ約" + o.heightMM.toFixed(0) + "mm）。Bambu Studio で開いてください");
   }
   /** 3MF（中身は zip）を作る。部品が複数あるときは「1つの模型の部品」としてまとめる */
