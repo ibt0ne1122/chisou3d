@@ -49,7 +49,7 @@
       setTimeout(run, 0); // 1ファイル版：設定がすでに入っている（準備が終わってから始める）
     } else {
       const sc = document.createElement("script");
-      sc.src = entry.file + "?v=20261109082606";
+      sc.src = entry.file + "?v=20261109084128";
       // 先生が配った写真メモ（sites/notes/<id>.js）：あればいっしょに読む。なくてもそのまま始める
       sc.onload = custom ? run : () => {
         const ns = document.createElement("script");
@@ -852,6 +852,33 @@
     $("onlySelBtn").textContent = "えらんだ柱だけ（" + n + "本）";
     $("onlyBoresPick").textContent = n ? "📍 えらび直す" : "📍 表示する柱をえらぶ";
     $("onlyBoresReset").classList.toggle("hidden", !n);
+    $("onlyBoresList").classList.toggle("hidden", !n);
+  }
+  /** えらんだ柱の一覧（番号は 3Dプリンター用データの「地点①」と同じ順） */
+  function selectedBoreList() {
+    const all = S.allBores || S.bores;
+    return S.onlySel ? all.filter((b) => S.onlySel.has(b.id)) : [];
+  }
+  function showSelectedList() {
+    const list = selectedBoreList();
+    if (!list.length) { flashHint("📍 まだ柱をえらんでいません"); return; }
+    const row = (b, i) => [i + 1, b.name, isNaN(b.elev) ? "" : b.elev.toFixed(1), b.depth.toFixed(1), (+b.lat).toFixed(6), (+b.lon).toFixed(6), b.source || ""];
+    let html = "<h3>📋 えらんだ柱の一覧（" + list.length + "本）</h3>" +
+      '<p class="hint">名前を押すと、その柱状図が開きます。' + (S.onlyOn ? "番号は、3Dプリンター用データの「地点1・2…」と同じです。" : "☰パネルで「えらんだ柱だけ」にすると、番号が3Dプリンター用データの「地点1・2…」と同じになります。") + "</p>" +
+      '<table class="sellist"><tr><th>番号</th><th>柱状図の名前</th><th>地面の標高</th><th>深さ</th></tr>' +
+      list.map((b, i) => "<tr><td>" + (i + 1) + '</td><td><a href="#" data-go="' + esc(b.id) + '">' + esc(b.name) + "</a></td><td>" + (isNaN(b.elev) ? "−" : b.elev.toFixed(1) + "m") + "</td><td>" + b.depth.toFixed(1) + "m</td></tr>").join("") + "</table>" +
+      '<div class="actions"><button type="button" id="slCopy">📋 名前をコピー</button><button type="button" id="slCsv">💾 表をファイルに保存（Excelで開ける）</button></div>';
+    openDetail(html);
+    $("detailBody").querySelectorAll("[data-go]").forEach((a) => (a.onclick = (e) => { e.preventDefault(); const b = list.find((x) => x.id === a.dataset.go); if (b) { focusOn(b.x, b.z, groundAt(b.x, b.z)); showBore(b.id); } }));
+    $("slCopy").onclick = async () => {
+      const txt = list.map((b, i) => (i + 1) + "　" + b.name).join("\n");
+      try { await navigator.clipboard.writeText(txt); flashHint("📋 " + list.length + "本の名前をコピーしました"); } catch (e) { prompt("これをコピーしてください", txt); }
+    };
+    $("slCsv").onclick = () => {
+      const q = (v) => '"' + String(v).replace(/"/g, '""') + '"';
+      const csv = "\ufeff" + [["番号", "柱状図の名前", "地面の標高(m)", "深さ(m)", "緯度", "経度", "出典"]].concat(list.map(row)).map((r) => r.map(q).join(",")).join("\r\n");
+      download("えらんだ柱の一覧-" + S.site.title + "-" + stamp() + ".csv", csv, "text/csv");
+    };
   }
   function startBoreSelect() {
     if (S.mode !== "view") setMode("view");
@@ -3912,6 +3939,7 @@
     chk("chkBasin", setBasin);
     // 表示する柱をえらぶ
     $("onlyBoresPick").onclick = startBoreSelect;
+    $("onlyBoresList").onclick = showSelectedList;
     $("onlyBoresReset").onclick = () => { if (confirm("えらんだ柱を消して、全部の柱を表示にもどしますか？")) clearShowOnly(); };
     $("onlyAll").onclick = () => setOnlyOn(false);
     $("onlySelBtn").onclick = () => setOnlyOn(true);
