@@ -6,7 +6,7 @@
 <title>大地のつくり 3D土地模型</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css?v=20261104080402">
+<link rel="stylesheet" href="css/style.css?v=20261109081148">
 </head>
 <body>
 <div id="viewport"></div>
@@ -415,6 +415,7 @@
   <form method="dialog">
     <h3>👥 いまの画面を先生に共有</h3>
     <p class="hint">えらんだ柱・地図・カメラの向き・断面の線・はがした層・柱の色分けを、リンクにします。受け取った先生の画面は<b>ふつうの先生の画面</b>のままで、えらんだ柱は、その先生がもともとえらんでいた柱に<b>足し合わされます</b>。</p>
+    <label id="tshareAllRow" class="toggle"><input type="checkbox" id="tshareAll"> この端末で読み込んだ柱状図を<b>全部</b>送る <b id="tshareAllN"></b>（外すと、えらんだ柱だけ）</label>
     <p id="tshareInfo" class="hint"></p>
     <div class="btnrow"><button type="button" id="tshareCopy" class="primary">📋 リンクをコピー</button><button type="button" id="tshareQrSave">🖼 QRコードを保存</button></div>
     <div class="qrwrap"><canvas id="tshareQr"></canvas><textarea id="tshareOut" rows="4" readonly spellcheck="false" style="flex:1"></textarea></div>
@@ -509,6 +510,7 @@
     <label>高さの強調<select id="prVe"></select></label>
     <label>土台の厚さ<select id="prBase"><option value="2">2mm</option><option value="3" selected>3mm</option><option value="5">5mm</option></select></label>
     <label>色<select id="prColor"><option value="one">1色（地形だけ）</option><option value="layers">地層ごとに色分け（AMSで色をつける）</option></select></label>
+    <label>柱状図の柱<select id="prBores"><option value="0">入れない</option><option value="1" selected>いま表示している柱を、地面の上に立てる（高さは模型と同じ）</option><option value="2">いま表示している柱を、地面の上に立てる（たてに2倍）</option><option value="3">いま表示している柱を、地面の上に立てる（たてに3倍）</option></select></label>
     <label>ファイルの形<select id="prFmt"><option value="3mf" selected>3MF（Bambu Studio 用・おすすめ）</option><option value="stl">STL（ほかのソフト用・1色だけ）</option></select></label>
     <p id="prInfo" class="hint"></p>
     <details class="hint"><summary>色分けのしかた（Bambu Studio）</summary>
@@ -601,20 +603,20 @@
 
 <footer id="attribution">出典：<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">国土地理院（地理院タイル・標高タイル）</a> ／ 目印：<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap</a> ／ 地下の地層はボーリング資料からの推定です（<a href="#" id="attrMore">くわしく</a>）</footer>
 
-<script src="lib/three.min.js?v=20261104080402"></script>
-<script src="lib/OrbitControls.js?v=20261104080402"></script>
-<script src="lib/qrcode.js?v=20261104080402"></script>
+<script src="lib/three.min.js?v=20261109081148"></script>
+<script src="lib/OrbitControls.js?v=20261109081148"></script>
+<script src="lib/qrcode.js?v=20261109081148"></script>
 <script>window.CHISOU = { sites: {}, registerSite: function (s) { this.sites[s.id] = s; } };</script>
-<script src="js/geo.js?v=20261104080402"></script>
-<script src="js/geology.js?v=20261104080402"></script>
-<script src="js/pattern.js?v=20261104080402"></script>
-<script src="sites/sites.js?v=20261104080402"></script>
-<script src="js/section.js?v=20261104080402"></script>
-<script src="js/boringxml.js?v=20261104080402"></script>
-<script src="js/mvt.js?v=20261104080402"></script>
-<script src="js/yato_yokohama.js?v=20261104080402"></script>
-<script src="js/ngic_bookmarklet.js?v=20261104080402"></script>
-<script src="js/help.js?v=20261104080402"></script>
-<script src="js/app.js?v=20261104080402"></script>
+<script src="js/geo.js?v=20261109081148"></script>
+<script src="js/geology.js?v=20261109081148"></script>
+<script src="js/pattern.js?v=20261109081148"></script>
+<script src="sites/sites.js?v=20261109081148"></script>
+<script src="js/section.js?v=20261109081148"></script>
+<script src="js/boringxml.js?v=20261109081148"></script>
+<script src="js/mvt.js?v=20261109081148"></script>
+<script src="js/yato_yokohama.js?v=20261109081148"></script>
+<script src="js/ngic_bookmarklet.js?v=20261109081148"></script>
+<script src="js/help.js?v=20261109081148"></script>
+<script src="js/app.js?v=20261109081148"></script>
 </body>
 </html>

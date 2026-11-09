@@ -29,15 +29,27 @@
   // 先生が画面から作った場所（この端末に保存）
   const customSites = store.get("chisou3d:customSites", []);
   let siteParam = params.get("site");
-  function boot() {
-    const custom = customSites.find((c) => c.id === siteParam);
+  async function boot() {
+    let custom = customSites.find((c) => c.id === siteParam);
+    // 共有リンクで送られてきた「画面で作った場所」：この端末になければ、リンクの中の場所の設定で開く
+    if (!custom && siteParam && !C.SITE_LIST.some((s) => s.id === siteParam)) {
+      await null; // スクリプトの残りの準備が終わってから読む
+      const m = location.hash.match(/[#&]k=([A-Za-z0-9_-]+)/), k = m ? m[1] : presetK;
+      if (k) try {
+        const st = await unpackState(k);
+        if (st.cs && st.cs.id === siteParam) {
+          custom = st.cs;
+          if (!st.kid) { customSites.push(st.cs); store.set("chisou3d:customSites", customSites); } // 先生どうし：この端末にも場所を残す
+        }
+      } catch (e) { console.warn(e); }
+    }
     const entry = custom ? C.SITE_LIST[0] : C.SITE_LIST.find((s) => s.id === siteParam) || C.SITE_LIST[0];
     const run = () => start(custom ? makeCustomSite(C.sites[entry.id], custom) : C.sites[entry.id]).catch((e) => showError(e.message || String(e)));
     if (C.sites[entry.id]) {
       setTimeout(run, 0); // 1ファイル版：設定がすでに入っている（準備が終わってから始める）
     } else {
       const sc = document.createElement("script");
-      sc.src = entry.file + "?v=20261104080402";
+      sc.src = entry.file + "?v=20261109081148";
       // 先生が配った写真メモ（sites/notes/<id>.js）：あればいっしょに読む。なくてもそのまま始める
       sc.onload = custom ? run : () => {
         const ns = document.createElement("script");
@@ -97,6 +109,17 @@
     if (!site) throw new Error("場所の設定が見つかりません。");
     S.site = site;
     S.shared = await readShared(); // 先生が配ったリンク（#k=…）の中身
+    if (S.shared && Array.isArray(S.shared.bd) && S.shared.bd.length) {
+      // リンクの中の柱状図データ：子どもはこの画面の間だけ、先生どうしは この端末の資料に足し合わせて残す
+      if (S.shared.kid) S.extraBores = S.shared.bd;
+      else {
+        const list = store.get("chisou3d:" + site.id + ":bores", []);
+        let added = 0;
+        for (const b of S.shared.bd) { const i = list.findIndex((x) => x.id === b.id); if (i >= 0) list[i] = b; else { list.push(b); added++; } }
+        store.set("chisou3d:" + site.id + ":bores", list);
+        S.sharedBoresAdded = added;
+      }
+    }
     document.title = site.title + "｜3D土地模型";
     $("siteTitle").textContent = site.title;
     $("siteSub").textContent = site.subtitle || "";
@@ -196,6 +219,7 @@
     const site = S.site;
     const map = new Map();
     for (const b of site.boreholes || []) if (b && b.lat != null) map.set(b.id, b);
+    for (const b of S.extraBores || []) if (b && b.lat != null && !map.has(b.id)) map.set(b.id, b);
     for (const b of customBores()) {
       if (b.deleted) map.delete(b.id); else map.set(b.id, b);
     }
@@ -1836,10 +1860,11 @@
       $("prInfo").innerHTML = "できあがり：<b>" + o.sizeMM + "mm × " + o.sizeMM + "mm、高さ 約" + h.toFixed(0) + "mm</b>（" + (o.color ? "地層ごとに色分け・" + o.bandsCount + "色" : "1色") + "）<br>" +
         (h > printer().h - 5 ? '<span class="warn">⚠ 高すぎて ' + printer().name + "（高さ" + printer().h + "mm）に入りません。高さの強調を小さくしてください</span>" : "✅ Bambu Lab " + printer().name + "（" + printer().w + "×" + printer().d + "×" + printer().h + "mm）に入ります") +
         (S.peel ? "<br>はがした地層は、はがしたままの形で作ります" : "") + (S.section ? "<br>※ 切った模型は、切る前の四角い形で作ります" : "");
+      $("prInfo").innerHTML += "<br>柱状図の柱：" + (o.boreMul ? "<b>" + o.bores.length + "本</b>（いま画面に出している柱。☰パネルの「📍 表示する柱をえらぶ」で しぼれます）" + (o.bores.length ? "。柱は色ごとに別の部品になるので、Bambu Studio で色をつけられます" : "") : "入れない");
       $("prFmt").querySelector('[value="stl"]').disabled = o.color;
       if (o.color && $("prFmt").value === "stl") $("prFmt").value = "3mf";
     };
-    ["prSize", "prVe", "prBase", "prColor", "prFmt"].forEach((id) => ($(id).onchange = upd));
+    ["prSize", "prVe", "prBase", "prColor", "prFmt", "prBores"].forEach((id) => ($(id).onchange = upd));
     $("prPrinter").onchange = () => { store.set("chisou3d:printer", $("prPrinter").value); fillPrintSizes(true); upd(); };
     upd();
     $("prGo").onclick = async () => { $("prGo").disabled = true; $("prGo").textContent = "つくっています…"; try { await exportPrint(printOpts()); d.close(); } finally { $("prGo").disabled = false; $("prGo").textContent = "💾 保存する"; } };
@@ -1852,7 +1877,50 @@
     let hi = -Infinity, lo = Infinity; for (let i = 0; i < top.length; i++) { hi = Math.max(hi, top[i]); lo = Math.min(lo, top[i]); }
     const bottom = color ? S.model.base : lo;
     const bands = color ? printBands(top).length : 1;
-    return { sizeMM, ve, baseMM, color, fmt: $("prFmt").value, k, top, bottom, heightMM: baseMM + (hi - bottom) * k * ve, bandsCount: bands };
+    // 柱状図の柱（いま画面に出している柱＝子どもに見せている柱）を、地面の上に立てる
+    const boreMul = +$("prBores").value, bores = boreMul ? printBores() : [];
+    let colTop = hi;
+    for (const b of bores) colTop = Math.max(colTop, printGroundAt(top, b) + b.depth * boreMul);
+    return { sizeMM, ve, baseMM, color, fmt: $("prFmt").value, k, top, bottom, heightMM: baseMM + (colTop - bottom) * k * ve, bandsCount: bands, bores, boreMul };
+  }
+  /** 3Dプリンターに入れる柱：いま画面に出している柱（「？」にした柱・範囲の外は入れない） */
+  function printBores() {
+    return S.bores.filter((b) => !isNaN(b.elev) && b.segs.length && !S.hiddenBores.has(b.id) && Math.abs(b.x) <= S.grid.half && Math.abs(b.z) <= S.grid.half);
+  }
+  /** 印刷する地面の高さ（その柱の場所の、いちばん近い格子点） */
+  function printGroundAt(top, b) {
+    const g = S.grid, N = g.n + 1;
+    const i = Math.max(0, Math.min(N - 1, Math.round((b.x + g.half) / g.step))), j = Math.max(0, Math.min(N - 1, Math.round((b.z + g.half) / g.step)));
+    return top[j * N + i];
+  }
+  /** 八角柱（とじた形）：中心(cx,cy)、高さ z0〜z1、半径 r（mm） */
+  function prismMesh(cx, cy, z0, z1, r, out) {
+    const n = 8, V = out.V, T = out.T, base = V.length;
+    for (let q = 0; q < n; q++) { const a = (q / n) * Math.PI * 2 + Math.PI / 8; V.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r, z0]); }
+    for (let q = 0; q < n; q++) { const a = (q / n) * Math.PI * 2 + Math.PI / 8; V.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r, z1]); }
+    V.push([cx, cy, z0], [cx, cy, z1]);
+    const bc = base + 2 * n, tc = bc + 1;
+    for (let q = 0; q < n; q++) {
+      const b0 = base + q, b1 = base + ((q + 1) % n), t0 = b0 + n, t1 = b1 + n;
+      T.push(b0, b1, t1, b0, t1, t0); // 横（外向き）
+      T.push(tc, t0, t1); // 上
+      T.push(bc, b1, b0); // 下
+    }
+  }
+  /** 柱状図の柱を、色ごとの部品にする（となり合う同じ色はまとめる）。地面に 0.4mm うめて立てる */
+  function boreParts(o, zOf) {
+    const g = S.grid, k = o.k, r = Math.max(1.6, Math.min(3, o.sizeMM / 80)), byColor = new Map();
+    for (const b of o.bores) {
+      const cx = (b.x + g.half) * k, cy = (g.half - b.z) * k, zg = zOf(printGroundAt(o.top, b)), D = b.depth;
+      for (const run of thickRuns(b)) {
+        const sg = run.segs[0], col = segColor(sg);
+        const z0 = zg + (D - run.to) * o.boreMul * k * o.ve, z1 = zg + (D - run.from) * o.boreMul * k * o.ve;
+        if (z1 - z0 < 0.05) continue;
+        if (!byColor.has(col)) byColor.set(col, { name: "柱：" + (S.colorBy === "layer" ? (S.site.layers.find((l) => l.id === sg.layer) || {}).short || sg.soil : segName(sg)), color: col, V: [], T: [] });
+        prismMesh(cx, cy, run.to === D ? z0 - 0.4 : z0, z1, r, byColor.get(col)); // いちばん下（地面にふれる所）は、少しうめる
+      }
+    }
+    return [...byColor.values()];
   }
   /** 地層ごとの「上の面・下の面」（いまの表面から土台まで、すきまなく重ねる） */
   function printBands(top) {
@@ -1912,7 +1980,12 @@
       const base = new Float32Array(o.top.length).fill(o.bottom - o.baseMM / (k * o.ve));
       parts.push(Object.assign(bandMesh(o.top, base, N, stride, P), { name: S.site.title, color: "#c8b89a" }));
     }
-    const name = "3D土地模型-" + S.site.title + "-" + printer().name.replace(/\s/g, "") + "-" + o.sizeMM + "mm-高さ×" + o.ve + (o.color ? "-地層色分け" : "");
+    if (o.bores.length) {
+      const bp = boreParts(o, zOf);
+      if (o.fmt === "stl") for (const p of bp) { const off = parts[0].V.length; parts[0].V.push(...p.V); for (const t of p.T) parts[0].T.push(t + off); }
+      else parts.push(...bp);
+    }
+    const name = "3D土地模型-" + S.site.title + "-" + printer().name.replace(/\s/g, "") + "-" + o.sizeMM + "mm-高さ×" + o.ve + (o.color ? "-地層色分け" : "") + (o.bores.length ? "-柱" + o.bores.length + "本" : "");
     if (o.fmt === "stl") {
       const p = parts[0], cnt = p.T.length / 3, buf = new ArrayBuffer(84 + cnt * 50), dv = new DataView(buf);
       for (let q = 0; q < cnt; q++) { let off = 84 + q * 50 + 12; for (let r = 0; r < 3; r++) { const v = p.V[p.T[q * 3 + r]]; for (let c = 0; c < 3; c++) { dv.setFloat32(off, v[c], true); off += 4; } } }
@@ -3339,6 +3412,26 @@
     location.search = "?site=" + id;
   }
 
+  /** リンクに入れる柱状図データ：公開版に入っていない（この端末で読み込んだ）柱だけ。ids があれば、その柱だけ */
+  function linkBoreData(ids) {
+    const builtin = new Set((S.site.boreholes || []).map((b) => b.id)), want = ids ? new Set(ids) : null;
+    const src = customBores().filter((b) => !b.deleted).concat(S.extraBores || []);
+    const seen = new Set(), out = [];
+    for (const b of src) {
+      if (!b || b.lat == null || builtin.has(b.id) || seen.has(b.id) || (want && !want.has(b.id))) continue;
+      seen.add(b.id);
+      const o = { id: b.id, name: b.name, lat: +(+b.lat).toFixed(6), lon: +(+b.lon).toFixed(6) };
+      for (const k of ["elevation", "source", "url"]) if (b[k] != null && b[k] !== "") o[k] = b[k];
+      o.logs = (b.logs || []).map((l) => { const r = { to: l.to, layer: l.layer, soil: l.soil }; if (l.n != null && l.n !== "") r.n = l.n; return r; });
+      out.push(o);
+    }
+    return out;
+  }
+  /** 画面で作った場所の設定（リンクに入れて、受け取った端末でも開けるように） */
+  const customSiteDef = () => (S.site.custom ? customSites.find((c) => c.id === S.site.id) || null : null);
+  /** QRコードに入らないほど長いリンクのときは、QRをかかない */
+  const QR_MAX = 2200;
+
   // ---------- 書き出し・読み込み ----------
   function exportBores() {
     return allBoreData().filter((b) => !b.sample).map((b) => {
@@ -3641,18 +3734,30 @@
   /** 先生どうしで共有するリンク（子ども用のしばりはつけない） */
   async function openTeacherShare() {
     const only = S.onlySel ? [...S.onlySel] : [];
-    const st = captureState({ strokes: true, tonly: only });
+    const allCustom = linkBoreData(null), selCustom = linkBoreData(only);
+    if (!$("tshareDialog").open) $("tshareAll").checked = !only.length; // えらんだ柱がないときは、読み込んだ柱を全部
+    $("tshareAllN").textContent = "（" + allCustom.length + "本）";
+    $("tshareAllRow").classList.toggle("hidden", !allCustom.length);
+    const bd = $("tshareAll").checked ? allCustom : selCustom;
+    const st = captureState({ strokes: true, tonly: only, bd });
     const link = baseUrl() + "#k=" + (await packState(st));
     $("tshareOut").value = link;
-    drawQr($("tshareQr"), link);
+    const qrOk = link.length <= QR_MAX;
+    $("tshareQr").classList.toggle("hidden", !qrOk); $("tshareQrSave").disabled = !qrOk;
+    if (qrOk) drawQr($("tshareQr"), link);
+    const cs = customSiteDef();
     $("tshareInfo").innerHTML = "えらんだ柱：<b>" + only.length + "本</b>" + (only.length ? "" : "（☰パネルの「📍 表示する柱をえらぶ」で、えらんでから開くと入ります）") +
+      "　柱状図のデータ：<b>" + bd.length + "本</b>（この端末で読み込んだ柱）" +
       "　柱の色：<b>" + ({ layer: "地層の種類", grain: "つぶの大きさ", custom: "先生の仲間分け" }[S.colorBy] || "") + "</b>" +
+      (cs ? "<br>画面で作った場所「" + esc(cs.name) + "」の設定も入っています（受け取った先生の端末にも、この場所ができます）。" : "") +
+      (qrOk ? "" : '<br><span class="warn">⚠ 柱状図のデータが多いので、QRコードにはできません。リンクをコピーして、メールやTeamsで送ってください。</span>') +
       (location.protocol === "file:" ? '<br><span class="warn">⚠ パソコンの中のファイルを開いているので、ほかの人は開けません。公開しているアドレスで開いてから作ってください。</span>' : "");
-    $("tshareDialog").showModal();
+    if (!$("tshareDialog").open) $("tshareDialog").showModal();
   }
   function initUI() {
     $("btnGroups").onclick = openGroupDialog;
     $("btnTShare").onclick = openTeacherShare;
+    $("tshareAll").onchange = openTeacherShare;
     $("tshareCopy").onclick = async () => { try { await navigator.clipboard.writeText($("tshareOut").value); } catch (e) { $("tshareOut").select(); document.execCommand("copy"); } flashHint("📋 先生用のリンクをコピーしました"); };
     $("tshareQrSave").onclick = () => download("QRコード-先生用-" + S.site.title + ".png", $("tshareQr").toDataURL("image/png"));
     S.showThick = store.get("chisou3d:showThick", true);
@@ -4434,6 +4539,8 @@
     if (cb === "custom") st.grp = groupsCfg(); // 先生の仲間分けも、いっしょに送る
     if (!S.showThick) st.nothick = 1; // 層の厚さを出さない（子どもに計算させるとき）
     if (!S.straw) st.nostraw = 1; else if (S.strawScale !== 5) st.ss = S.strawScale; // ストローの長さ
+    if (o.bd && o.bd.length) st.bd = o.bd; // 柱状図のデータそのもの（公開版にない柱）
+    const cs = customSiteDef(); if (cs) st.cs = cs; // 画面で作った場所
     if (o.tonly && o.tonly.length) { st.tonly = o.tonly; if (S.onlyOn) st.ton = 1; } // 先生どうし：えらんだ柱（受け取った側で足し合わせる）
     if (S.gapHide) { st.gh = S.gapHide; if (S.gapModel) st.gm = 1; }
     if (S.ve !== (S.site.defaultExaggeration || 3)) st.vz = S.ve;
@@ -4486,6 +4593,7 @@
     S.showThick = !st.nothick;
     S.straw = !st.nostraw; S.strawScale = st.ss || 5;
     if (st.grp && st.grp.g) S.groupsShared = st.grp; // 送られてきた仲間分け（この画面の間だけ使う）
+    if (S.sharedBoresAdded) setTimeout(() => flashHint("👥 共有された柱状図 " + S.sharedBoresAdded + " 本を、この端末の資料に足しました"), 2600);
     if (st.tonly) {
       // 先生どうしの共有：えらんだ柱を、もともとえらんでいた柱に足し合わせる
       const known = new Set((S.allBores || S.bores).map((b) => b.id)), before = S.onlySel ? S.onlySel.size : 0;
@@ -4678,11 +4786,14 @@
   }
   function showQr(link) {
     const title = $("shareTitle").value.trim() || S.site.title;
-    drawQr($("shareQr"), link);
-    $("shareQrTitle").textContent = title;
-    $("shareQrBox").classList.remove("hidden");
     S.qrLink = link;
+    $("shareQrBox").classList.remove("hidden");
+    $("shareQrTitle").textContent = title;
+    const ok = link.length <= QR_MAX;
+    $("shareQr").classList.toggle("hidden", !ok); $("shareQrPrint").disabled = $("shareQrSave").disabled = !ok;
+    if (ok) drawQr($("shareQr"), link);
   }
+
   function qrSheetHtml(link, title) {
     const cv = drawQr(document.createElement("canvas"), link);
     return '<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>' + esc(title) + '</title><style>body{font-family:"BIZ UDPGothic",sans-serif;text-align:center;margin:18mm}h1{font-size:26px}img{width:120mm;height:120mm;image-rendering:pixelated}p{font-size:15px}@media print{button{display:none}}</style></head><body>' +
@@ -4741,12 +4852,14 @@
     const bsel = document.querySelector('[name="shareBores"]:checked').value;
     const only = bsel === "picked" ? (S.lastPickIds || []) : bsel === "shown" && S.onlySel ? [...S.onlySel] : null;
     store.set("chisou3d:shareTitle", $("shareTitle").value.trim());
-    const st = captureState({ strokes: $("shareStrokes").checked, kid: { lock: $("shareLock").checked ? 1 : 0 }, form: true, ui: hide, only, cb: $("shareColorBy").value || null });
+    // 子どもに見せる柱のうち、この端末で読み込んだ柱は、データそのものもリンクに入れる（子どもの端末にはないので）
+    const bd = linkBoreData(only);
+    const st = captureState({ strokes: $("shareStrokes").checked, kid: { lock: $("shareLock").checked ? 1 : 0 }, form: true, ui: hide, only, cb: $("shareColorBy").value || null, bd });
     S.shareK = await packState(st);
     $("shareOut").value = baseUrl() + "#k=" + S.shareK;
     showQr($("shareOut").value);
     const len = $("shareOut").value.length;
-    $("shareLenNote").textContent = len > 900 ? "⚠ 中身が多いのでQRコードが細かくなっています。読みにくいときは、印刷を大きくするか、下の「入り口のページにも出す」で短いQRにしてください。" : "";
+    $("shareLenNote").textContent = len > QR_MAX ? "⚠ 柱状図のデータ（" + bd.length + "本）が多いので、QRコードにできません。リンクをコピーして配るか、下の「入り口のページにも出す」で短いQRにしてください。見せる柱をしぼると短くなります。" : len > 900 ? "⚠ 中身が多いのでQRコードが細かくなっています。読みにくいときは、印刷を大きくするか、下の「入り口のページにも出す」で短いQRにしてください。" : "";
     $("shareBoresNow").textContent = "（" + document.querySelector('[name="shareBores"]:checked').parentElement.textContent.replace(/「.*?」で/, "").trim() + "）";
     // 入り口ページに登録する文
     S.sharePid = S.sharePid || presetId();
