@@ -49,7 +49,7 @@
       setTimeout(run, 0); // 1ファイル版：設定がすでに入っている（準備が終わってから始める）
     } else {
       const sc = document.createElement("script");
-      sc.src = entry.file + "?v=20261109084128";
+      sc.src = entry.file + "?v=20261109084622";
       // 先生が配った写真メモ（sites/notes/<id>.js）：あればいっしょに読む。なくてもそのまま始める
       sc.onload = custom ? run : () => {
         const ns = document.createElement("script");
@@ -3940,6 +3940,7 @@
     // 表示する柱をえらぶ
     $("onlyBoresPick").onclick = startBoreSelect;
     $("onlyBoresList").onclick = showSelectedList;
+    $("btnSelList").onclick = () => { if (!selectedBoreList().length) { flashHint("📍 先に ☰パネルの「📍 表示する柱をえらぶ」で柱をえらんでください"); startBoreSelect(); return; } showSelectedList(); };
     $("onlyBoresReset").onclick = () => { if (confirm("えらんだ柱を消して、全部の柱を表示にもどしますか？")) clearShowOnly(); };
     $("onlyAll").onclick = () => setOnlyOn(false);
     $("onlySelBtn").onclick = () => setOnlyOn(true);
