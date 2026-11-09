@@ -49,7 +49,7 @@
       setTimeout(run, 0); // 1ファイル版：設定がすでに入っている（準備が終わってから始める）
     } else {
       const sc = document.createElement("script");
-      sc.src = entry.file + "?v=20261109082525";
+      sc.src = entry.file + "?v=20261109082606";
       // 先生が配った写真メモ（sites/notes/<id>.js）：あればいっしょに読む。なくてもそのまま始める
       sc.onload = custom ? run : () => {
         const ns = document.createElement("script");
@@ -1861,6 +1861,8 @@
         (h > printer().h - 5 ? '<span class="warn">⚠ 高すぎて ' + printer().name + "（高さ" + printer().h + "mm）に入りません。高さの強調を小さくしてください</span>" : "✅ Bambu Lab " + printer().name + "（" + printer().w + "×" + printer().d + "×" + printer().h + "mm）に入ります") +
         (S.peel ? "<br>はがした地層は、はがしたままの形で作ります" : "") + (S.section ? "<br>※ 切った模型は、切る前の四角い形で作ります" : "");
       $("prInfo").innerHTML += "<br>裏の穴：" + (o.holeD ? "<b>" + o.holeBores.length + "か所・直径" + o.holeD + "mm</b>（底から、地面の" + HOLE_SKIN + "mm下まで。穴が入るように土台は" + o.baseMM + "mm）" : "あけない");
+      const pl = o.bores.length ? o.bores : o.holeBores;
+      if (pl.length) $("prInfo").innerHTML += '<details class="hint"><summary>地点の番号と柱状図（' + pl.length + "か所）</summary><ol>" + pl.map((b) => "<li>" + esc(b.name) + "</li>").join("") + "</ol>Bambu Studio の部品の一覧にも「地点1：…」の名前で出ます。</details>";
       $("prInfo").innerHTML += "<br>柱状図の地点の印：" + (o.bores.length ? "<b>" + o.bores.length + "か所</b>（いま画面に出している柱。☰パネルの「📍 表示する柱をえらぶ」で しぼれます）。印は別の部品（赤）になるので、Bambu Studio で色をつけられます" : "付けない");
       $("prFmt").querySelector('[value="stl"]').disabled = o.color;
       if (o.color && $("prFmt").value === "stl") $("prFmt").value = "3mf";
@@ -1943,9 +1945,10 @@
   /** 柱状図の地点の印：地面にのる低い丸（赤）。地下の柱状図は、この真下にある */
   const MARK_H = 1.2;
   function boreParts(o, zOf) {
-    const g = S.grid, k = o.k, r = Math.max(1.5, Math.min(2.5, o.sizeMM / 100)), part = { name: "柱状図の地点", color: "#d0342c", V: [], T: [] };
-    for (const b of o.bores) {
-      const cx = (b.x + g.half) * k, cy = (g.half - b.z) * k;
+    // 印は1か所ずつ別の部品にして、部品の名前を「地点①：柱状図の名前」にする（Bambu Studio の一覧で、どの印がどの柱状図か分かる）
+    const g = S.grid, k = o.k, r = Math.max(1.5, Math.min(2.5, o.sizeMM / 100)), out = [];
+    o.bores.forEach((b, n) => {
+      const cx = (b.x + g.half) * k, cy = (g.half - b.z) * k, part = { name: "地点" + (n + 1) + "：" + b.name, color: "#d0342c", V: [], T: [] };
       // まわりの地面がでこぼこでも、印が地面からうかないように、いちばん低い所からうめる
       let zLow = Infinity, zHigh = -Infinity;
       for (const [dx, dz] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) {
@@ -1953,9 +1956,11 @@
         zLow = Math.min(zLow, zz); zHigh = Math.max(zHigh, zz);
       }
       prismMesh(cx, cy, zLow - 0.6, zHigh + MARK_H, r, part);
-    }
-    return part.T.length ? [part] : [];
+      out.push(part);
+    });
+    return out;
   }
+
   /** 地層ごとの「上の面・下の面」（いまの表面から土台まで、すきまなく重ねる） */
   function printBands(top) {
     const m = S.model, L = m.tops.length, M = top.length, out = [];
