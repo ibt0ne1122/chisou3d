@@ -633,3 +633,12 @@ a.btnlink.primary { background: var(--accent); color: #fff; border-color: var(--
 #detail .jumprow { display: flex; gap: 6px; flex-wrap: wrap; margin: 4px 0 8px; } #detail .jumprow button { flex: 1 1 140px; font-size: 14px; padding: 6px 8px; background: #eaf6f8; border: 1px solid #1f7a8c; color: #1f5f73; border-radius: 10px; }
 #detail .strawrow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; } #detail .strawrow select { width: auto; padding: 2px 4px; font-size: 13px; }
 #detail table.sellist { width: 100%; border-collapse: collapse; font-size: 14px; } #detail table.sellist th, #detail table.sellist td { border-bottom: 1px solid var(--line); padding: 4px 6px; text-align: left; } #detail table.sellist td:first-child { width: 2.5em; color: var(--sub); }
+/* 先生モード：仲間ごとにたためる */
+#teacherTools .tgroup { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 6px 8px; }
+#teacherTools .tgroup > summary { cursor: pointer; font-weight: bold; font-size: 14px; padding: 2px 0; }
+#teacherTools .tgroup[open] > summary { margin-bottom: 6px; }
+#teacherTools .tgroup > * + * { margin-top: 6px; }
+#teacherTools .tgroup > button, #teacherTools .tgroup > select, #teacherTools .tgroup > a.btnlink { width: 100%; display: flex; }
+#teacherTools .tgroup > button { justify-content: center; }
+#teacherTools .tnote { margin: 0; font-size: 12px; }
+#teacherTools .tgroup > button { font-size: 14px; padding: 6px 8px; }

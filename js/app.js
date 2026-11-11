@@ -49,7 +49,7 @@
       setTimeout(run, 0); // 1ファイル版：設定がすでに入っている（準備が終わってから始める）
     } else {
       const sc = document.createElement("script");
-      sc.src = entry.file + "?v=20261109084622";
+      sc.src = entry.file + "?v=20261111054116";
       // 先生が配った写真メモ（sites/notes/<id>.js）：あればいっしょに読む。なくてもそのまま始める
       sc.onload = custom ? run : () => {
         const ns = document.createElement("script");
@@ -3826,6 +3826,12 @@
   }
   function initUI() {
     $("btnGroups").onclick = openGroupDialog;
+    // 先生モードの「授業の準備」：ほかの場所にあるボタンへの近道
+    $("teacherTools").addEventListener("click", (e) => {
+      const j = e.target.closest("[data-jump]"), h = e.target.closest("[data-help]");
+      if (j) $(j.dataset.jump).click();
+      if (h) C.Help.openHelp(7); // 「先生向け」のタブ
+    });
     $("btnTShare").onclick = openTeacherShare;
     $("tshareAll").onchange = openTeacherShare;
     $("tshareCopy").onclick = async () => { try { await navigator.clipboard.writeText($("tshareOut").value); } catch (e) { $("tshareOut").select(); document.execCommand("copy"); } flashHint("📋 先生用のリンクをコピーしました"); };
@@ -4149,7 +4155,7 @@
       camera.position.set(t.x, camera.position.y, t.z + r);
     };
     $("attrMore").onclick = (e) => { e.preventDefault(); C.Help.openSources(); };
-    $("sampleBadge").onclick = () => (!S.bores.length ? C.Help.openHelp(5) : alert(S.site.sample.note + "\n\n先生モードで「仮データを表示」を外すと消えます。"));
+    $("sampleBadge").onclick = () => (!S.bores.length ? C.Help.openHelp(6) : alert(S.site.sample.note + "\n\n先生モードで「仮データを表示」を外すと消えます。"));
 
     // 断面図
     $("secUndo").onclick = () => secView && secView.undo();
