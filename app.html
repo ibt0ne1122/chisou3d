@@ -6,7 +6,7 @@
 <title>大地のつくり 3D土地模型</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css?v=20261112005808">
+<link rel="stylesheet" href="css/style.css?v=20261112010114">
 </head>
 <body>
 <div id="viewport"></div>
@@ -190,7 +190,7 @@
   <button data-mode="section">✂️ 断面図を作成</button>
   <button data-mode="pick">📍 柱状図を選択して断面図を作成</button>
   <button data-mode="cut" class="cutbtn">🔪 模型を切る</button>
-  <button data-mode="note">📝 気づきメモ</button>
+  <button data-mode="note">📝 メモ・目印</button>
   <span class="sep"></span>
   <button id="qLift" class="quick" type="button">⬆️ 柱を地上に</button>
   <button id="qNames" class="quick on" type="button" title="ボーリングの柱の名前（🔍の名札）を出したり、かくしたりします">🏷 柱：名前あり</button>
@@ -350,7 +350,8 @@
 <dialog id="noteDialog">
   <form method="dialog">
     <h3 id="noteTitle">📝 気づきメモ</h3>
-    <div id="noteKindRow" class="seg hidden"><button type="button" data-kind="memo" class="on">📝 気づきメモ</button><button type="button" data-kind="mark">📍 目印（場所の名前）</button></div>
+    <div id="noteKindRow" class="seg"><button type="button" data-kind="memo" class="on">📝 気づきメモ</button><button type="button" data-kind="mark">📍 目印</button><button type="button" data-kind="home">🏠 自分の家</button></div>
+    <p id="noteHomeHint" class="hint hidden">🏠 自分の家の印は、<b>この端末の中だけ</b>にあります。先生やほかの人には送られません。</p>
     <label><span id="noteTextLabel">気づいたこと・考えたこと</span><textarea id="noteText" rows="4" placeholder="例：向こうの丘にも同じ砂の層がある！"></textarea></label>
     <label>名前・班（なくてもよい）<input id="noteAuthor" type="text"></label>
     <label>📷 写真（なくてもよい：その場所の写真・地層の写真など）<input id="notePhoto" type="file" accept="image/*"></label>
@@ -619,20 +620,20 @@
 
 <footer id="attribution">出典：<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">国土地理院（地理院タイル・標高タイル）</a> ／ 目印：<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap</a> ／ 地下の地層はボーリング資料からの推定です（<a href="#" id="attrMore">くわしく</a>）</footer>
 
-<script src="lib/three.min.js?v=20261112005808"></script>
-<script src="lib/OrbitControls.js?v=20261112005808"></script>
-<script src="lib/qrcode.js?v=20261112005808"></script>
+<script src="lib/three.min.js?v=20261112010114"></script>
+<script src="lib/OrbitControls.js?v=20261112010114"></script>
+<script src="lib/qrcode.js?v=20261112010114"></script>
 <script>window.CHISOU = { sites: {}, registerSite: function (s) { this.sites[s.id] = s; } };</script>
-<script src="js/geo.js?v=20261112005808"></script>
-<script src="js/geology.js?v=20261112005808"></script>
-<script src="js/pattern.js?v=20261112005808"></script>
-<script src="sites/sites.js?v=20261112005808"></script>
-<script src="js/section.js?v=20261112005808"></script>
-<script src="js/boringxml.js?v=20261112005808"></script>
-<script src="js/mvt.js?v=20261112005808"></script>
-<script src="js/yato_yokohama.js?v=20261112005808"></script>
-<script src="js/ngic_bookmarklet.js?v=20261112005808"></script>
-<script src="js/help.js?v=20261112005808"></script>
-<script src="js/app.js?v=20261112005808"></script>
+<script src="js/geo.js?v=20261112010114"></script>
+<script src="js/geology.js?v=20261112010114"></script>
+<script src="js/pattern.js?v=20261112010114"></script>
+<script src="sites/sites.js?v=20261112010114"></script>
+<script src="js/section.js?v=20261112010114"></script>
+<script src="js/boringxml.js?v=20261112010114"></script>
+<script src="js/mvt.js?v=20261112010114"></script>
+<script src="js/yato_yokohama.js?v=20261112010114"></script>
+<script src="js/ngic_bookmarklet.js?v=20261112010114"></script>
+<script src="js/help.js?v=20261112010114"></script>
+<script src="js/app.js?v=20261112010114"></script>
 </body>
 </html>
