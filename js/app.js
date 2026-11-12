@@ -49,7 +49,7 @@
       setTimeout(run, 0); // 1ファイル版：設定がすでに入っている（準備が終わってから始める）
     } else {
       const sc = document.createElement("script");
-      sc.src = entry.file + "?v=20261112010114";
+      sc.src = entry.file + "?v=20261112010127";
       // 先生が配った写真メモ（sites/notes/<id>.js）：あればいっしょに読む。なくてもそのまま始める
       sc.onload = custom ? run : () => {
         const ns = document.createElement("script");
@@ -3462,7 +3462,7 @@
   }
   function showNotesList() {
     let html = "<h3>📝 みんなの気づきメモ</h3>";
-    if (!S.notes.length) html += '<p class="meta">まだメモはありません。下の「📝 気づきメモ」を選んで、地図をタップすると置けます。</p>';
+    if (!S.notes.length) html += '<p class="meta">まだメモはありません。下の「📝 メモ・目印」を選んで、地図をタップすると置けます。</p>';
     html += '<ul class="notes-list">' + S.notes.map((n) =>
       '<li style="border-left-color:' + (n.kind === "home" ? "#1f4f99" : n.kind === "mark" ? "#b3261e" : esc(n.color)) + '">' + (n.kind === "home" ? "🏠 " : n.kind === "mark" ? "📍 " : "") + esc(n.text) + (n.photo ? " 📷" : "") + "<br><small>" + esc(n.author || "") + '</small><button data-go="' + n.id + '">見る</button></li>').join("") + "</ul>";
     const pub = pubNotes();
