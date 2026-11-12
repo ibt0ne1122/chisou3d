@@ -17,6 +17,7 @@
   h2 { font-size:20px; margin:28px 0 4px; }
   .card.preset { border-left:6px solid #d4a017; }
   footer { margin-top:32px; font-size:13px; color:var(--sub); }
+  .ver { display:inline-block; background:#fff; border:1px solid #cfe0e7; border-radius:10px; padding:6px 12px; font-size:15px; margin:0 0 18px; } .ver small { color:var(--sub); font-size:12px; }
   .cw { position:relative; } .cw .card { height:100%; box-sizing:border-box; }
   .qrb { position:absolute; top:10px; right:10px; border:1px solid #cfe0e7; background:#f4f8fa; border-radius:8px; padding:4px 8px; font-size:13px; cursor:pointer; }
   .homeqr { border:1px solid #cfe0e7; background:#fff; border-radius:10px; padding:6px 12px; font-size:14px; cursor:pointer; margin-bottom:18px; }
@@ -33,6 +34,7 @@
 <main>
   <h1>🌋 3D土地模型（6年理科「大地のつくり」）</h1>
   <p class="lead">学校のまわりの地形と、地面の下の地層を3Dで見られます。見たい場所をえらんでください。</p>
+  <p class="ver">🏷 この画面の版：<b data-chisou-ver>開発中</b><br><small>先生が更新したあと、ここの版が新しくならないときは、ページを読み込み直してください。新しい版があると、上にお知らせが出ます。</small></p>
   <button type="button" class="homeqr qrb0" data-url="" data-title="3D土地模型（入り口）">📱 この入り口ページのQRコード</button>
   <div class="grid">
     <div class="cw"><a class="card" href="app.html?site=nagatsuta"><span class="ic">🏫</span><b>長津田小学校のまわり</b><small>3D土地模型をひらく ›</small></a><button type="button" class="qrb" data-url="app.html?site=nagatsuta" data-title="長津田小学校のまわり">📱 QR</button></div>
@@ -79,7 +81,8 @@
   </script>
   <div id="qrBox" hidden><div class="in"><b id="qrT"></b><br><canvas id="qrC"></canvas><div class="u" id="qrU"></div>
     <div class="row"><button type="button" id="qrSave">💾 画像で保存</button><button type="button" id="qrClose">とじる</button></div></div></div>
-  <script src="lib/qrcode.js"></script>
+  <script src="lib/qrcode.js?v=20261112010256"></script>
+  <script src="js/version.js?v=20261112010256"></script>
   <script>
     (function () {
       // 入り口・各場所のQRコード（タブレットのカメラで読みとると開く）
