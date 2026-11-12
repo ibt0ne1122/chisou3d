@@ -49,7 +49,7 @@
       setTimeout(run, 0); // 1ファイル版：設定がすでに入っている（準備が終わってから始める）
     } else {
       const sc = document.createElement("script");
-      sc.src = entry.file + "?v=20261112010818";
+      sc.src = entry.file + "?v=20261112012203";
       // 先生が配った写真メモ（sites/notes/<id>.js）：あればいっしょに読む。なくてもそのまま始める
       sc.onload = custom ? run : () => {
         const ns = document.createElement("script");
@@ -504,10 +504,11 @@
   }
 
   /** 縦の壁（側面・断面）をつくる。samples: [{x,z,tops,bots}] */
-  function wallMesh(samples) {
+  function wallMesh(samples, outer) {
     const L = S.site.layers.length, ve = S.ve, from = 0;
     // 模型を切ったときの「切り口の色を消す」（予想して色をぬる用）：切り口とまわりのかべを白く、境の線も出さない
-    const blank = !!(S.cutBlank && S.mode === "cut" && S.section);
+    // outer：模型のまわりの側面。「まわりの側面の地層をかくす」のときは、色と境の線を出さない（予想するとき用）
+    const blank = !!(S.cutBlank && S.mode === "cut" && S.section) || !!(outer && S.wallBlank);
     const terr = S.relief === "terrace" && S.peel === 0;
     const pos = [], col = [], lines = [], pat = [], puv = [], faceLayer = [];
     const c = new THREE.Color();
@@ -586,7 +587,7 @@
       edges[2].push(gridSample(n - t, n));
       edges[3].push(gridSample(0, n - t));
     }
-    for (const e of edges) groups.walls.add(wallMesh(e));
+    for (const e of edges) groups.walls.add(wallMesh(e, true));
     const h = S.grid.half;
     const bottom = new THREE.Mesh(new THREE.PlaneGeometry(2 * h, 2 * h), clipMat(new THREE.MeshLambertMaterial({ color: 0x4a4f55, side: THREE.DoubleSide })));
     bottom.rotation.x = -Math.PI / 2;
@@ -4170,6 +4171,9 @@
       location.href = u.href;
     };
     chk("chkLabels", (v) => { S.labels = v; applyVisibility(); });
+    S.wallBlank = store.get("chisou3d:wallBlank", false);
+    $("chkWallBlank").checked = S.wallBlank;
+    chk("chkWallBlank", (v) => { S.wallBlank = v; if (!S.kid) store.set("chisou3d:wallBlank", v); buildWalls(); });
     chk("chkNotes", (v) => { S.showNotes = v; applyVisibility(); });
     chk("chkRing", (v) => { S.ring = v; applyVisibility(); });
     chk("chkTeacher", (v) => {
@@ -4737,6 +4741,7 @@
     if (Object.keys(S.boreMarks).length) st.marks = S.boreMarks;
     if (S.peel) { st.peel = [...S.peeled]; st.pm = S.peelMode; }
     if (S.showRivers) st.riv = 1;
+    if (S.wallBlank) st.wb = 1; // まわりの側面の地層をかくす
     if (S.showYato) st.yato = 1;
     if (S.lift) st.lift = 1;
     if (S.alignBores) st.al = 1;
@@ -4796,6 +4801,7 @@
     if (st.map && st.map !== S.mapType) await setMap(st.map);
     if (st.relief && st.relief !== S.relief) setRelief(st.relief);
     setChk("chkRiver", st.riv);
+    setChk("chkWallBlank", st.wb);
     if (!$("chkYato").parentElement.classList.contains("hidden")) setChk("chkYato", st.yato);
     setChk("chkLift", st.lift);
     if (!!st.al !== S.alignBores) S.setAlign(!!st.al);
