@@ -6,7 +6,7 @@
 <title>大地のつくり 3D土地模型</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css?v=20261112010256">
+<link rel="stylesheet" href="css/style.css?v=20261112010818">
 </head>
 <body>
 <div id="viewport"></div>
@@ -148,37 +148,37 @@
       <p class="verline">🏷 版：<b data-chisou-ver>開発中</b></p>
       <label class="teacher-switch"><input type="checkbox" id="chkTeacher"> 先生モード</label>
       <div id="teacherTools" class="hidden">
-        <details class="tgroup" open><summary>📤 配る・共有する</summary>
+<div class="tgroup"><div class="tghead">📍 目印を作る</div>
+          <button id="btnMarkAdd" type="button" class="primary">＋ 目印を置く</button>
+          <button id="btnMarkList" type="button">📋 目印の一覧</button>
+          <button id="btnMarkPub" type="button">📤 写真・目印を子どもに配る</button>
+          <p class="hint">目印をタップすると、「📷 この場所の写真をつける」と「📝 気づきメモ」が使えます。</p>
+        </div>
+        <div class="tgroup"><div class="tghead">📤 配る・共有する</div>
           <button id="btnShare" type="button" class="primary">🔗 子どもに配る</button>
           <button id="btnTShare" type="button">👥 先生に共有する</button>
           <button id="btnSelList" type="button">📋 えらんだ柱の一覧</button>
           <button id="btnQr" type="button">📱 場所のQRコード</button>
-        </details>
-        <details class="tgroup"><summary>📥 資料を入れる・保存する</summary>
+        </div>
+        <div class="tgroup"><div class="tghead">📥 資料を入れる・保存する</div>
           <button id="btnXml" class="primary">📄 柱状図XMLを読み込む</button>
           <div class="btnrow">
             <button id="btnExport">データを書き出す</button>
             <button id="btnImport">データを読み込む</button>
           </div>
           <label><input type="checkbox" id="chkSample"> 仮データを表示</label>
-        </details>
-        <details class="tgroup"><summary>🏫 場所をかえる・新しく作る</summary>
+        </div>
+        <div class="tgroup"><div class="tghead">🏫 場所をかえる・新しく作る</div>
           <select id="siteSelect"></select>
           <button id="btnNewSite" type="button">＋ 新しい場所の模型をつくる</button>
           <a class="btnlink" href="guide.html" target="_blank" rel="noopener">📘 作り方ガイド ↗</a>
-        </details>
-<details class="tgroup"><summary>📍 目印を作る</summary>
-          <button id="btnMarkAdd" type="button" class="primary">＋ 目印を置く</button>
-          <button id="btnMarkList" type="button">📋 目印の一覧</button>
-          <button id="btnMarkPub" type="button">📤 写真・目印を子どもに配る</button>
-          <p class="hint">目印をタップすると、「📷 この場所の写真をつける」と「📝 気づきメモ」が使えます。</p>
-        </details>
-        <details class="tgroup"><summary>🧰 授業の準備</summary>
+        </div>
+        <div class="tgroup"><div class="tghead">🧰 授業の準備</div>
           <button type="button" data-jump="btnGroups">✏️ 柱状図の仲間分け</button>
           <button type="button" data-jump="btnNotesList">📷 写真メモ（メモ一覧）</button>
           <button type="button" data-jump="btnSTL">🧊 3Dプリンター用データ</button>
           <button type="button" data-help="先生向け">？ 先生向けの使い方</button>
-        </details>
+        </div>
       </div>
     </section>
   </div>
@@ -621,21 +621,21 @@
 
 <footer id="attribution">出典：<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">国土地理院（地理院タイル・標高タイル）</a> ／ 目印：<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap</a> ／ 地下の地層はボーリング資料からの推定です（<a href="#" id="attrMore">くわしく</a>）</footer>
 
-<script src="lib/three.min.js?v=20261112010256"></script>
-<script src="lib/OrbitControls.js?v=20261112010256"></script>
-<script src="lib/qrcode.js?v=20261112010256"></script>
+<script src="lib/three.min.js?v=20261112010818"></script>
+<script src="lib/OrbitControls.js?v=20261112010818"></script>
+<script src="lib/qrcode.js?v=20261112010818"></script>
 <script>window.CHISOU = { sites: {}, registerSite: function (s) { this.sites[s.id] = s; } };</script>
-<script src="js/geo.js?v=20261112010256"></script>
-<script src="js/geology.js?v=20261112010256"></script>
-<script src="js/pattern.js?v=20261112010256"></script>
-<script src="sites/sites.js?v=20261112010256"></script>
-<script src="js/section.js?v=20261112010256"></script>
-<script src="js/boringxml.js?v=20261112010256"></script>
-<script src="js/mvt.js?v=20261112010256"></script>
-<script src="js/yato_yokohama.js?v=20261112010256"></script>
-<script src="js/ngic_bookmarklet.js?v=20261112010256"></script>
-<script src="js/help.js?v=20261112010256"></script>
-<script src="js/app.js?v=20261112010256"></script>
-<script src="js/version.js?v=20261112010256"></script>
+<script src="js/geo.js?v=20261112010818"></script>
+<script src="js/geology.js?v=20261112010818"></script>
+<script src="js/pattern.js?v=20261112010818"></script>
+<script src="sites/sites.js?v=20261112010818"></script>
+<script src="js/section.js?v=20261112010818"></script>
+<script src="js/boringxml.js?v=20261112010818"></script>
+<script src="js/mvt.js?v=20261112010818"></script>
+<script src="js/yato_yokohama.js?v=20261112010818"></script>
+<script src="js/ngic_bookmarklet.js?v=20261112010818"></script>
+<script src="js/help.js?v=20261112010818"></script>
+<script src="js/app.js?v=20261112010818"></script>
+<script src="js/version.js?v=20261112010818"></script>
 </body>
 </html>

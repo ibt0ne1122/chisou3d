@@ -651,3 +651,7 @@ a.btnlink.primary { background: var(--accent); color: #fff; border-color: var(--
 #detail .markname { font-size: 18px; font-weight: bold; background: #fff; border: 2px solid #b3261e; border-radius: 8px; padding: 8px 10px; margin: 4px 0 8px; } #detail .markmemo { white-space: pre-wrap; background: #fffbe6; border-radius: 8px; padding: 8px 10px; } #detail #mMemo { width: 100%; font-size: 15px; }
 #detail .markname.home { border-color: #1f4f99; color: #1f4f99; background: #e6f0ff; } #noteKindRow { display: flex; flex-wrap: wrap; gap: 4px; }
 #controls .verline { font-size: 12px; color: var(--sub); margin: 10px 0 0; }
+/* 先生モード：わくで囲んで、はじめから全部見せる */
+#teacherTools { border: 2px solid #1f7a8c; background: #eef6f8; }
+#teacherTools::before { content: "👩‍🏫 先生モード"; font-weight: bold; font-size: 13px; color: #1f5f73; }
+#teacherTools .tgroup > .tghead { font-weight: bold; font-size: 14px; padding: 2px 0 4px; color: #1f2a33; }
