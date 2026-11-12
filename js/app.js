@@ -49,7 +49,7 @@
       setTimeout(run, 0); // 1ファイル版：設定がすでに入っている（準備が終わってから始める）
     } else {
       const sc = document.createElement("script");
-      sc.src = entry.file + "?v=20261112004038";
+      sc.src = entry.file + "?v=20261112004543";
       // 先生が配った写真メモ（sites/notes/<id>.js）：あればいっしょに読む。なくてもそのまま始める
       sc.onload = custom ? run : () => {
         const ns = document.createElement("script");
@@ -3375,11 +3375,42 @@
     $("noteDialog").showModal();
     setTimeout(() => $("noteText").focus(), 50);
   }
+  /** 目印の中身：名前・この場所の写真・気づきメモ（先生は、ここで写真をつけたり、メモを書いたりできる） */
+  function showMark(nt) {
+    const own = !nt.pub && S.teacher && !S.kid; // この端末で先生がつけた目印
+    const photoSrc = nt.photo && (nt.pub ? (PHOTO_PATH.test(nt.photo) ? esc(nt.photo) : "") : (/^data:image\/(jpeg|png);/.test(nt.photo) ? nt.photo : ""));
+    let html = '<h3>📍 目印</h3><p class="markname">' + esc(nt.text) + "</p>";
+    html += photoSrc ? '<figure class="borephoto"><img class="log-image" src="' + photoSrc + '" alt="この場所の写真"><figcaption>📷 この場所の写真</figcaption></figure>' : "";
+    if (own) html += '<div class="actions photoact"><button type="button" id="mPhoto">📷 ' + (photoSrc ? "写真をかえる" : "この場所の写真をつける") + "</button>" + (photoSrc ? '<button type="button" id="mPhotoDel">写真を消す</button>' : "") + "</div>";
+    html += "<h4>📝 気づきメモ</h4>";
+    if (own) html += '<textarea id="mMemo" rows="3" placeholder="例：坂の上と下で、見える土の色がちがう">' + esc(nt.memo || "") + '</textarea><div class="actions"><button type="button" id="mMemoSave" class="primary">メモを保存</button></div>';
+    else html += nt.memo ? '<p class="markmemo">' + esc(nt.memo) + "</p>" : '<p class="hint">（まだメモはありません）</p>';
+    if (own) html += '<div class="actions"><button id="nDel" class="danger">この目印を消す</button></div>';
+    openDetail(html);
+    if (!own) return;
+    const save = () => { store.set(key("notes"), S.notes); buildNotes(); };
+    $("mPhoto").onclick = () => {
+      const inp = document.createElement("input"); inp.type = "file"; inp.accept = "image/*";
+      inp.onchange = async () => {
+        if (!inp.files[0]) return;
+        try { nt.photo = await shrinkPhoto(inp.files[0]); save(); if (!JSON.stringify(store.get(key("notes"), [])).includes(nt.photo.slice(-40))) alert("この端末の保存場所がいっぱいで、写真を保存できませんでした。"); showMark(nt); } catch (e) { alert(e.message); }
+      };
+      inp.click();
+    };
+    if ($("mPhotoDel")) $("mPhotoDel").onclick = () => { if (confirm("この目印の写真を消しますか？")) { delete nt.photo; save(); showMark(nt); } };
+    $("mMemoSave").onclick = () => { nt.memo = $("mMemo").value.trim().slice(0, 300); save(); flashHint("📝 目印のメモを保存しました"); };
+    $("nDel").onclick = () => {
+      if (!confirm("この目印を消しますか？")) return;
+      S.notes = S.notes.filter((n) => n.id !== nt.id); save();
+      $("detail").classList.add("hidden");
+    };
+  }
   function showNote(id) {
     const nt = findNote(id);
     if (!nt) return;
+    if (nt.kind === "mark") return showMark(nt);
     if (nt.pub) {
-      openDetail("<h3>" + (nt.kind === "mark" ? "📍 目印" : "📷 先生の写真メモ") + '</h3><p style="font-size:17px;white-space:pre-wrap;background:' + (nt.kind === "mark" ? "#fff" : esc(nt.color || "#ffd54f")) + ';padding:10px;border-radius:8px' + (nt.kind === "mark" ? ";border:2px solid #b3261e;font-weight:bold" : "") + '">' + esc(nt.text) + "</p>" +
+      openDetail("<h3>📷 先生の写真メモ" + '</h3><p style="font-size:17px;white-space:pre-wrap;background:' + (nt.kind === "mark" ? "#fff" : esc(nt.color || "#ffd54f")) + ';padding:10px;border-radius:8px' + (nt.kind === "mark" ? ";border:2px solid #b3261e;font-weight:bold" : "") + '">' + esc(nt.text) + "</p>" +
         (nt.photo && PHOTO_PATH.test(nt.photo) ? '<a href="' + esc(nt.photo) + '" target="_blank" rel="noopener"><img class="log-image" src="' + esc(nt.photo) + '" alt="写真"></a>' : "") +
         '<div class="meta">' + (nt.author ? esc(nt.author) : "") + "</div>");
       return;
@@ -4682,7 +4713,7 @@
     if (!S.showThick) st.nothick = 1; // 層の厚さを出さない（子どもに計算させるとき）
     if (!S.straw) st.nostraw = 1; else if (S.strawScale !== 5) st.ss = S.strawScale; // ストローの長さ
     if (o.bd && o.bd.length) st.bd = o.bd; // 柱状図のデータそのもの（公開版にない柱）
-    const mk = S.notes.filter((n) => n.kind === "mark").map((n) => ({ id: n.id, x: Math.round(n.x), z: Math.round(n.z), text: n.text }));
+    const mk = S.notes.filter((n) => n.kind === "mark").map((n) => Object.assign({ id: n.id, x: Math.round(n.x), z: Math.round(n.z), text: n.text }, n.memo ? { memo: n.memo } : {}));
     if (mk.length) st.mk = mk; // 先生がつけた目印（名前と場所。写真は公開版に入れたものだけ出る）
     const cs = customSiteDef(); if (cs) st.cs = cs; // 画面で作った場所
     if (o.tonly && o.tonly.length) { st.tonly = o.tonly; if (S.onlyOn) st.ton = 1; } // 先生どうし：えらんだ柱（受け取った側で足し合わせる）

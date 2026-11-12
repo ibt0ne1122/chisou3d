@@ -648,3 +648,4 @@ a.btnlink.primary { background: var(--accent); color: #fff; border-color: var(--
 #tryBar button { background: #c0392b; color: #fff; border: 0; border-radius: 10px; padding: 6px 12px; font-size: 14px; font-weight: bold; }
 #shareUi .ui-group { margin: 8px 0; } #shareUi .grpbtn { margin-left: 8px; } #shareUi .grpbtn button { font-size: 12px; padding: 2px 8px; margin-left: 4px; }
 #detail .borephoto { margin: 6px 0; } #detail .borephoto figcaption { font-size: 13px; color: var(--sub); } #detail .photoact { margin: 4px 0 8px; } #noteKindRow { margin: 4px 0 8px; }
+#detail .markname { font-size: 18px; font-weight: bold; background: #fff; border: 2px solid #b3261e; border-radius: 8px; padding: 8px 10px; margin: 4px 0 8px; } #detail .markmemo { white-space: pre-wrap; background: #fffbe6; border-radius: 8px; padding: 8px 10px; } #detail #mMemo { width: 100%; font-size: 15px; }
