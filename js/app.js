@@ -49,7 +49,7 @@
       setTimeout(run, 0); // 1ファイル版：設定がすでに入っている（準備が終わってから始める）
     } else {
       const sc = document.createElement("script");
-      sc.src = entry.file + "?v=20261111054116";
+      sc.src = entry.file + "?v=20261112004038";
       // 先生が配った写真メモ（sites/notes/<id>.js）：あればいっしょに読む。なくてもそのまま始める
       sc.onload = custom ? run : () => {
         const ns = document.createElement("script");
@@ -1404,7 +1404,34 @@
 
   // ---------- 気づきメモ ----------
   /** 先生が配った写真メモ（公開版に入っているもの。消せない） */
-  const pubNotes = () => ((C.PUB_NOTES && C.PUB_NOTES[S.site.id]) || []).map((n) => Object.assign({ pub: true }, n));
+  const pubNotes = () => {
+    const pub = ((C.PUB_NOTES && C.PUB_NOTES[S.site.id]) || []).map((n) => Object.assign({ pub: true }, n));
+    // リンクで送られてきた目印（写真なし）。公開版に同じものがあれば、そちら（写真つき）を使う
+    for (const m of S.extraMarks || []) if (!pub.some((n) => n.id === m.id) && !S.notes.some((n) => n.id === m.id)) pub.push(Object.assign({ pub: true, kind: "mark" }, m));
+    return pub;
+  };
+  const PHOTO_PATH = /^sites\/notes\/[\w-]+\/[\w-]+\.jpg$/;
+  /** 柱状図につけた写真：公開版に入っているもの → この端末でつけたもの の順に */
+  function borePhotoOf(id) {
+    const loc = store.get(key("borePhotos"), {})[id];
+    if (loc && /^data:image\/jpeg;/.test(loc.photo)) return Object.assign({ local: true }, loc);
+    const pub = C.PUB_BORE_PHOTOS && C.PUB_BORE_PHOTOS[S.site.id] && C.PUB_BORE_PHOTOS[S.site.id][id];
+    return pub && PHOTO_PATH.test(pub.photo) ? pub : null;
+  }
+  /** 写真を小さくする（長い辺 900px の JPEG。撮影場所などの記録は入らない） */
+  function shrinkPhoto(file) {
+    return new Promise((res, rej) => {
+      const img = new Image(), url = URL.createObjectURL(file);
+      img.onload = () => {
+        const k = Math.min(1, 900 / Math.max(img.width, img.height)), cv = document.createElement("canvas");
+        cv.width = Math.round(img.width * k); cv.height = Math.round(img.height * k);
+        cv.getContext("2d").drawImage(img, 0, 0, cv.width, cv.height);
+        URL.revokeObjectURL(url); res(cv.toDataURL("image/jpeg", 0.72));
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); rej(new Error("写真を読めませんでした")); };
+      img.src = url;
+    });
+  }
   const findNote = (id) => S.notes.find((n) => n.id === id) || pubNotes().find((n) => n.id === id);
   function buildNotes() {
     disposeGroup(groups.notes);
@@ -1413,8 +1440,9 @@
       const top = y + 60;
       const grp = new THREE.Group();
       grp.add(pinLine(nt.x, nt.z, y, top, 0x8a6d00));
-      const txt = (nt.photo ? "📷 " : "") + wrapText(nt.text, 14) + (nt.author ? "\n― " + nt.author : "");
-      const lab = makeLabel(nt.pub ? "📷 " + wrapText(nt.text, 14) : txt, { bg: nt.color || "#ffd54f", border: nt.pub ? "#1f7a8c" : "rgba(0,0,0,0.3)", size: 13 });
+      const mark = nt.kind === "mark";
+      const txt = mark ? "📍 " + wrapText(nt.text, 14) + (nt.photo ? " 📷" : "") : (nt.photo ? "📷 " : "") + wrapText(nt.text, 14) + (nt.author && !nt.pub ? "\n― " + nt.author : "");
+      const lab = makeLabel(txt, mark ? { bg: "#ffffff", color: "#b3261e", border: "#b3261e", size: 14 } : { bg: nt.color || "#ffd54f", border: nt.pub ? "#1f7a8c" : "rgba(0,0,0,0.3)", size: 13 });
       lab.position.set(nt.x, top, nt.z);
       lab.userData.pick = { type: "note", id: nt.id };
       lab.userData.isLabel = true;
@@ -3195,6 +3223,9 @@
       MARK_COLORS.map((m) => '<button type="button" class="sw' + (cur === m.c ? " on" : "") + '" data-mc="' + m.c + '" title="' + m.n + '" style="background:' + m.c + '"></button>').join("") +
       (Object.keys(S.boreMarks).length ? '<button type="button" id="dMarkClear" class="link">全部もどす</button>' : "") + "</div>";
     let html = "<h3>" + esc(b.name) + "</h3>";
+    const bph = borePhotoOf(id);
+    if (bph) html += '<figure class="borephoto"><img class="log-image" src="' + (bph.local ? bph.photo : esc(bph.photo)) + '" alt="この場所の写真"><figcaption>📷 ' + esc(bph.cap || "この柱状図の場所") + "</figcaption></figure>";
+    if (S.teacher && !S.kid) html += '<div class="actions photoact"><button type="button" id="dPhoto">📷 ' + (bph ? "写真をかえる" : "この場所の写真をつける") + "</button>" + (bph && bph.local ? '<button type="button" id="dPhotoDel">写真を消す</button>' : "") + "</div>";
     html += '<div class="jumprow"><button type="button" id="dJumpStraw">✂️ ストローで作る長さ</button><button type="button" id="dJumpCol">📏 柱状図と層の厚さ</button></div>';
     html += markHtml;
     if (b.sample) html += '<div class="warnbox">⚠ ' + esc(S.site.sample.note || "仮のデータです") + "</div>";
@@ -3238,6 +3269,22 @@
       setHint("✂️ 断面のもう1か所（B）をタップ（となりのボーリングをタップすると2本をくらべられます）");
     };
     if ($("dEdit")) $("dEdit").onclick = () => openBoreDialog(b);
+    if ($("dPhoto")) $("dPhoto").onclick = () => {
+      const inp = document.createElement("input"); inp.type = "file"; inp.accept = "image/*";
+      inp.onchange = async () => {
+        if (!inp.files[0]) return;
+        try {
+          const photo = await shrinkPhoto(inp.files[0]);
+          const cap = prompt("写真の説明（子どもに見せる一言。なくてもよい）", (bph && bph.cap) || "") || "";
+          const all = store.get(key("borePhotos"), {}); all[id] = { photo, cap: cap.slice(0, 60) };
+          store.set(key("borePhotos"), all);
+          if (!store.get(key("borePhotos"), {})[id]) alert("この端末の保存場所がいっぱいで、写真を保存できませんでした。写真メモを書き出してから、古い写真を消してください。");
+          showBore(id);
+        } catch (e) { alert(e.message); }
+      };
+      inp.click();
+    };
+    if ($("dPhotoDel")) $("dPhotoDel").onclick = () => { if (!confirm("この柱の写真を消しますか？")) return; const all = store.get(key("borePhotos"), {}); delete all[id]; store.set(key("borePhotos"), all); showBore(id); };
     if ($("dThick")) $("dThick").onchange = () => { S.showThick = $("dThick").checked; store.set("chisou3d:showThick", S.showThick); showBore(id); };
     const jump = (anchor) => { const a = $(anchor); if (a) a.scrollIntoView({ behavior: "smooth", block: "start" }); };
     $("dJumpStraw").onclick = () => { if (!S.straw) { S.straw = true; store.set("chisou3d:straw", true); showBore(id); setTimeout(() => jump("dColAnchor"), 50); } else jump("dColAnchor"); };
@@ -3304,8 +3351,23 @@
 
   // ---------- メモ ----------
   let noteTarget = null;
+  let noteKind = "memo";
+  function setNoteKind(k) {
+    noteKind = k;
+    $("noteKindRow").querySelectorAll("button").forEach((b) => b.classList.toggle("on", b.dataset.kind === k));
+    const mark = k === "mark";
+    $("noteTitle").textContent = mark ? "📍 目印をつける" : "📝 気づきメモ";
+    $("noteTextLabel").textContent = mark ? "目印の名前（例：〇〇公園のがけ、通学路の坂）" : "気づいたこと・考えたこと";
+    $("noteText").rows = mark ? 1 : 4;
+    $("noteText").placeholder = mark ? "例：〇〇公園のがけ" : "例：向こうの丘にも同じ砂の層がある！";
+    $("noteAuthor").parentElement.classList.toggle("hidden", mark);
+    $("noteColors").classList.toggle("hidden", mark);
+  }
   function openNoteDialog(p) {
     noteTarget = p;
+    $("noteKindRow").classList.toggle("hidden", !S.teacher); // 目印は先生がつける
+    $("noteKindRow").onclick = (e) => { const b = e.target.closest("[data-kind]"); if (b) setNoteKind(b.dataset.kind); };
+    setNoteKind(S.teacher ? noteKind : "memo");
     $("noteText").value = "";
     $("noteAuthor").value = store.get("chisou3d:author", "");
     $("notePhoto").value = ""; $("notePhotoPrev").innerHTML = "";
@@ -3317,17 +3379,17 @@
     const nt = findNote(id);
     if (!nt) return;
     if (nt.pub) {
-      openDetail('<h3>📷 先生の写真メモ</h3><p style="font-size:17px;white-space:pre-wrap;background:' + esc(nt.color || "#ffd54f") + ';padding:10px;border-radius:8px">' + esc(nt.text) + "</p>" +
-        (nt.photo && /^sites\/notes\/[\w-]+\/[\w-]+\.jpg$/.test(nt.photo) ? '<a href="' + esc(nt.photo) + '" target="_blank" rel="noopener"><img class="log-image" src="' + esc(nt.photo) + '" alt="写真"></a>' : "") +
+      openDetail("<h3>" + (nt.kind === "mark" ? "📍 目印" : "📷 先生の写真メモ") + '</h3><p style="font-size:17px;white-space:pre-wrap;background:' + (nt.kind === "mark" ? "#fff" : esc(nt.color || "#ffd54f")) + ';padding:10px;border-radius:8px' + (nt.kind === "mark" ? ";border:2px solid #b3261e;font-weight:bold" : "") + '">' + esc(nt.text) + "</p>" +
+        (nt.photo && PHOTO_PATH.test(nt.photo) ? '<a href="' + esc(nt.photo) + '" target="_blank" rel="noopener"><img class="log-image" src="' + esc(nt.photo) + '" alt="写真"></a>' : "") +
         '<div class="meta">' + (nt.author ? esc(nt.author) : "") + "</div>");
       return;
     }
-    openDetail('<h3>📝 気づきメモ</h3><p style="font-size:17px;white-space:pre-wrap;background:' + esc(nt.color) + ';padding:10px;border-radius:8px">' + esc(nt.text) + "</p>" +
+    openDetail("<h3>" + (nt.kind === "mark" ? "📍 目印" : "📝 気づきメモ") + '</h3><p style="font-size:17px;white-space:pre-wrap;background:' + (nt.kind === "mark" ? "#fff;border:2px solid #b3261e;font-weight:bold" : esc(nt.color)) + ';padding:10px;border-radius:8px">' + esc(nt.text) + "</p>" +
       (nt.photo && /^data:image\/(jpeg|png);/.test(nt.photo) ? '<img class="log-image" src="' + nt.photo + '" alt="写真">' : "") +
       '<div class="meta">' + (nt.author ? esc(nt.author) + "　" : "") + esc(new Date(nt.time).toLocaleString("ja-JP")) + "</div>" +
-      '<div class="actions"><button id="nDel" class="danger">このメモを消す</button></div>');
+      '<div class="actions"><button id="nDel" class="danger">' + (nt.kind === "mark" ? "この目印を消す" : "このメモを消す") + "</button></div>");
     $("nDel").onclick = () => {
-      if (!confirm("このメモを消しますか？")) return;
+      if (!confirm(nt.kind === "mark" ? "この目印を消しますか？" : "このメモを消しますか？")) return;
       S.notes = S.notes.filter((n) => n.id !== id);
       store.set(key("notes"), S.notes);
       buildNotes();
@@ -3344,8 +3406,8 @@
       '<li style="border-left-color:' + esc(n.color || "#1f7a8c") + '">📷 ' + esc(n.text) + '<button data-go="' + n.id + '">見る</button></li>').join("") + "</ul>";
     html += '<div class="actions"><button id="nExport">メモを書き出す</button><button id="nImport">メモを読み込む</button></div>' +
       '<p class="hint">書き出したメモを先生の端末で読み込むと、クラス全員のメモを1つの模型に集められます。</p>' +
-      (S.teacher ? '<div class="actions"><button id="nPub" class="primary">📤 写真メモを子どもに配る（ファイルにする）</button></div>' +
-        '<p class="hint">写真つきのメモだけを1つのファイルにします。そのファイルを Claude に送ると、公開版に入り、<b>どの端末・子どもに配るリンクでも</b>同じ場所に写真メモが出ます。子どもの顔・名札・表札などが写っていない写真にしてください。</p>' : "");
+      (S.teacher ? '<div class="actions"><button id="nPub" class="primary">📤 写真・目印を子どもに配る（ファイルにする）</button></div>' +
+        '<p class="hint">写真つきのメモ・目印・柱状図につけた写真を1つのファイルにします。そのファイルを Claude に送ると、公開版に入り、<b>どの端末・子どもに配るリンクでも</b>同じ場所に写真メモが出ます。子どもの顔・名札・表札などが写っていない写真にしてください。</p>' : "");
     openDetail(html);
     $("detailBody").querySelectorAll("[data-go]").forEach((btn) => (btn.onclick = () => {
       const n = findNote(btn.dataset.go);
@@ -3354,10 +3416,10 @@
     $("nExport").onclick = () => openIO("export-notes");
     if ($("nPub")) $("nPub").onclick = () => {
       // 子どもに配る写真メモ：写真つきのメモ（と、その説明）だけをファイルにする → Claude に送ると公開版に入る
-      const list = S.notes.filter((n) => n.photo);
-      if (!list.length) { alert("写真つきのメモがありません。「📝 気づきメモ」で写真をつけてから押してください。"); return; }
-      download("写真メモ-" + S.site.id + "-" + stamp() + ".json", JSON.stringify({ kind: "chisou3d-photo-notes", site: S.site.id, notes: list }), "application/json");
-      flashHint("📤 写真メモ " + list.length + " 件をファイルにしました。このファイルを Claude に送ってください");
+      const list = S.notes.filter((n) => n.photo || n.kind === "mark"), bp = store.get(key("borePhotos"), {}), nb = Object.keys(bp).length;
+      if (!list.length && !nb) { alert("写真つきのメモ・目印・柱の写真がありません。「📝 気づきメモ」で写真や目印をつけるか、柱状図の画面で「📷 この場所の写真をつける」をしてから押してください。"); return; }
+      download("写真メモ-" + S.site.id + "-" + stamp() + ".json", JSON.stringify({ kind: "chisou3d-photo-notes", site: S.site.id, notes: list, borePhotos: bp }), "application/json");
+      flashHint("📤 メモ・目印 " + list.length + " 件、柱の写真 " + nb + " 枚をファイルにしました。このファイルを Claude に送ってください");
     };
     $("nImport").onclick = () => openIO("import");
   }
@@ -3847,6 +3909,7 @@
       buildBores(); buildLegend();
       if (S.section) openSectionSheet();
       if ($("detail").dataset.bore) showBore($("detail").dataset.bore);
+      if (S.kid) applyKidFixed();
     };
     const hs = $("hazardSelect");
     hs.add(new Option("重ねない", "none"));
@@ -4508,6 +4571,7 @@
       const author = $("noteAuthor").value.trim();
       store.set("chisou3d:author", author);
       const nt = { id: "n" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), x: noteTarget.x, z: noteTarget.z, text, author, color: S.noteColor, time: Date.now() };
+      if (noteKind === "mark" && S.teacher) { nt.kind = "mark"; nt.author = ""; nt.text = text.replace(/\s+/g, " ").slice(0, 30); }
       if (notePhotoData) nt.photo = notePhotoData;
       S.notes.push(nt);
       store.set(key("notes"), S.notes);
@@ -4618,6 +4682,8 @@
     if (!S.showThick) st.nothick = 1; // 層の厚さを出さない（子どもに計算させるとき）
     if (!S.straw) st.nostraw = 1; else if (S.strawScale !== 5) st.ss = S.strawScale; // ストローの長さ
     if (o.bd && o.bd.length) st.bd = o.bd; // 柱状図のデータそのもの（公開版にない柱）
+    const mk = S.notes.filter((n) => n.kind === "mark").map((n) => ({ id: n.id, x: Math.round(n.x), z: Math.round(n.z), text: n.text }));
+    if (mk.length) st.mk = mk; // 先生がつけた目印（名前と場所。写真は公開版に入れたものだけ出る）
     const cs = customSiteDef(); if (cs) st.cs = cs; // 画面で作った場所
     if (o.tonly && o.tonly.length) { st.tonly = o.tonly; if (S.onlyOn) st.ton = 1; } // 先生どうし：えらんだ柱（受け取った側で足し合わせる）
     if (S.gapHide) { st.gh = S.gapHide; if (S.gapModel) st.gm = 1; }
@@ -4648,6 +4714,7 @@
         $("secShowModel").parentElement.dataset.tip = "先生が答え合わせを止めています";
         $("secStage").disabled = true;
       }
+      applyKidFixed();
     }
     if (st.ui) applyKidUi(st.ui);
     if (st.only) {
@@ -4668,6 +4735,11 @@
     setChk("chkLift", st.lift);
     if (!!st.al !== S.alignBores) S.setAlign(!!st.al);
     if (!st.nopat !== S.pattern) S.setPattern(!st.nopat);
+    if (st.mk && st.mk.length) {
+      if (st.kid) S.extraMarks = st.mk; // 子ども：この画面の間だけ
+      else { for (const m of st.mk) if (!S.notes.some((n) => n.id === m.id)) S.notes.push(Object.assign({ kind: "mark", color: "#ffffff", time: Date.now() }, m)); store.set(key("notes"), S.notes); }
+      buildNotes();
+    }
     S.showThick = !st.nothick;
     S.straw = !st.nostraw; S.strawScale = st.ss || 5;
     if (st.grp && st.grp.g) S.groupsShared = st.grp; // 送られてきた仲間分け（この画面の間だけ使う）
@@ -4790,28 +4862,31 @@
     };
   }
   /** 子どもの画面で「出す・出さない」をえらべるもの（キー → 画面の部品） */
+  // 子どもの画面には いつも出さないもの（先生が配る前に決めることなので）
+  const KID_NEVER = ["学習の道具", "その他"], KID_LEGEND_ONLY = "ボーリングの柱の色分け";
+  const secTitle = (sec) => { const h = sec.querySelector("h2"); return h ? (h.dataset.t || (h.dataset.t = h.textContent.replace(/×[\d.]+/, "").trim())) : ""; };
+  const PANEL_NO = { "地図": "① 地図の種類", "範囲（中心からの半径）": "② 範囲（半径）", "防災の情報を重ねる": "③ 防災の情報を重ねる", "高さを強調": "④ 高さを強調", "地面をすきとおらせる": "⑤ 地面をすきとおらせる", "地層をはがす": "⑤ 地層をはがす" };
   function kidUiTargets() {
     const out = [];
     const add = (group, key, label, els) => { if (els.length) out.push({ group, key, label: label.replace(/\s+/g, " ").trim(), els }); };
+    const G1 = "左のパネル：子どもが操作できるもの", G6 = "⑥ 地面（地図）の表示の切りかえ（1つずつ。上のボタンで全部まとめて）";
+    add(G1, "panel", "☰ パネル全体（外すと、パネルのボタンごと出ません）", [$("controls")]);
+    const checks = [];
+    document.querySelectorAll("#controls .panel-body > section").forEach((sec) => {
+      if (sec.classList.contains("checks")) { checks.push(sec); return; }
+      const t = secTitle(sec);
+      if (!t || KID_NEVER.includes(t) || t === KID_LEGEND_ONLY) return;
+      add(G1, "ps:" + t, PANEL_NO[t] || t, [sec]);
+    });
+    for (const sec of checks) {
+      sec.querySelectorAll("label").forEach((lb) => { const i = lb.querySelector("input"); if (i && i.id) add(G6, "ck:" + i.id, lb.textContent, [lb]); });
+      add(G6, "ck:onlyBores", "📍 表示する柱をえらぶ", [$("onlyBoresBox")]);
+      add(G6, "ck:gapBores", "ずれの大きい柱をかくす（5m／10m）", [$("gapBox")]);
+      add(G6, "ck:alignBores", "柱の高さ（資料の高さ／今の地面にそろえる）", [$("alignBox")]);
+    }
     document.querySelectorAll("#modebar > button").forEach((b) => {
       if (b.id === "mbFold" || b.classList.contains("teacher-only")) return;
       add("下のボタン", "mb:" + (b.dataset.mode || b.id), b.textContent, [b]);
-    });
-    add("左のパネル", "panel", "☰ パネル全体（外すと、パネルのボタンごと出ません）", [$("controls")]);
-    document.querySelectorAll("#controls .panel-body > section").forEach((sec) => {
-      const h = sec.querySelector("h2");
-      if (sec.classList.contains("checks")) {
-        sec.querySelectorAll("label").forEach((lb) => { const i = lb.querySelector("input"); if (i && i.id) add("パネルの中（表示の切りかえ）", "ck:" + i.id, lb.textContent, [lb]); });
-        add("パネルの中（表示の切りかえ）", "ck:onlyBores", "📍 表示する柱をえらぶ", [$("onlyBoresBox")]);
-        add("パネルの中（表示の切りかえ）", "ck:gapBores", "ずれの大きい柱をかくす（5m／10m）", [$("gapBox")]);
-        add("パネルの中（表示の切りかえ）", "ck:alignBores", "柱の高さ（資料の高さ／今の地面にそろえる）", [$("alignBox")]);
-        return;
-      }
-      if (!h) return;
-      const t = h.textContent.replace(/×[\d.]+/, "").trim();
-      if (t === "学習の道具") { sec.querySelectorAll("button").forEach((b) => add("パネルの中（学習の道具）", "tl:" + b.id, b.textContent, [b])); return; }
-      if (t === "その他") { add("パネルの中", "ps:その他", "その他（画面を保存・メモ一覧）", [sec]); return; }
-      add("パネルの中", "ps:" + t, t, [sec]);
     });
     add("右上・右下", "help", "？ 使い方", [$("btnHelp")]);
     add("右上・右下", "sources", "📚 根拠", [$("btnSources")]);
@@ -4820,6 +4895,29 @@
     add("断面図の中", "sh:secMemoBtn", "📝 考えメモ", [$("secMemoBtn")]);
     add("断面図の中", "sh:secSave", "📷 保存", [$("secSave")]);
     return out;
+  }
+  /** 子どもの画面：学習の道具・その他は出さない。柱の色分けは、色の見本（凡例）だけ残す。ほかの場所へも行けない */
+  function applyKidFixed() {
+    document.querySelectorAll("#controls .panel-body > section").forEach((sec) => {
+      const t = secTitle(sec);
+      if (KID_NEVER.includes(t)) sec.classList.add("kid-hide");
+      if (t === KID_LEGEND_ONLY) {
+        if (S.colorBy === "layer") sec.classList.add("kid-hide");
+        else { sec.classList.remove("kid-hide"); sec.classList.add("kid-legend-only"); sec.querySelector("h2").textContent = "柱の色（凡例）"; }
+      }
+    });
+    // お試し（先生が「子どもの画面をためす」で開いたとき）だけ、先生の画面にもどるボタンを出す
+    if (/[#&]try=1/.test(location.hash) && !$("tryBar")) {
+      const bar = document.createElement("div");
+      bar.id = "tryBar";
+      bar.innerHTML = '<span>👀 お試し中（子どもの画面）</span><button type="button">✕ お試しを終了する</button>';
+      bar.querySelector("button").onclick = () => {
+        window.close(); // 新しいタブで開いていれば、とじて先生の画面にもどる
+        setTimeout(() => { location.hash = ""; location.reload(); }, 300); // とじられないときは、この画面を先生用にもどす
+      };
+      document.body.appendChild(bar);
+    }
+    if (S.relayout) S.relayout();
   }
   function applyKidUi(hide) {
     const set = new Set(hide);
@@ -4830,13 +4928,18 @@
     const saved = new Set(store.get("chisou3d:kidUiHide", []));
     let html = "", grp = "";
     for (const t of kidUiTargets()) {
-      if (t.group !== grp) { html += (grp ? "</div>" : "") + '<div class="ui-group"><b>' + esc(t.group) + "</b>"; grp = t.group; }
+      if (t.group !== grp) { html += (grp ? "</div>" : "") + '<div class="ui-group"><b>' + esc(t.group) + '</b><span class="grpbtn"><button type="button" data-grp-all="1">全部出す</button><button type="button" data-grp-all="0">全部かくす</button></span>'; grp = t.group; }
       html += '<label class="toggle"><input type="checkbox" data-ui="' + esc(t.key) + '"' + (saved.has(t.key) ? "" : " checked") + "> " + esc(t.label) + "</label>";
     }
     $("shareUi").innerHTML = html + (grp ? "</div>" : "");
     const boxes = () => $("shareUi").querySelectorAll("[data-ui]");
     const save = () => store.set("chisou3d:kidUiHide", [...boxes()].filter((c) => !c.checked).map((c) => c.dataset.ui));
     boxes().forEach((c) => (c.onchange = save));
+    $("shareUi").onclick = (e) => {
+      const b = e.target.closest("[data-grp-all]"); if (!b) return;
+      b.closest(".ui-group").querySelectorAll("[data-ui]").forEach((c) => (c.checked = b.dataset.grpAll === "1"));
+      save(); $("shareUi").dispatchEvent(new Event("change", { bubbles: true }));
+    };
     $("shareUiAll").onclick = () => { boxes().forEach((c) => (c.checked = true)); save(); };
     $("shareUiMin").onclick = () => {
       const keep = /^(mb:view|mb:qNames|help|navpad|ps:地層の色（凡例）)$/;
@@ -4938,6 +5041,10 @@
     showQr($("shareOut").value);
     const len = $("shareOut").value.length;
     $("shareLenNote").textContent = len > QR_MAX ? "⚠ 柱状図のデータ（" + bd.length + "本）が多いので、QRコードにできません。リンクをコピーして配るか、下の「入り口のページにも出す」で短いQRにしてください。見せる柱をしぼると短くなります。" : len > 900 ? "⚠ 中身が多いのでQRコードが細かくなっています。読みにくいときは、印刷を大きくするか、下の「入り口のページにも出す」で短いQRにしてください。" : "";
+    const pubN = new Set(((C.PUB_NOTES && C.PUB_NOTES[S.site.id]) || []).map((n) => n.id)), pubB = (C.PUB_BORE_PHOTOS && C.PUB_BORE_PHOTOS[S.site.id]) || {};
+    const np = S.notes.filter((n) => n.photo && !pubN.has(n.id)).length + Object.keys(store.get(key("borePhotos"), {})).filter((k) => !pubB[k]).length;
+    $("sharePhotoNote").classList.toggle("hidden", !np);
+    $("sharePhotoNote").innerHTML = np ? "📷 この端末でつけた写真 " + np + " 枚は、まだ公開版に入っていないので、<b>子どもの画面には出ません</b>（目印の名前と場所は出ます）。「📝 メモ一覧」→「📤 写真・目印を子どもに配る」でファイルにして、管理している先生（Claude）に送ると、子どもの画面にも写真が出ます。" : "";
     $("shareBoresNow").textContent = "（" + document.querySelector('[name="shareBores"]:checked').parentElement.textContent.replace(/「.*?」で/, "").trim() + "）";
     // 入り口ページに登録する文
     S.sharePid = S.sharePid || presetId();
@@ -4959,7 +5066,7 @@
     $("shareDialog").addEventListener("input", (e) => { if (e.target.id === "shareTitle") remake(e); });
     $("shareDialog").addEventListener("click", (e) => { if (e.target.closest("#shareUiAll, #shareUiMin")) remake(e); });
     // iPadのSafariは、待ったあとに開くとブロックするので、先に窓を開けてから中身を入れる
-    $("shareTry").onclick = async () => { const w = window.open("", "_blank"); await fresh(); if (w) w.location.href = $("shareOut").value; else location.href = $("shareOut").value; };
+    $("shareTry").onclick = async () => { const w = window.open("", "_blank"); await fresh(); const u = $("shareOut").value + "&try=1"; if (w) w.location.href = u; else { location.href = u; location.reload(); } };
     $("shareQrSave").onclick = async () => { await fresh(); rememberShare("QR画像"); download("QRコード-" + ($("shareTitle").value.trim() || S.site.title) + ".png", $("shareQr").toDataURL("image/png")); };
     $("shareQrPrint").onclick = async () => {
       const w = window.open("", "_blank");

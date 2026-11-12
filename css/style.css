@@ -642,3 +642,9 @@ a.btnlink.primary { background: var(--accent); color: #fff; border-color: var(--
 #teacherTools .tgroup > button { justify-content: center; }
 #teacherTools .tnote { margin: 0; font-size: 12px; }
 #teacherTools .tgroup > button { font-size: 14px; padding: 6px 8px; }
+/* 子どもの画面：柱の色分けは凡例だけ／お試し中のバー */
+.kid-legend-only > :not(h2):not(#grainLegend) { display: none !important; }
+#tryBar { position: fixed; top: 8px; left: 50%; transform: translateX(-50%); z-index: 60; display: flex; gap: 10px; align-items: center; background: #fff4dc; border: 2px solid #c98a00; border-radius: 14px; padding: 6px 12px; font-size: 14px; font-weight: bold; color: #5c3a00; box-shadow: 0 2px 10px rgba(0,0,0,.2); }
+#tryBar button { background: #c0392b; color: #fff; border: 0; border-radius: 10px; padding: 6px 12px; font-size: 14px; font-weight: bold; }
+#shareUi .ui-group { margin: 8px 0; } #shareUi .grpbtn { margin-left: 8px; } #shareUi .grpbtn button { font-size: 12px; padding: 2px 8px; margin-left: 4px; }
+#detail .borephoto { margin: 6px 0; } #detail .borephoto figcaption { font-size: 13px; color: var(--sub); } #detail .photoact { margin: 4px 0 8px; } #noteKindRow { margin: 4px 0 8px; }

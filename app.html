@@ -6,7 +6,7 @@
 <title>大地のつくり 3D土地模型</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css?v=20261111054116">
+<link rel="stylesheet" href="css/style.css?v=20261112004038">
 </head>
 <body>
 <div id="viewport"></div>
@@ -343,10 +343,11 @@
 <!-- メモ入力 -->
 <dialog id="noteDialog">
   <form method="dialog">
-    <h3>📝 気づきメモ</h3>
-    <label>気づいたこと・考えたこと<textarea id="noteText" rows="4" placeholder="例：向こうの丘にも同じ砂の層がある！"></textarea></label>
+    <h3 id="noteTitle">📝 気づきメモ</h3>
+    <div id="noteKindRow" class="seg hidden"><button type="button" data-kind="memo" class="on">📝 気づきメモ</button><button type="button" data-kind="mark">📍 目印（場所の名前）</button></div>
+    <label><span id="noteTextLabel">気づいたこと・考えたこと</span><textarea id="noteText" rows="4" placeholder="例：向こうの丘にも同じ砂の層がある！"></textarea></label>
     <label>名前・班（なくてもよい）<input id="noteAuthor" type="text"></label>
-    <label>📷 写真（なくてもよい：地層の写真・観察の写真など）<input id="notePhoto" type="file" accept="image/*"></label>
+    <label>📷 写真（なくてもよい：その場所の写真・地層の写真など）<input id="notePhoto" type="file" accept="image/*"></label>
     <div id="notePhotoPrev"></div>
     <div class="colors" id="noteColors"></div>
     <div class="btnrow end">
@@ -454,7 +455,8 @@
       <label class="toggle"><input type="radio" name="shareBores" value="picked" id="shareBoresPicked"> 「📍 柱状図を選択」でえらんだ柱だけ <b id="sharePickedN"></b></label>
       <p class="hint">柱をしぼるには、☰パネルの「📍 表示する柱をえらぶ」で柱をえらんでから、この画面を開きます。ほかの柱は、子どもの画面では旗も柱も出ません（模型の地層は全部の資料からの推定のままです）。</p>
     </details>
-    <details id="shareUiBox"><summary><b>🧩 子どもの画面に出すボタン（外したものは出ません）</b></summary>
+    <details id="shareUiBox" open><summary><b>🧩 子どもが操作できるもの（チェックを外したものは、子どもの画面に出ません）</b></summary>
+      <p class="hint">「学習の道具」「ボーリングの柱の色分け」「その他」は、子どもの画面にはいつも出ません（柱の色の見本だけ出ます）。子どもは、ほかの学校の模型にも行けません。</p>
       <div class="btnrow"><button type="button" id="shareUiAll">全部出す</button><button type="button" id="shareUiMin">見るだけ（少なく）</button></div>
       <div id="shareUi"></div>
     </details>
@@ -486,6 +488,7 @@
       <div class="btnrow"><button type="button" id="sharePresetQr">📱 短いリンクのQRコードを出す</button></div>
       <p class="hint">登録や消すのがむずかしいときは、Claude に「入り口ページに登録して」と、この文を送ってもかまいません。</p>
     </details>
+    <p id="sharePhotoNote" class="hint warnbox hidden"></p>
     <p id="shareFileNote" class="hint warnbox hidden">⚠ いまはパソコンの中のファイルを開いているので、リンクもこのパソコンの中の場所になります。インターネットに公開したアドレスで開いてから作ると、子どもの端末でも開けるリンクになります。</p>
     <hr>
     <h3>📮 子どもの予想の送り先（Googleフォーム）</h3>
@@ -610,20 +613,20 @@
 
 <footer id="attribution">出典：<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">国土地理院（地理院タイル・標高タイル）</a> ／ 目印：<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap</a> ／ 地下の地層はボーリング資料からの推定です（<a href="#" id="attrMore">くわしく</a>）</footer>
 
-<script src="lib/three.min.js?v=20261111054116"></script>
-<script src="lib/OrbitControls.js?v=20261111054116"></script>
-<script src="lib/qrcode.js?v=20261111054116"></script>
+<script src="lib/three.min.js?v=20261112004038"></script>
+<script src="lib/OrbitControls.js?v=20261112004038"></script>
+<script src="lib/qrcode.js?v=20261112004038"></script>
 <script>window.CHISOU = { sites: {}, registerSite: function (s) { this.sites[s.id] = s; } };</script>
-<script src="js/geo.js?v=20261111054116"></script>
-<script src="js/geology.js?v=20261111054116"></script>
-<script src="js/pattern.js?v=20261111054116"></script>
-<script src="sites/sites.js?v=20261111054116"></script>
-<script src="js/section.js?v=20261111054116"></script>
-<script src="js/boringxml.js?v=20261111054116"></script>
-<script src="js/mvt.js?v=20261111054116"></script>
-<script src="js/yato_yokohama.js?v=20261111054116"></script>
-<script src="js/ngic_bookmarklet.js?v=20261111054116"></script>
-<script src="js/help.js?v=20261111054116"></script>
-<script src="js/app.js?v=20261111054116"></script>
+<script src="js/geo.js?v=20261112004038"></script>
+<script src="js/geology.js?v=20261112004038"></script>
+<script src="js/pattern.js?v=20261112004038"></script>
+<script src="sites/sites.js?v=20261112004038"></script>
+<script src="js/section.js?v=20261112004038"></script>
+<script src="js/boringxml.js?v=20261112004038"></script>
+<script src="js/mvt.js?v=20261112004038"></script>
+<script src="js/yato_yokohama.js?v=20261112004038"></script>
+<script src="js/ngic_bookmarklet.js?v=20261112004038"></script>
+<script src="js/help.js?v=20261112004038"></script>
+<script src="js/app.js?v=20261112004038"></script>
 </body>
 </html>
