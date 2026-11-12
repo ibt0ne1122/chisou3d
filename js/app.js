@@ -49,7 +49,7 @@
       setTimeout(run, 0); // 1ファイル版：設定がすでに入っている（準備が終わってから始める）
     } else {
       const sc = document.createElement("script");
-      sc.src = entry.file + "?v=20261112004543";
+      sc.src = entry.file + "?v=20261112005808";
       // 先生が配った写真メモ（sites/notes/<id>.js）：あればいっしょに読む。なくてもそのまま始める
       sc.onload = custom ? run : () => {
         const ns = document.createElement("script");
@@ -3427,6 +3427,36 @@
       $("detail").classList.add("hidden");
     };
   }
+  /** 子どもに配る写真・目印・柱の写真を、1つのファイルにする（Claude に送ると公開版に入る） */
+  function exportPubFile() {
+      // 子どもに配る写真メモ：写真つきのメモ（と、その説明）だけをファイルにする → Claude に送ると公開版に入る
+      const list = S.notes.filter((n) => n.photo || n.kind === "mark"), bp = store.get(key("borePhotos"), {}), nb = Object.keys(bp).length;
+      if (!list.length && !nb) { alert("写真つきのメモ・目印・柱の写真がありません。「📝 気づきメモ」で写真や目印をつけるか、柱状図の画面で「📷 この場所の写真をつける」をしてから押してください。"); return; }
+      download("写真メモ-" + S.site.id + "-" + stamp() + ".json", JSON.stringify({ kind: "chisou3d-photo-notes", site: S.site.id, notes: list, borePhotos: bp }), "application/json");
+      flashHint("📤 メモ・目印 " + list.length + " 件、柱の写真 " + nb + " 枚をファイルにしました。このファイルを Claude に送ってください");
+    }
+  /** 目印の一覧（先生モード「📍 目印を作る」） */
+  function showMarkList() {
+    const list = pubNotes().filter((n) => n.kind === "mark").concat(S.notes.filter((n) => n.kind === "mark"));
+    let html = "<h3>📍 目印の一覧</h3>";
+    html += list.length ? '<ul class="notes-list">' + list.map((n) => '<li style="border-left-color:#b3261e">📍 ' + esc(n.text) + (n.photo ? " 📷" : "") + (n.memo ? " 📝" : "") +
+      (n.pub ? "<br><small>公開版に入っています</small>" : "") + '<button data-go="' + esc(n.id) + '">開く</button></li>').join("") + "</ul>"
+      : '<p class="meta">まだ目印はありません。「＋ 目印を置く」を押して、模型の上をタップしてください。</p>';
+    html += '<div class="actions"><button type="button" id="mlAdd" class="primary">＋ 目印を置く</button><button type="button" id="mlPub">📤 写真・目印を子どもに配る</button></div>' +
+      '<p class="hint">目印の名前・場所・気づきメモは、子どもに配るリンクにそのまま入ります。写真は「📤 写真・目印を子どもに配る」でファイルにして、管理している先生（Claude）に送ると、子どもの画面にも出ます。</p>';
+    openDetail(html);
+    $("detailBody").querySelectorAll("[data-go]").forEach((btn) => (btn.onclick = () => { const n = findNote(btn.dataset.go); if (n) { focusOn(n.x, n.z, groundAt(n.x, n.z)); showMark(n); } }));
+    $("mlAdd").onclick = startMarkPlace;
+    $("mlPub").onclick = exportPubFile;
+  }
+  /** 目印を置く：気づきメモのモードで、はじめから「📍 目印」をえらんでおく */
+  function startMarkPlace() {
+    noteKind = "mark";
+    S.placeMark = true;
+    setMode("note");
+    $("detail").classList.add("hidden");
+    setHint("📍 目印を置きたい場所を、模型の上でタップしてください");
+  }
   function showNotesList() {
     let html = "<h3>📝 みんなの気づきメモ</h3>";
     if (!S.notes.length) html += '<p class="meta">まだメモはありません。下の「📝 気づきメモ」を選んで、地図をタップすると置けます。</p>';
@@ -3445,13 +3475,7 @@
       if (n) { focusOn(n.x, n.z, groundAt(n.x, n.z)); showNote(n.id); }
     }));
     $("nExport").onclick = () => openIO("export-notes");
-    if ($("nPub")) $("nPub").onclick = () => {
-      // 子どもに配る写真メモ：写真つきのメモ（と、その説明）だけをファイルにする → Claude に送ると公開版に入る
-      const list = S.notes.filter((n) => n.photo || n.kind === "mark"), bp = store.get(key("borePhotos"), {}), nb = Object.keys(bp).length;
-      if (!list.length && !nb) { alert("写真つきのメモ・目印・柱の写真がありません。「📝 気づきメモ」で写真や目印をつけるか、柱状図の画面で「📷 この場所の写真をつける」をしてから押してください。"); return; }
-      download("写真メモ-" + S.site.id + "-" + stamp() + ".json", JSON.stringify({ kind: "chisou3d-photo-notes", site: S.site.id, notes: list, borePhotos: bp }), "application/json");
-      flashHint("📤 メモ・目印 " + list.length + " 件、柱の写真 " + nb + " 枚をファイルにしました。このファイルを Claude に送ってください");
-    };
+    if ($("nPub")) $("nPub").onclick = exportPubFile;
     $("nImport").onclick = () => openIO("import");
   }
 
@@ -4596,7 +4620,7 @@
       img.src = url;
     };
     $("noteDialog").addEventListener("close", () => {
-      if ($("noteDialog").returnValue !== "ok" || !noteTarget) return;
+      if ($("noteDialog").returnValue !== "ok" || !noteTarget) { if (S.placeMark) { S.placeMark = false; setMode("view"); } return; }
       const text = $("noteText").value.trim();
       if (!text) return;
       const author = $("noteAuthor").value.trim();
@@ -4612,8 +4636,13 @@
         alert("この端末の保存場所がいっぱいで、写真を保存できませんでした。メモの文字だけ保存しました。（「メモを書き出す」で保存してから古いメモを消すと、あきができます）");
       }
       buildNotes();
+      if (nt.kind === "mark") { showMark(nt); flashHint("📍 目印を置きました。ここで写真や気づきメモをつけられます"); }
+      if (S.placeMark) { S.placeMark = false; setMode("view"); }
     });
     $("btnNotesList").onclick = showNotesList;
+    $("btnMarkAdd").onclick = startMarkPlace;
+    $("btnMarkList").onclick = showMarkList;
+    $("btnMarkPub").onclick = exportPubFile;
     $("btnShot").onclick = () => { renderer.render(scene, camera); download("土地模型-" + stamp() + ".png", renderer.domElement.toDataURL("image/png")); };
 
     // ボーリング入力
