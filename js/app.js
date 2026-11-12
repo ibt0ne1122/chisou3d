@@ -49,7 +49,7 @@
       setTimeout(run, 0); // 1ファイル版：設定がすでに入っている（準備が終わってから始める）
     } else {
       const sc = document.createElement("script");
-      sc.src = entry.file + "?v=20261112012203";
+      sc.src = entry.file + "?v=20261112064255";
       // 先生が配った写真メモ（sites/notes/<id>.js）：あればいっしょに読む。なくてもそのまま始める
       sc.onload = custom ? run : () => {
         const ns = document.createElement("script");
@@ -1418,6 +1418,24 @@
     if (loc && /^data:image\/jpeg;/.test(loc.photo)) return Object.assign({ local: true }, loc);
     const pub = C.PUB_BORE_PHOTOS && C.PUB_BORE_PHOTOS[S.site.id] && C.PUB_BORE_PHOTOS[S.site.id][id];
     return pub && PHOTO_PATH.test(pub.photo) ? pub : null;
+  }
+  /** 写真をえらぶ：iPad の Safari は、画面に置いていない「ファイルをえらぶ」だと、えらんだ写真を知らせてこないことがあるので、画面に置いてから開く */
+  function pickPhoto(onPicked) {
+    const inp = document.createElement("input");
+    inp.type = "file"; inp.accept = "image/*";
+    inp.style.cssText = "position:fixed;left:-1000px;top:0;width:1px;height:1px;opacity:0";
+    document.body.appendChild(inp);
+    let done = false;
+    const fire = async () => {
+      if (done || !inp.files || !inp.files[0]) return;
+      done = true;
+      try { await onPicked(await shrinkPhoto(inp.files[0])); }
+      catch (e) { alert("写真を入れられませんでした：" + e.message); }
+      finally { inp.remove(); }
+    };
+    inp.addEventListener("change", fire);
+    inp.addEventListener("input", fire);
+    inp.click();
   }
   /** 写真を小さくする（長い辺 900px の JPEG。撮影場所などの記録は入らない） */
   function shrinkPhoto(file) {
@@ -3226,7 +3244,8 @@
     let html = "<h3>" + esc(b.name) + "</h3>";
     const bph = borePhotoOf(id);
     if (bph) html += '<figure class="borephoto"><img class="log-image" src="' + (bph.local ? bph.photo : esc(bph.photo)) + '" alt="この場所の写真"><figcaption>📷 ' + esc(bph.cap || "この柱状図の場所") + "</figcaption></figure>";
-    if (S.teacher && !S.kid) html += '<div class="actions photoact"><button type="button" id="dPhoto">📷 ' + (bph ? "写真をかえる" : "この場所の写真をつける") + "</button>" + (bph && bph.local ? '<button type="button" id="dPhotoDel">写真を消す</button>' : "") + "</div>";
+    if (S.teacher && !S.kid) html += '<div class="actions photoact"><button type="button" id="dPhoto">📷 ' + (bph ? "写真をかえる" : "この場所の写真をつける") + "</button>" + (bph && bph.local ? '<button type="button" id="dPhotoDel">写真を消す</button>' : "") + "</div>" +
+      (bph && bph.local ? '<div class="photocap"><input id="dPhotoCap" type="text" maxlength="60" placeholder="写真の説明（例：校庭のはしっこ）" value="' + esc(bph.cap || "") + '"><button type="button" id="dPhotoCapSave">説明を保存</button></div>' : "");
     html += '<div class="jumprow"><button type="button" id="dJumpStraw">✂️ ストローで作る長さ</button><button type="button" id="dJumpCol">📏 柱状図と層の厚さ</button></div>';
     html += markHtml;
     if (b.sample) html += '<div class="warnbox">⚠ ' + esc(S.site.sample.note || "仮のデータです") + "</div>";
@@ -3270,20 +3289,16 @@
       setHint("✂️ 断面のもう1か所（B）をタップ（となりのボーリングをタップすると2本をくらべられます）");
     };
     if ($("dEdit")) $("dEdit").onclick = () => openBoreDialog(b);
-    if ($("dPhoto")) $("dPhoto").onclick = () => {
-      const inp = document.createElement("input"); inp.type = "file"; inp.accept = "image/*";
-      inp.onchange = async () => {
-        if (!inp.files[0]) return;
-        try {
-          const photo = await shrinkPhoto(inp.files[0]);
-          const cap = prompt("写真の説明（子どもに見せる一言。なくてもよい）", (bph && bph.cap) || "") || "";
-          const all = store.get(key("borePhotos"), {}); all[id] = { photo, cap: cap.slice(0, 60) };
-          store.set(key("borePhotos"), all);
-          if (!store.get(key("borePhotos"), {})[id]) alert("この端末の保存場所がいっぱいで、写真を保存できませんでした。写真メモを書き出してから、古い写真を消してください。");
-          showBore(id);
-        } catch (e) { alert(e.message); }
-      };
-      inp.click();
+    if ($("dPhoto")) $("dPhoto").onclick = () => pickPhoto((photo) => {
+      const all = store.get(key("borePhotos"), {}); all[id] = { photo, cap: (bph && bph.cap) || "" };
+      store.set(key("borePhotos"), all);
+      if (!store.get(key("borePhotos"), {})[id]) { alert("この端末の保存場所がいっぱいで、写真を保存できませんでした。使っていない写真やメモを消してから、もう一度ためしてください。"); return; }
+      showBore(id);
+      flashHint("📷 写真をつけました。下のらんに、子どもに見せる一言を書けます");
+    });
+    if ($("dPhotoCapSave")) $("dPhotoCapSave").onclick = () => {
+      const all = store.get(key("borePhotos"), {}); if (!all[id]) return;
+      all[id].cap = $("dPhotoCap").value.trim().slice(0, 60); store.set(key("borePhotos"), all); showBore(id); flashHint("📷 写真の説明を保存しました");
     };
     if ($("dPhotoDel")) $("dPhotoDel").onclick = () => { if (!confirm("この柱の写真を消しますか？")) return; const all = store.get(key("borePhotos"), {}); delete all[id]; store.set(key("borePhotos"), all); showBore(id); };
     if ($("dThick")) $("dThick").onchange = () => { S.showThick = $("dThick").checked; store.set("chisou3d:showThick", S.showThick); showBore(id); };
@@ -3393,14 +3408,11 @@
     openDetail(html);
     if (!own) return;
     const save = () => { store.set(key("notes"), S.notes); buildNotes(); };
-    $("mPhoto").onclick = () => {
-      const inp = document.createElement("input"); inp.type = "file"; inp.accept = "image/*";
-      inp.onchange = async () => {
-        if (!inp.files[0]) return;
-        try { nt.photo = await shrinkPhoto(inp.files[0]); save(); if (!JSON.stringify(store.get(key("notes"), [])).includes(nt.photo.slice(-40))) alert("この端末の保存場所がいっぱいで、写真を保存できませんでした。"); showMark(nt); } catch (e) { alert(e.message); }
-      };
-      inp.click();
-    };
+    $("mPhoto").onclick = () => pickPhoto((photo) => {
+      nt.photo = photo; save();
+      if (!JSON.stringify(store.get(key("notes"), [])).includes(photo.slice(-40))) { delete nt.photo; alert("この端末の保存場所がいっぱいで、写真を保存できませんでした。使っていない写真やメモを消してから、もう一度ためしてください。"); }
+      showMark(nt);
+    });
     if ($("mPhotoDel")) $("mPhotoDel").onclick = () => { if (confirm("この目印の写真を消しますか？")) { delete nt.photo; save(); showMark(nt); } };
     $("mMemoSave").onclick = () => { nt.memo = $("mMemo").value.trim().slice(0, 300); save(); flashHint("📝 目印のメモを保存しました"); };
     $("nDel").onclick = () => {
