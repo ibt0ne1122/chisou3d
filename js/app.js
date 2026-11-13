@@ -49,7 +49,7 @@
       setTimeout(run, 0); // 1ファイル版：設定がすでに入っている（準備が終わってから始める）
     } else {
       const sc = document.createElement("script");
-      sc.src = entry.file + "?v=20261113111508";
+      sc.src = entry.file + "?v=20261113112317";
       // 先生が配った写真メモ（sites/notes/<id>.js）：あればいっしょに読む。なくてもそのまま始める
       sc.onload = custom ? run : () => {
         const ns = document.createElement("script");
@@ -109,6 +109,11 @@
     if (!site) throw new Error("場所の設定が見つかりません。");
     S.site = site;
     S.shared = await readShared(); // 先生が配ったリンク（#k=…）の中身
+    // 前回の続き：閉じる・スリープする直前の画面（地図・凹凸・すきとおり・高さ・見る角度など）を、この端末に残しておいて次に開いたときにもどす
+    //   ふつうに開いたとき／同じ配布リンクで開いたとき、で別々に残す
+    S.resumeKey = key("resume:" + (location.hash ? hashStr(location.hash) : "plain"));
+    S.resume = params.get("fresh") ? null : store.get(S.resumeKey, null);
+    if (S.resume && S.resume.v !== 1) S.resume = null;
     if (S.shared && Array.isArray(S.shared.bd) && S.shared.bd.length) {
       // リンクの中の柱状図データ：子どもはこの画面の間だけ、先生どうしは この端末の資料に足し合わせて残す
       if (S.shared.kid) S.extraBores = S.shared.bd;
@@ -137,7 +142,7 @@
     S.cutReal = store.get("chisou3d:cutReal", true); // 目立たせた柱：id → 色
     // 範囲（半径）：URLの ?r=2000 → この端末で選んだもの → 設定ファイル の順
     site.baseHalf = site.baseHalf || site.half;
-    const r = parseInt(params.get("r"), 10) || (S.shared && S.shared.r) || store.get(key("half"), 0) || site.baseHalf;
+    const r = parseInt(params.get("r"), 10) || (S.resume && S.resume.r) || (S.shared && S.shared.r) || store.get(key("half"), 0) || site.baseHalf;
     const f = r / site.baseHalf;
     site.half = r;
     site.gridSize = Math.round((site.baseGrid = site.baseGrid || site.gridSize || 160) * Math.min(1.6, Math.max(0.75, f)));
@@ -156,7 +161,29 @@
     $("loading").classList.add("hidden");
     if (C.Help) C.Help.init();
     animate();
-    if (S.shared) applyShared(S.shared).catch((e) => console.warn(e));
+    const first = S.resume ? resumeState(S.resume, S.shared) : S.shared;
+    if (first) await applyShared(first).catch((e) => console.warn(e));
+    if (S.resume) setTimeout(() => flashHint("↩️ 前回の続きの画面で開きました（はじめの画面にするときは ☰ → ⚙️ くわしい設定）"), 1500);
+    S.resumeReady = true;
+    setInterval(saveResume, 5000);
+    document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") saveResume(); });
+    window.addEventListener("pagehide", saveResume);
+  }
+  function hashStr(t) { let h = 5381; for (let i = 0; i < t.length; i++) h = ((h * 33) ^ t.charCodeAt(i)) >>> 0; return h.toString(36); }
+  /** 前回の続き：見え方は前回のまま。配布リンクの「中身」（子どもの画面・えらんだ柱・送られた柱など）は、リンクのものを使う */
+  function resumeState(rs, sh) {
+    const st = Object.assign({}, rs);
+    if (sh) for (const k of ["kid", "ui", "only", "form", "bd", "tonly", "ton", "mk", "cs"]) if (sh[k] != null) st[k] = sh[k];
+    return st;
+  }
+  function saveResume() {
+    if (!S.resumeReady || S.noResumeSave) return;
+    try {
+      const st = captureState({});
+      for (const k of ["mk", "cs", "bd", "tonly", "ton"]) delete st[k]; // 目印・柱のデータは、それぞれの保存場所に残っている
+      if (S.hideStrata) st.hst = 1; // 地下の地層をかくす（予想するとき用）
+      store.set(S.resumeKey, st);
+    } catch (e) { /* 保存できなくても、使うのには困らない */ }
   }
 
   // ---------- 地形（標高）の読み込み ----------
@@ -4280,6 +4307,9 @@
     rs2.value = S.site.half;
     rs2.onchange = () => {
       store.set(key("half"), parseInt(rs2.value, 10));
+      // 前回の続きにも、新しい範囲を入れる（見る角度は範囲で変わるので、はじめの角度にする）
+      const rsm = store.get(S.resumeKey, null); if (rsm) { rsm.r = parseInt(rs2.value, 10); delete rsm.cam; delete rsm.pts; store.set(S.resumeKey, rsm); }
+      S.noResumeSave = true;
       const u = new URL(location.href);
       u.searchParams.delete("r");
       location.href = u.href;
@@ -4329,6 +4359,10 @@
     document.querySelectorAll("#modebar button[data-mode]").forEach((b) => (b.onclick = () => setMode(b.dataset.mode)));
     $("mbSec").onclick = () => { if (S.mode !== "section" && S.mode !== "pick") setMode("section"); };
     $("menuNote").onclick = () => setMode("note");
+    $("btnFresh").onclick = () => {
+      if (!confirm("前回の続きの見え方をやめて、はじめの画面で開きなおしますか？\n（メモ・目印・えらんだ柱・写真などは消えません）")) return;
+      S.noResumeSave = true; store.del ? store.del(S.resumeKey) : store.set(S.resumeKey, null); location.reload();
+    };
     // 地層の色（凡例）：右下。ボタンで出す・しまう
     const setLL = (open) => { $("layerLegendBox").classList.toggle("closed", !open); $("llToggle").textContent = open ? "✕ 閉じる" : "🪨 地層の色 ▸"; store.set("chisou3d:llOpen", open); };
     setLL(store.get("chisou3d:llOpen", false));
@@ -4943,6 +4977,7 @@
     setChk("chkWallBlank", st.wb);
     if (!$("chkYato").parentElement.classList.contains("hidden")) setChk("chkYato", st.yato);
     setChk("chkLift", st.lift);
+    if (st.hst) setChk("chkHide", 1);
     if (!!st.al !== S.alignBores) S.setAlign(!!st.al);
     if (!st.nopat !== S.pattern) S.setPattern(!st.nopat);
     if (st.mk && st.mk.length) {
