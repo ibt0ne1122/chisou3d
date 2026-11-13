@@ -6,7 +6,7 @@
 <title>大地のつくり 3D土地模型</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css?v=20261113105010">
+<link rel="stylesheet" href="css/style.css?v=20261113111508">
 </head>
 <body>
 <div id="viewport"></div>
@@ -59,13 +59,27 @@
       <p id="peelLabel" class="hint strong">地面（地図）</p>
     </section>
     <section class="checks">
-      <label><input type="checkbox" id="chkBores" checked> ボーリングの柱</label>
-      <label><input type="checkbox" id="chkWallBlank"> 模型のまわり（はしの切り口）の地層をかくす</label>
-      <label><input type="checkbox" id="chkPattern" checked> 柄で「まじっている物」を表示（砂＝点など）</label>
       <div id="onlyBoresBox" class="onlybox"><span id="onlyBoresState"></span>
         <div id="onlySeg" class="seg onlyseg hidden"><button type="button" id="onlyAll">全部の柱</button><button type="button" id="onlySelBtn">えらんだ柱だけ</button></div>
         <div class="btnrow"><button type="button" id="onlyBoresPick">📍 表示する柱をえらぶ</button><button type="button" id="onlyBoresReset" class="hidden">えらんだのを消す</button></div>
         <div class="btnrow"><button type="button" id="onlyBoresList" class="hidden">📋 えらんだ柱の一覧</button></div></div>
+      <label><input type="checkbox" id="chkLift"> 柱を地上に引き出す</label>
+      <label><input type="checkbox" id="chkRiver"> 川を強調する</label>
+      <label><input type="checkbox" id="chkRail"> 線路を強調する</label>
+      <label><input type="checkbox" id="chkYato"> 谷戸（やと）を表示</label>
+      <label><input type="checkbox" id="chkBasin"> 流域・分水界（雨水の行き先）</label>
+      <label><input type="checkbox" id="chkLabels" checked> 名前・目印（外すと、学校名・まわりの目印を全部かくす）</label>
+      <label><input type="checkbox" id="chkAutoMarks" checked> まわりの目印（種類をえらべます）</label>
+      <div id="markCats"></div>
+      <label><input type="checkbox" id="chkNotes" checked> 気づきメモ</label>
+          <details id="advSettings" class="adv"><summary>⚙️ くわしい設定</summary>
+      <div class="btnrow"><button type="button" id="menuNote">📝 メモ・目印を置く</button></div>
+      <label><input type="checkbox" id="chkBores" checked> ボーリングの柱（外すと、柱状図を地図から見えなくする）</label>
+      <label><input type="checkbox" id="chkPattern" checked> 柄で「まじっている物」を表示（砂＝点など）</label>
+      <label><input type="checkbox" id="chkWallBlank"> 模型のまわり（はしの切り口）の地層をかくす</label>
+      <label><input type="checkbox" id="chkRing" checked> 半径の円</label>
+      <label><input type="checkbox" id="chkDeclutter" checked> 重なる名前は、だいじな方だけ出す（街が見やすくなる）</label>
+      <div class="lblsize">名前の大きさ <select id="labelSize"><option value="0.65">小</option><option value="0.8">中</option><option value="1">大</option></select></div>
       <div id="alignBox" class="onlybox alignbox">
         <button type="button" id="alignWhy" class="whylink">※なぜ柱状図が飛び出ているところがあるのか</button>
         <div id="alignWhyBody" class="whybody hidden">
@@ -86,18 +100,7 @@
           <div id="gapState" class="hint"></div>
         </div>
       </div>
-      <label><input type="checkbox" id="chkLift"> 柱を地上に引き出す</label>
-      <label><input type="checkbox" id="chkRiver"> 川を強調する</label>
-      <label><input type="checkbox" id="chkRail"> 線路を強調する</label>
-      <label><input type="checkbox" id="chkYato"> 谷戸（やと）を表示</label>
-      <label><input type="checkbox" id="chkBasin"> 流域・分水界（雨水の行き先）</label>
-      <label><input type="checkbox" id="chkLabels" checked> 名前・目印（外すと、学校名・まわりの目印を全部かくす）</label>
-      <label><input type="checkbox" id="chkDeclutter" checked> 重なる名前は、だいじな方だけ出す（街が見やすくなる）</label>
-      <div class="lblsize">名前の大きさ <select id="labelSize"><option value="0.65">小</option><option value="0.8">中</option><option value="1">大</option></select></div>
-      <label><input type="checkbox" id="chkAutoMarks" checked> まわりの目印（種類をえらべます）</label>
-      <div id="markCats"></div>
-      <label><input type="checkbox" id="chkNotes" checked> 気づきメモ</label>
-      <label><input type="checkbox" id="chkRing" checked> 半径の円</label>
+      </details>
     </section>
     <section>
       <h2>学習の道具</h2>
@@ -131,11 +134,6 @@
           <option value="none">名前もピンも出さない（柱だけ）</option>
         </select></label>
       <ul id="grainLegend" class="hidden"></ul>
-    </section>
-    <section>
-      <h2>地層の色（凡例）</h2>
-      <ul id="legend"></ul>
-      <ul id="patLegend" class="hidden"></ul>
     </section>
     <section>
       <h2>その他</h2>
@@ -182,6 +180,7 @@
           <button type="button" data-jump="btnGroups">✏️ 柱状図の仲間分け</button>
           <button type="button" data-jump="btnNotesList">📷 写真メモ（メモ一覧）</button>
           <button type="button" data-jump="btnSTL">🧊 3Dプリンター用データ</button>
+          <button type="button" id="btnUsage">📊 よく使ったボタン</button>
           <button type="button" data-help="先生向け">？ 先生向けの使い方</button>
         </div>
       </div>
@@ -193,17 +192,16 @@
 <nav id="modebar">
   <button id="mbFold" class="fold" type="button" title="ボタンをとじて、模型を広く見ます" aria-label="ボタンをとじる">✕</button>
   <button data-mode="view" class="active">👆 見る</button>
-  <button data-mode="section">✂️ 断面図を作成</button>
-  <button data-mode="pick">📍 柱状図を選択して断面図を作成</button>
+  <button id="mbSec" type="button">✂️ 断面</button>
+  <button data-mode="section" class="sub hidden">✏️ 線を引く</button>
+  <button data-mode="pick" class="sub hidden">📍 柱をえらぶ</button>
   <button data-mode="cut" class="cutbtn">🔪 模型を切る</button>
-  <button data-mode="note">📝 メモ・目印</button>
   <span class="sep"></span>
-  <button id="qBores" class="quick" type="button" title="ボーリングの柱（柱状図）と、その目印を地図から見えなくします。もう一度押すと出ます">🙈 柱状図をかくす</button>
-  <button id="qLift" class="quick" type="button">⬆️ 柱を地上に</button>
-  <button id="qNames" class="quick on" type="button" title="ボーリングの柱の名前（🔍の名札）を出したり、かくしたりします">🏷 柱：名前あり</button>
   <button id="qRiver" class="quick" type="button">🌊 川を強調</button>
   <button id="qRail" class="quick" type="button" title="地図によくある表し方で線路をかきます（JR線は白黒、JR以外は はしごの線）">🚃 線路を強調</button>
   <button id="qYato" class="quick hidden" type="button">〰 谷戸</button>
+  <span class="sep"></span>
+  <button id="qPad" class="quick" type="button" title="マウスで使うときの、動かす・回す・近づくボタンを出します（タッチできる画面ではいりません）">🖱 パソコン用の操作</button>
 </nav>
 <div id="hint" class="hidden"></div>
 <div id="railLegend" class="hidden"><b>🚃 線路</b>
@@ -332,7 +330,15 @@
   </div>
 </section>
 
-<div id="reliefLegend" class="hidden"></div>
+<div id="legendDock">
+  <div id="layerLegendBox" class="closed">
+    <button type="button" class="rl-toggle" id="llToggle">🪨 地層の色 ▸</button>
+    <div class="rl-title">地層の色（凡例）</div>
+    <ul id="legend"></ul>
+    <ul id="patLegend" class="hidden"></ul>
+  </div>
+  <div id="reliefLegend" class="hidden"></div>
+</div>
 <div id="navpad">
   <button id="npFold" class="fold" type="button" title="動かすボタンをとじます" aria-label="動かすボタンをとじる">✕</button>
   <div class="np-drag">
@@ -633,21 +639,21 @@
 
 <footer id="attribution">出典：<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">国土地理院（地理院タイル・標高タイル）</a> ／ 目印：<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap</a> ／ 地下の地層はボーリング資料からの推定です（<a href="#" id="attrMore">くわしく</a>）</footer>
 
-<script src="lib/three.min.js?v=20261113105010"></script>
-<script src="lib/OrbitControls.js?v=20261113105010"></script>
-<script src="lib/qrcode.js?v=20261113105010"></script>
+<script src="lib/three.min.js?v=20261113111508"></script>
+<script src="lib/OrbitControls.js?v=20261113111508"></script>
+<script src="lib/qrcode.js?v=20261113111508"></script>
 <script>window.CHISOU = { sites: {}, registerSite: function (s) { this.sites[s.id] = s; } };</script>
-<script src="js/geo.js?v=20261113105010"></script>
-<script src="js/geology.js?v=20261113105010"></script>
-<script src="js/pattern.js?v=20261113105010"></script>
-<script src="sites/sites.js?v=20261113105010"></script>
-<script src="js/section.js?v=20261113105010"></script>
-<script src="js/boringxml.js?v=20261113105010"></script>
-<script src="js/mvt.js?v=20261113105010"></script>
-<script src="js/yato_yokohama.js?v=20261113105010"></script>
-<script src="js/ngic_bookmarklet.js?v=20261113105010"></script>
-<script src="js/help.js?v=20261113105010"></script>
-<script src="js/app.js?v=20261113105010"></script>
-<script src="js/version.js?v=20261113105010"></script>
+<script src="js/geo.js?v=20261113111508"></script>
+<script src="js/geology.js?v=20261113111508"></script>
+<script src="js/pattern.js?v=20261113111508"></script>
+<script src="sites/sites.js?v=20261113111508"></script>
+<script src="js/section.js?v=20261113111508"></script>
+<script src="js/boringxml.js?v=20261113111508"></script>
+<script src="js/mvt.js?v=20261113111508"></script>
+<script src="js/yato_yokohama.js?v=20261113111508"></script>
+<script src="js/ngic_bookmarklet.js?v=20261113111508"></script>
+<script src="js/help.js?v=20261113111508"></script>
+<script src="js/app.js?v=20261113111508"></script>
+<script src="js/version.js?v=20261113111508"></script>
 </body>
 </html>

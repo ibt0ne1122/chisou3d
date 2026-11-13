@@ -669,3 +669,26 @@ a.btnlink.primary { background: var(--accent); color: #fff; border-color: var(--
 #detail .elevtop { font-size: 15px; margin: 2px 0 6px; color: #1f2a33; }
 #detail .markrow .mrlabel { flex: 0 0 100%; }
 #detail .strawrow { margin-top: 12px; }
+/* くわしい設定（ふだん使わない物をしまう所） */
+#advSettings { margin-top: 10px; border-top: 1px dashed var(--line); padding-top: 6px; }
+#advSettings > summary { font-size: 15px; font-weight: 700; cursor: pointer; padding: 6px 0; color: var(--sub); }
+#advSettings[open] > summary { color: var(--text, #1f2a33); }
+/* 下のバー：「✂️ 断面」を押すと、横に「線を引く／柱をえらぶ」 */
+#modebar button.sub { font-size: 14px; background: #eef5f7; border: 1px solid #b9d6de; margin-left: -2px; }
+#modebar button.sub.active { background: var(--accent); color: #fff; }
+/* パソコン用の操作：しまっているときは、右下に何も出さない */
+body.np-folded #navpad { display: none !important; }
+/* 右下：地層の色・標高の色 */
+#legendDock { position: fixed; right: 16px; bottom: calc(var(--mbTop, 94px) + 10px); z-index: 5; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; max-height: calc(100vh - var(--mbTop, 94px) - 90px); pointer-events: none; }
+#legendDock > * { pointer-events: auto; }
+#legendDock #reliefLegend { position: static; right: auto !important; bottom: auto; }
+body:not(.np-folded) #legendDock { right: 176px; }
+body.sheet-open #legendDock { display: none; }
+#layerLegendBox { background: var(--panel); border-radius: var(--radius); box-shadow: var(--shadow); padding: 8px 12px; font-size: 13px; width: 300px; max-height: calc(100vh - var(--mbTop, 94px) - 120px); overflow-y: auto; }
+#layerLegendBox.closed { width: auto; padding: 4px; }
+#layerLegendBox.closed > :not(.rl-toggle) { display: none; }
+#layerLegendBox.closed .rl-toggle { float: none; margin: 0; }
+#layerLegendBox ul { list-style: none; margin: 0; padding: 0; }
+@media (max-width: 760px) { body:not(.np-folded) #legendDock { right: 136px; } #layerLegendBox { width: min(300px, 70vw); } }
+@media (min-width: 761px) { body:has(#detail:not(.hidden)) #legendDock { right: 386px; } }
+#usageBox table td:last-child { text-align: right; font-variant-numeric: tabular-nums; }

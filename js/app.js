@@ -49,7 +49,7 @@
       setTimeout(run, 0); // 1ファイル版：設定がすでに入っている（準備が終わってから始める）
     } else {
       const sc = document.createElement("script");
-      sc.src = entry.file + "?v=20261113105010";
+      sc.src = entry.file + "?v=20261113111508";
       // 先生が配った写真メモ（sites/notes/<id>.js）：あればいっしょに読む。なくてもそのまま始める
       sc.onload = custom ? run : () => {
         const ns = document.createElement("script");
@@ -3820,6 +3820,12 @@
       cut: "🔪 赤い線の所で模型を切ります。向き・位置を動かすか、模型をタップして線を動かしてから「この線で切る」",
       pick: "📍 断面に使うボーリングの旗を、つなぎたい順にタップ（2本以上）→「✅ この柱で断面図をつくる」", note: "📝 メモを置きたい場所をタップ", edit: "➕ ボーリングの場所をタップ（柱をタップすると編集）" }[S.mode];
   }
+  /** 下のバーの「✂️ 断面」：押すと「線を引く／柱をえらぶ」が横に出る */
+  function syncSecBtn(m) {
+    const on = m === "section" || m === "pick";
+    $("mbSec").classList.toggle("active", on);
+    document.querySelectorAll("#modebar button.sub").forEach((b) => b.classList.toggle("hidden", !on));
+  }
   function setMode(m) {
     const prev = S.mode;
     S.mode = m;
@@ -3836,6 +3842,7 @@
     if (m === "pick") updatePickBar();
     updateMarkers();
     document.querySelectorAll("#modebar button[data-mode]").forEach((b) => b.classList.toggle("active", b.dataset.mode === m));
+    syncSecBtn(m);
     const act = document.querySelector("#modebar button.active"); if (act && act.scrollIntoView) act.scrollIntoView({ block: "nearest", inline: "nearest" });
     setHint(modeHint());
   }
@@ -4137,10 +4144,9 @@
     $("peelRange").addEventListener("pointerdown", () => { if (S.hideStrata) peelBlocked(); });
     const chk = (id, fn) => ($(id).onchange = () => fn($(id).checked));
     // 柱状図（ボーリングの柱）を地図から見えなくする：メニューのチェックと、下のバーのボタンは同じ
-    const setBores = (v) => { S.showBores = v; $("chkBores").checked = v; $("qBores").classList.toggle("on", !v); $("qBores").textContent = v ? "🙈 柱状図をかくす" : "👁 柱状図を出す"; applyVisibility(); if (!v && $("detail").dataset.bore) $("detail").classList.add("hidden"); };
+    const setBores = (v) => { S.showBores = v; $("chkBores").checked = v; applyVisibility(); if (!v && $("detail").dataset.bore) $("detail").classList.add("hidden"); };
     chk("chkBores", setBores);
-    $("qBores").onclick = () => setBores(!S.showBores);
-    const setLift = (v) => { S.lift = v; $("chkLift").checked = v; $("qLift").classList.toggle("on", v); buildBores(); };
+    const setLift = (v) => { S.lift = v; $("chkLift").checked = v; buildBores(); };
     chk("chkLift", setLift);
     // 柄で「まじっている物」を表示（切ると、前と同じ 色だけ）
     S.pattern = store.get("chisou3d:pattern", true);
@@ -4171,7 +4177,6 @@
     $("alignWhy").onclick = () => { const o = $("alignWhyBody").classList.toggle("hidden"); $("alignWhy").classList.toggle("open", !o); };
     S.alignBores = !!store.get("chisou3d:alignBores", false);
     $("alignRec").classList.toggle("on", !S.alignBores); $("alignGround").classList.toggle("on", S.alignBores);
-    $("qLift").onclick = () => setLift(!S.lift);
     const setRiver = (v) => { S.showRivers = v; $("chkRiver").checked = v; $("qRiver").classList.toggle("on", v); buildRivers(); if (S.section) openSectionSheet(); };
     chk("chkRiver", setRiver);
     const setRail = (v) => { S.showRails = v; $("chkRail").checked = v; $("qRail").classList.toggle("on", v); buildRails(); };
@@ -4183,6 +4188,7 @@
     // 表示する柱をえらぶ
     $("onlyBoresPick").onclick = startBoreSelect;
     $("onlyBoresList").onclick = showSelectedList;
+    $("btnUsage").onclick = showUsage;
     $("btnSelList").onclick = () => { if (!selectedBoreList().length) { flashHint("📍 先に ☰パネルの「📍 表示する柱をえらぶ」で柱をえらんでください"); startBoreSelect(); return; } showSelectedList(); };
     $("onlyBoresReset").onclick = () => { if (confirm("えらんだ柱を消して、全部の柱を表示にもどしますか？")) clearShowOnly(); };
     $("onlyAll").onclick = () => setOnlyOn(false);
@@ -4211,18 +4217,11 @@
     const setBoreNames = (v) => {
       if (v === true) v = "name"; if (v === false) v = "dot"; if (!BN[v]) v = "name";
       S.boreNames = v; store.set("chisou3d:boreNames", v);
-      $("qNames").classList.toggle("on", v === "name");
-      $("qNames").textContent = BN[v][0]; $("qNames").title = BN[v][1];
       $("boreNamesSelect").value = v;
       if (groups.bores) buildBores();
     };
     S.setBoreNames = setBoreNames;
     $("boreNamesSelect").onchange = () => { setBoreNames($("boreNamesSelect").value); if (S.boreNames === "name" && !S.labels) { $("chkLabels").checked = true; $("chkLabels").dispatchEvent(new Event("change")); } };
-    $("qNames").onclick = () => {
-      setBoreNames({ name: "dot", dot: "none", none: "name" }[S.boreNames]);
-      flashHint({ name: "🏷 柱の名前を出しました", dot: "● 名前をかくして、●の旗だけにしました", none: "🚫 柱の名前も●の旗も、かくしました（柱はそのまま）" }[S.boreNames]);
-      if (S.boreNames === "name" && !S.labels) { $("chkLabels").checked = true; $("chkLabels").dispatchEvent(new Event("change")); }
-    };
     setBoreNames(store.get("chisou3d:boreNames", "name"));
     const hasYato = yatoList().length > 0;
     $("qYato").classList.toggle("hidden", !hasYato);
@@ -4315,7 +4314,7 @@
     // 地層をかくす（予想用）
     const hideLbl = document.createElement("label");
     hideLbl.innerHTML = '<input type="checkbox" id="chkHide"> 地下の地層をかくす（予想するとき用）';
-    document.querySelector(".checks").appendChild(hideLbl);
+    document.querySelector(".checks").insertBefore(hideLbl, $("advSettings")); // くわしい設定の外（よく使うので）
     chk("chkHide", (v) => {
       S.hideStrata = v;
       $("peelRange").classList.toggle("locked", v);
@@ -4328,6 +4327,12 @@
 
     document.querySelectorAll("[data-view]").forEach((b) => (b.onclick = () => setView(b.dataset.view)));
     document.querySelectorAll("#modebar button[data-mode]").forEach((b) => (b.onclick = () => setMode(b.dataset.mode)));
+    $("mbSec").onclick = () => { if (S.mode !== "section" && S.mode !== "pick") setMode("section"); };
+    $("menuNote").onclick = () => setMode("note");
+    // 地層の色（凡例）：右下。ボタンで出す・しまう
+    const setLL = (open) => { $("layerLegendBox").classList.toggle("closed", !open); $("llToggle").textContent = open ? "✕ 閉じる" : "🪨 地層の色 ▸"; store.set("chisou3d:llOpen", open); };
+    setLL(store.get("chisou3d:llOpen", false));
+    $("llToggle").onclick = () => setLL($("layerLegendBox").classList.contains("closed"));
     // 画面の下のボタン・左のパネル・説明のバー・「動かす」が重ならないように、実際の位置を測ってすきまを空ける
     let layoutRaf = 0;
     const layoutUI = () => {
@@ -4378,9 +4383,13 @@
     };
     const small = window.innerWidth < 600;
     setFold("mbFold", "mb-folded", store.get("chisou3d:mb-folded", small), "☰ ボタンを出す");
-    setFold("npFold", "np-folded", store.get("chisou3d:np-folded", small), "🎮 動かす");
+    // 動かすボタンは、マウスで使うとき（パソコン）だけのもの。下のバーの「🖱 パソコン用の操作」で出す・しまう
+    const setPad = (folded) => { document.body.classList.toggle("np-folded", folded); $("qPad").classList.toggle("on", !folded); store.set("chisou3d:np-folded2", folded); };
+    setPad(store.get("chisou3d:np-folded2", !window.matchMedia("(pointer: fine)").matches));
     $("mbFold").onclick = () => setFold("mbFold", "mb-folded", !document.body.classList.contains("mb-folded"), "☰ ボタンを出す");
-    $("npFold").onclick = () => setFold("npFold", "np-folded", !document.body.classList.contains("np-folded"), "🎮 動かす");
+    $("npFold").textContent = "✕";
+    $("npFold").onclick = () => setPad(true);
+    $("qPad").onclick = () => setPad(!document.body.classList.contains("np-folded"));
     // 右下の操作ボタン
     document.querySelectorAll("#navpad [data-pan]").forEach((b) => (b.onclick = () => nudge("pan", b.dataset.pan.split(",").map(Number))));
     document.querySelectorAll("#navpad [data-rot]").forEach((b) => (b.onclick = () => nudge("rotate", parseFloat(b.dataset.rot))));
@@ -4675,7 +4684,7 @@
     $("cutSheet").onclick = () => {
       // 切ったまま、断面図（2D）モードへ
       S.mode = "section";
-      document.querySelectorAll("#modebar button[data-mode]").forEach((b) => b.classList.toggle("active", b.dataset.mode === "section"));
+      document.querySelectorAll("#modebar button[data-mode]").forEach((b) => b.classList.toggle("active", b.dataset.mode === "section")); syncSecBtn("section");
       $("cutBar").classList.add("hidden");
       if (S.cutBlank) { buildWalls(); buildSectionRibbon(); }
       S.sectionPts = S.section.pts.slice();
@@ -4703,7 +4712,7 @@
       if (S.pickIds.length < 2) return;
       const pts = S.sectionPts.slice();
       S.mode = "section";
-      document.querySelectorAll("#modebar button[data-mode]").forEach((b) => b.classList.toggle("active", b.dataset.mode === "section"));
+      document.querySelectorAll("#modebar button[data-mode]").forEach((b) => b.classList.toggle("active", b.dataset.mode === "section")); syncSecBtn("section");
       $("pickBar").classList.add("hidden");
       S.lastPickIds = S.pickIds.slice(); // 子ども用リンクで「えらんだ柱だけ」に使う
       S.pickIds = [];
@@ -5067,6 +5076,30 @@
   const KID_NEVER = ["学習の道具", "その他"], KID_LEGEND_ONLY = "ボーリングの柱の色分け";
   const secTitle = (sec) => { const h = sec.querySelector("h2"); return h ? (h.dataset.t || (h.dataset.t = h.textContent.replace(/×[\d.]+/, "").trim())) : ""; };
   const PANEL_NO = { "地図": "① 地図の種類", "範囲（中心からの半径）": "② 範囲（半径）", "防災の情報を重ねる": "③ 防災の情報を重ねる", "高さを強調": "④ 高さを強調", "地面をすきとおらせる": "⑤ 地面をすきとおらせる", "地層をはがす": "⑤ 地層をはがす" };
+  // ---------- よく使ったボタン：この端末の中だけで、ボタンの名前と回数だけを数える（どこにも送らない） ----------
+  function usageName(el) {
+    if (el.closest("#navpad")) return "🖱 動かすボタン（パソコン用）";
+    if (el.tagName === "SELECT") {
+      const sec = el.closest("section"), h = sec && sec.querySelector("h2");
+      const lab = el.closest("label") || el.parentElement;
+      return ((h && h.textContent.trim()) || (lab && lab.textContent.trim().split(/\s/)[0]) || el.id) + "：" + (el.selectedOptions[0] ? el.selectedOptions[0].text : el.value);
+    }
+    if (el.type === "checkbox") { const lb = el.closest("label"); return (lb ? lb.textContent : el.id).replace(/（[^）]*）/g, "").replace(/\s+/g, " ").trim() + (el.checked ? "（つけた）" : "（外した）"); }
+    return el.textContent.replace(/\s+/g, " ").replace(/ ?[▸▾]$/, "").trim().slice(0, 40);
+  }
+  function countUse(el) {
+    const n = usageName(el); if (!n || el.closest("#usageBox")) return;
+    const u = store.get("chisou3d:usage", {}); u[n] = (u[n] || 0) + 1; store.set("chisou3d:usage", u);
+  }
+  document.addEventListener("click", (e) => { const b = e.target.closest("button, summary"); if (b) countUse(b); }, true);
+  document.addEventListener("change", (e) => { const el = e.target; if (el.matches && el.matches("select, input[type=checkbox]")) countUse(el); }, true);
+  function showUsage() {
+    const u = store.get("chisou3d:usage", {}), rows = Object.entries(u).sort((a, b) => b[1] - a[1]);
+    openDetail('<div id="usageBox"><h3>📊 よく使ったボタン</h3><p class="hint">この端末で押した回数です（多い順）。回数はこの端末の中だけにあり、どこにも送りません。だれが押したかも残しません。</p>' +
+      (rows.length ? "<table><tr><th>ボタン</th><th>回数</th></tr>" + rows.slice(0, 60).map(([k, v]) => "<tr><td>" + esc(k) + "</td><td>" + v + "</td></tr>").join("") + "</table>" : "<p>まだ記録がありません。</p>") +
+      '<div class="actions"><button type="button" id="usageReset">数えなおす（0にもどす）</button></div></div>');
+    $("usageReset").onclick = () => { if (!confirm("押した回数を0にもどしますか？")) return; store.set("chisou3d:usage", {}); showUsage(); };
+  }
   function kidUiTargets() {
     const out = [];
     const add = (group, key, label, els) => { if (els.length) out.push({ group, key, label: label.replace(/\s+/g, " ").trim(), els }); };
@@ -5086,12 +5119,14 @@
       add(G6, "ck:alignBores", "柱の高さ（資料の高さ／今の地面にそろえる）", [$("alignBox")]);
     }
     document.querySelectorAll("#modebar > button").forEach((b) => {
-      if (b.id === "mbFold" || b.classList.contains("teacher-only")) return;
+      if (b.id === "mbFold" || b.id === "qPad" || b.classList.contains("teacher-only")) return;
       add("下のボタン", "mb:" + (b.dataset.mode || b.id), b.textContent, [b]);
     });
     add("右上・右下", "help", "？ 使い方", [$("btnHelp")]);
     add("右上・右下", "sources", "📚 根拠", [$("btnSources")]);
-    add("右上・右下", "navpad", "🎮 動かすボタン", [$("navpad")]);
+    add("下のボタン", "mb:note", "📝 メモ・目印（メニューの くわしい設定）", [$("menuNote")]);
+    add("右上・右下", "navpad", "🖱 パソコン用の操作（動かすボタン）", [$("navpad"), $("qPad")]);
+    add("右上・右下", "ps:地層の色（凡例）", "🪨 地層の色（凡例）", [$("layerLegendBox")]);
     add("断面図の中", "sh:secStage", "🎬 大地のでき方", [$("secStage").parentElement]);
     add("断面図の中", "sh:secMemoBtn", "📝 考えメモ", [$("secMemoBtn")]);
     add("断面図の中", "sh:secSave", "📷 保存", [$("secSave")]);
