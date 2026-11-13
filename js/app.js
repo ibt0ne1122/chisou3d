@@ -49,7 +49,7 @@
       setTimeout(run, 0); // 1ファイル版：設定がすでに入っている（準備が終わってから始める）
     } else {
       const sc = document.createElement("script");
-      sc.src = entry.file + "?v=20261113090643";
+      sc.src = entry.file + "?v=20261113090755";
       // 先生が配った写真メモ（sites/notes/<id>.js）：あればいっしょに読む。なくてもそのまま始める
       sc.onload = custom ? run : () => {
         const ns = document.createElement("script");
@@ -4138,7 +4138,10 @@
     };
     $("peelRange").addEventListener("pointerdown", () => { if (S.hideStrata) peelBlocked(); });
     const chk = (id, fn) => ($(id).onchange = () => fn($(id).checked));
-    chk("chkBores", (v) => { S.showBores = v; applyVisibility(); });
+    // 柱状図（ボーリングの柱）を地図から見えなくする：メニューのチェックと、下のバーのボタンは同じ
+    const setBores = (v) => { S.showBores = v; $("chkBores").checked = v; $("qBores").classList.toggle("on", !v); $("qBores").textContent = v ? "🙈 柱状図をかくす" : "👁 柱状図を出す"; applyVisibility(); if (!v && $("detail").dataset.bore) $("detail").classList.add("hidden"); };
+    chk("chkBores", setBores);
+    $("qBores").onclick = () => setBores(!S.showBores);
     const setLift = (v) => { S.lift = v; $("chkLift").checked = v; $("qLift").classList.toggle("on", v); buildBores(); };
     chk("chkLift", setLift);
     // 柄で「まじっている物」を表示（切ると、前と同じ 色だけ）
@@ -4863,6 +4866,7 @@
     if (S.peel) { st.peel = [...S.peeled]; st.pm = S.peelMode; }
     if (S.showRivers) st.riv = 1;
     if (S.showRails) st.rail = 1;
+    if (!S.showBores) st.nob = 1; // 柱状図をかくしている
     if (S.labelK !== 0.8) st.lk = S.labelK;
     if (!S.declutter) st.nodc = 1;
     if (S.wallBlank) st.wb = 1; // まわりの側面の地層をかくす
@@ -4926,6 +4930,7 @@
     if (st.relief && st.relief !== S.relief) setRelief(st.relief);
     setChk("chkRiver", st.riv);
     setChk("chkRail", st.rail);
+    setChk("chkBores", !st.nob);
     setChk("chkDeclutter", !st.nodc);
     if ((st.lk || 0.8) !== S.labelK) { $("labelSize").value = String(st.lk || 0.8); $("labelSize").dispatchEvent(new Event("change")); }
     setChk("chkWallBlank", st.wb);
