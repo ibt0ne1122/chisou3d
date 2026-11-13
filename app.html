@@ -6,7 +6,7 @@
 <title>大地のつくり 3D土地模型</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css?v=20261113112317">
+<link rel="stylesheet" href="css/style.css?v=20261113230520">
 </head>
 <body>
 <div id="viewport"></div>
@@ -193,9 +193,7 @@
 <nav id="modebar">
   <button id="mbFold" class="fold" type="button" title="ボタンをとじて、模型を広く見ます" aria-label="ボタンをとじる">✕</button>
   <button data-mode="view" class="active">👆 見る</button>
-  <button id="mbSec" type="button">✂️ 断面</button>
-  <button data-mode="section" class="sub hidden">✏️ 線を引く</button>
-  <button data-mode="pick" class="sub hidden">📍 柱をえらぶ</button>
+  <button data-mode="section">✂️ 断面図を作る</button>
   <button data-mode="cut" class="cutbtn">🔪 模型を切る</button>
   <span class="sep"></span>
   <button id="qRiver" class="quick" type="button">🌊 川を強調</button>
@@ -238,8 +236,8 @@
   <button id="selCancel" type="button">✕ やめる</button>
 </div>
 <div id="pickBar" class="floatbar hidden">
-  <span id="pickInfo">📍 断面に使う柱の旗を、順番にタップ</span>
-  <button id="pickOk" type="button" class="primary">✅ この柱で断面図をつくる</button>
+  <span id="pickInfo">✂️ 断面に使う柱の旗か地面を、順番にタップ</span>
+  <button id="pickOk" type="button" class="primary">✅ 断面図をつくる</button>
   <button id="pickUndo" type="button">↶ 1つもどす</button>
   <button id="pickClear" type="button">やり直す</button>
 </div>
@@ -640,21 +638,21 @@
 
 <footer id="attribution">出典：<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">国土地理院（地理院タイル・標高タイル）</a> ／ 目印：<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap</a> ／ 地下の地層はボーリング資料からの推定です（<a href="#" id="attrMore">くわしく</a>）</footer>
 
-<script src="lib/three.min.js?v=20261113112317"></script>
-<script src="lib/OrbitControls.js?v=20261113112317"></script>
-<script src="lib/qrcode.js?v=20261113112317"></script>
+<script src="lib/three.min.js?v=20261113230520"></script>
+<script src="lib/OrbitControls.js?v=20261113230520"></script>
+<script src="lib/qrcode.js?v=20261113230520"></script>
 <script>window.CHISOU = { sites: {}, registerSite: function (s) { this.sites[s.id] = s; } };</script>
-<script src="js/geo.js?v=20261113112317"></script>
-<script src="js/geology.js?v=20261113112317"></script>
-<script src="js/pattern.js?v=20261113112317"></script>
-<script src="sites/sites.js?v=20261113112317"></script>
-<script src="js/section.js?v=20261113112317"></script>
-<script src="js/boringxml.js?v=20261113112317"></script>
-<script src="js/mvt.js?v=20261113112317"></script>
-<script src="js/yato_yokohama.js?v=20261113112317"></script>
-<script src="js/ngic_bookmarklet.js?v=20261113112317"></script>
-<script src="js/help.js?v=20261113112317"></script>
-<script src="js/app.js?v=20261113112317"></script>
-<script src="js/version.js?v=20261113112317"></script>
+<script src="js/geo.js?v=20261113230520"></script>
+<script src="js/geology.js?v=20261113230520"></script>
+<script src="js/pattern.js?v=20261113230520"></script>
+<script src="sites/sites.js?v=20261113230520"></script>
+<script src="js/section.js?v=20261113230520"></script>
+<script src="js/boringxml.js?v=20261113230520"></script>
+<script src="js/mvt.js?v=20261113230520"></script>
+<script src="js/yato_yokohama.js?v=20261113230520"></script>
+<script src="js/ngic_bookmarklet.js?v=20261113230520"></script>
+<script src="js/help.js?v=20261113230520"></script>
+<script src="js/app.js?v=20261113230520"></script>
+<script src="js/version.js?v=20261113230520"></script>
 </body>
 </html>

@@ -49,7 +49,7 @@
       setTimeout(run, 0); // 1ファイル版：設定がすでに入っている（準備が終わってから始める）
     } else {
       const sc = document.createElement("script");
-      sc.src = entry.file + "?v=20261113112317";
+      sc.src = entry.file + "?v=20261113230520";
       // 先生が配った写真メモ（sites/notes/<id>.js）：あればいっしょに読む。なくてもそのまま始める
       sc.onload = custom ? run : () => {
         const ns = document.createElement("script");
@@ -2676,31 +2676,22 @@
       syncCutGuideUI(); buildCutGuide();
       return;
     }
-    if (S.mode === "pick") {
-      if (!obj || obj.type !== "bore") { flashHint("📍 ボーリングの旗（🔍の名前や●）をタップしてえらんでね"); return; }
-      const i = S.pickIds.indexOf(obj.id);
-      if (i >= 0) S.pickIds.splice(i, 1); // もう一度タップで取り消し
-      else if (S.pickIds.length >= 8) { flashHint("えらべるのは8本までです"); return; }
-      else S.pickIds.push(obj.id);
-      updatePickBar();
-      return;
-    }
     if (S.mode === "section") {
+      if (S.section) { flashHint("✂️ 別の断面をつくるときは、断面図の「✂️ 線を引き直す」を押してね"); return; }
+      const pts = S.sectionPts;
       let p = null;
-      if (obj && obj.type === "bore") { const b = S.bores.find((x) => x.id === obj.id); if (b) p = { x: b.x, z: b.z, boreId: b.id }; }
+      if (obj && obj.type === "bore") {
+        const i = pts.findIndex((q) => q.boreId === obj.id);
+        if (i >= 0) { pts.splice(i, 1); updatePickBar(); return; } // もう一度タップで取り消し
+        const b = S.bores.find((x) => x.id === obj.id); if (b) p = { x: b.x, z: b.z, boreId: b.id };
+      }
       if (!p) p = pickGround();
       if (!p) return;
-      const pts = S.sectionPts;
       const last = pts[pts.length - 1];
       if (last && Math.hypot(p.x - last.x, p.z - last.z) < 20) { flashHint("もう少しはなれた所をタップしてください"); return; }
-      if (pts.length >= 8) { flashHint("点は8つまでです。「線を引き直す」で最初からやり直せます"); return; }
+      if (pts.length >= 8) { flashHint("えらべるのは8か所までです"); return; }
       pts.push(p);
-      if (pts.length === 1) {
-        updateMarkers();
-        setHint("✂️ 2つ目の点をタップ（旗をタップすると、そのボーリングを通ります）");
-      } else {
-        makeSection(pts.slice());
-      }
+      updatePickBar();
       return;
     }
     if (S.mode === "note") {
@@ -2927,14 +2918,15 @@
   }
 
   /** 「柱をえらんで断面」：えらんだ柱に A・B・C… のしるしをつけ、下のバーを更新 */
+  /** 断面図を作る：えらんだ所（柱の旗または地面）と、「✅ 断面図をつくる」ボタン */
   function updatePickBar() {
-    const bs = S.pickIds.map((id) => S.bores.find((b) => b.id === id)).filter(Boolean);
-    S.sectionPts = bs.map((b) => ({ x: b.x, z: b.z, boreId: b.id }));
+    const pts = S.sectionPts;
     updateMarkers();
-    $("pickInfo").textContent = bs.length ? "📍 えらんだ柱：" + bs.length + "本（" + bs.map((b, i) => LETTERS[i]).join("→") + "）" + (bs.length < 2 ? "　あと1本以上えらんでね" : "")
-      : "📍 断面に使う柱の旗を、つなぎたい順にタップ";
-    $("pickOk").disabled = bs.length < 2;
-    $("pickUndo").disabled = $("pickClear").disabled = !bs.length;
+    $("pickInfo").textContent = pts.length ? "✂️ えらんだ所：" + pts.length + "か所（" + pts.map((q, i) => LETTERS[i]).join("→") + "）" + (pts.length < 2 ? "　あと1か所以上えらんでね" : "")
+      : "✂️ 断面に使う柱の旗か地面を、つなぎたい順にタップ（2か所以上）";
+    $("pickOk").disabled = pts.length < 2;
+    $("pickUndo").disabled = $("pickClear").disabled = !pts.length;
+    setHint(pts.length < 2 ? modeHint() : "✂️ えらび終わったら「✅ 断面図をつくる」（3か所以上えらぶと、その順に折れ線でつなぎます）");
   }
   function clearSection() {
     $("cutBar").classList.add("hidden");
@@ -3408,8 +3400,7 @@
     $("dSec").onclick = () => {
       setMode("section");
       S.sectionPts = [{ x: b.x, z: b.z, boreId: b.id }];
-      updateMarkers();
-      setHint("✂️ 断面のもう1か所（B）をタップ（となりのボーリングをタップすると2本をくらべられます）");
+      updatePickBar();
     };
     if ($("dEdit")) $("dEdit").onclick = () => openBoreDialog(b);
     if ($("dPhoto")) $("dPhoto").onclick = () => pickPhoto((photo) => {
@@ -3843,17 +3834,12 @@
   function setHint(t) { $("hint").textContent = t; $("hint").classList.toggle("hidden", !t); }
   function flashHint(t) { setHint(t); clearTimeout(hintTimer); hintTimer = setTimeout(() => setHint(modeHint()), 3500); }
   function modeHint() {
-    return { view: "", section: "✂️ 断面図を作成：地図の上で2か所以上をタップ（ボーリングの旗をタップすると、その柱を通ります）",
+    return { view: "", section: "✂️ 断面図を作る：柱の旗か地面を、つなぎたい順に2か所以上タップ →「✅ 断面図をつくる」",
       cut: "🔪 赤い線の所で模型を切ります。向き・位置を動かすか、模型をタップして線を動かしてから「この線で切る」",
-      pick: "📍 断面に使うボーリングの旗を、つなぎたい順にタップ（2本以上）→「✅ この柱で断面図をつくる」", note: "📝 メモを置きたい場所をタップ", edit: "➕ ボーリングの場所をタップ（柱をタップすると編集）" }[S.mode];
-  }
-  /** 下のバーの「✂️ 断面」：押すと「線を引く／柱をえらぶ」が横に出る */
-  function syncSecBtn(m) {
-    const on = m === "section" || m === "pick";
-    $("mbSec").classList.toggle("active", on);
-    document.querySelectorAll("#modebar button.sub").forEach((b) => b.classList.toggle("hidden", !on));
+ note: "📝 メモを置きたい場所をタップ", edit: "➕ ボーリングの場所をタップ（柱をタップすると編集）" }[S.mode];
   }
   function setMode(m) {
+    if (m === "pick") m = "section"; // 「柱をえらんで断面図」は「断面図を作る」と同じ入り口にした
     const prev = S.mode;
     S.mode = m;
     if (S.boreSel) endBoreSelect(false);
@@ -3865,11 +3851,10 @@
     $("cutBar").classList.add("hidden");
     $("cutGuideBar").classList.toggle("hidden", m !== "cut");
     if (m === "cut") { syncCutGuideUI(); buildCutGuide(); } else if (groups.guide) disposeGroup(groups.guide);
-    $("pickBar").classList.toggle("hidden", m !== "pick");
-    if (m === "pick") updatePickBar();
+    $("pickBar").classList.toggle("hidden", m !== "section");
+    if (m === "section") updatePickBar();
     updateMarkers();
     document.querySelectorAll("#modebar button[data-mode]").forEach((b) => b.classList.toggle("active", b.dataset.mode === m));
-    syncSecBtn(m);
     const act = document.querySelector("#modebar button.active"); if (act && act.scrollIntoView) act.scrollIntoView({ block: "nearest", inline: "nearest" });
     setHint(modeHint());
   }
@@ -4357,7 +4342,6 @@
 
     document.querySelectorAll("[data-view]").forEach((b) => (b.onclick = () => setView(b.dataset.view)));
     document.querySelectorAll("#modebar button[data-mode]").forEach((b) => (b.onclick = () => setMode(b.dataset.mode)));
-    $("mbSec").onclick = () => { if (S.mode !== "section" && S.mode !== "pick") setMode("section"); };
     $("menuNote").onclick = () => setMode("note");
     $("btnFresh").onclick = () => {
       if (!confirm("前回の続きの見え方をやめて、はじめの画面で開きなおしますか？\n（メモ・目印・えらんだ柱・写真などは消えません）")) return;
@@ -4436,7 +4420,7 @@
     if (window.innerWidth < 1100) $("controls").classList.add("collapsed");
     updateViewOffset();
     document.querySelectorAll("[data-close]").forEach((b) => (b.onclick = () => {
-      if (b.dataset.close === "section") clearSection();
+      if (b.dataset.close === "section") { clearSection(); if (S.mode === "section") { $("pickBar").classList.remove("hidden"); updatePickBar(); } }
       else $(b.dataset.close).classList.add("hidden");
     }));
     $("compass").onclick = () => {
@@ -4718,7 +4702,7 @@
     $("cutSheet").onclick = () => {
       // 切ったまま、断面図（2D）モードへ
       S.mode = "section";
-      document.querySelectorAll("#modebar button[data-mode]").forEach((b) => b.classList.toggle("active", b.dataset.mode === "section")); syncSecBtn("section");
+      document.querySelectorAll("#modebar button[data-mode]").forEach((b) => b.classList.toggle("active", b.dataset.mode === "section"));
       $("cutBar").classList.add("hidden");
       if (S.cutBlank) { buildWalls(); buildSectionRibbon(); }
       S.sectionPts = S.section.pts.slice();
@@ -4740,17 +4724,13 @@
     $("cutGuideEnd").onclick = () => setMode("view");
     $("cutEnd").onclick = () => setMode("view");
     // 柱をえらんで断面
-    $("pickUndo").onclick = () => { S.pickIds.pop(); updatePickBar(); };
-    $("pickClear").onclick = () => { S.pickIds = []; updatePickBar(); };
+    $("pickUndo").onclick = () => { S.sectionPts.pop(); updatePickBar(); };
+    $("pickClear").onclick = () => { S.sectionPts = []; updatePickBar(); };
     $("pickOk").onclick = () => {
-      if (S.pickIds.length < 2) return;
+      if (S.sectionPts.length < 2) return;
       const pts = S.sectionPts.slice();
-      S.mode = "section";
-      document.querySelectorAll("#modebar button[data-mode]").forEach((b) => b.classList.toggle("active", b.dataset.mode === "section")); syncSecBtn("section");
       $("pickBar").classList.add("hidden");
-      S.lastPickIds = S.pickIds.slice(); // 子ども用リンクで「えらんだ柱だけ」に使う
-      S.pickIds = [];
-      S.sectionPts = pts;
+      S.lastPickIds = pts.filter((q) => q.boreId).map((q) => q.boreId); // 子ども用リンクで「えらんだ柱だけ」に使う
       makeSection(pts.slice());
     };
     $("secFlip").onclick = () => {
