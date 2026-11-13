@@ -120,5 +120,80 @@
     return Object.values(found);
   }
 
-  C.MVT = { decodePoints, gsiMarks };
+  /** タイルの中の、指定したレイヤーの「線」を取り出す → [{props, lines:[[[x,y],...]], extent}] */
+  function decodeLines(bytes, layerName) {
+    const r = new Reader(bytes), out = [];
+    while (r.p < bytes.length) {
+      const k = r.varint(), f = k >> 3, wt = k & 7;
+      if (f !== 3 || wt !== 2) { r.skip(wt); continue; }
+      const lb = r.bytes(), lr = new Reader(lb);
+      let name = "", extent = 4096;
+      const keys = [], values = [], feats = [];
+      while (lr.p < lb.length) {
+        const k2 = lr.varint(), f2 = k2 >> 3, wt2 = k2 & 7;
+        if (f2 === 1) name = utf8.decode(lr.bytes());
+        else if (f2 === 2) feats.push(lr.bytes());
+        else if (f2 === 3) keys.push(utf8.decode(lr.bytes()));
+        else if (f2 === 4) values.push(readValue(lr.bytes()));
+        else if (f2 === 5) extent = lr.varint();
+        else lr.skip(wt2);
+      }
+      if (name !== layerName) continue;
+      const zz = (n) => (n % 2 ? -(n + 1) / 2 : n / 2);
+      for (const fb of feats) {
+        const fr = new Reader(fb);
+        let tags = [], type = 0, geom = [];
+        while (fr.p < fb.length) {
+          const k3 = fr.varint(), f3 = k3 >> 3, wt3 = k3 & 7;
+          if (f3 === 2) tags = packed(fr.bytes());
+          else if (f3 === 3) type = fr.varint();
+          else if (f3 === 4) geom = packed(fr.bytes());
+          else fr.skip(wt3);
+        }
+        if (type !== 2) continue; // 線だけ
+        const props = {};
+        for (let i = 0; i + 1 < tags.length; i += 2) props[keys[tags[i]]] = values[tags[i + 1]];
+        const lines = []; let cur = null, x = 0, y = 0, i = 0;
+        while (i < geom.length) {
+          const c = geom[i++], id = c & 7, cnt = c >> 3;
+          for (let j = 0; j < cnt && (id === 1 || id === 2); j++) {
+            x += zz(geom[i++]); y += zz(geom[i++]);
+            if (id === 1) { cur = []; lines.push(cur); }
+            cur.push([x, y]);
+          }
+        }
+        out.push({ props, lines, extent });
+      }
+    }
+    return out;
+  }
+  /** 模型の範囲の線路（国土地理院の地図の「鉄道中心線」）。JR かどうか・トンネルかどうかも */
+  async function gsiRails(frame, half) {
+    const z = 14, n = Math.pow(2, z);
+    const a = frame.toPixel(-half, -half, z), b = frame.toPixel(half, half, z);
+    const jobs = [], out = [];
+    for (let ty = Math.floor(a.y / 256); ty <= Math.floor(b.y / 256); ty++) {
+      for (let tx = Math.floor(a.x / 256); tx <= Math.floor(b.x / 256); tx++) {
+        jobs.push(fetchTile("https://cyberjapandata.gsi.go.jp/xyz/experimental_bvmap/" + z + "/" + tx + "/" + ty + ".pbf").catch(() => null).then((buf) => {
+          if (!buf) return;
+          for (const f of decodeLines(buf, "railway")) {
+            const rt = String(f.props.rtCode || "");
+            // 路線コードの5けた目：1＝JR、2＝JR以外（私鉄など）
+            const jr = rt.length > 4 ? rt.charAt(4) === "1" : false;
+            const tunnel = f.props.railState === 2 || f.props.railState === 3;
+            for (const ln of f.lines) {
+              out.push({ jr, tunnel, pts: ln.map(([x, y]) => {
+                const X = tx + x / f.extent, Y = ty + y / f.extent;
+                return { lon: (X / n) * 360 - 180, lat: (Math.atan(Math.sinh(Math.PI * (1 - (2 * Y) / n))) * 180) / Math.PI };
+              }) });
+            }
+          }
+        }));
+      }
+    }
+    await Promise.all(jobs);
+    return out;
+  }
+
+  C.MVT = { decodePoints, decodeLines, gsiMarks, gsiRails };
 })();

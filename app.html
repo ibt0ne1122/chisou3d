@@ -6,7 +6,7 @@
 <title>大地のつくり 3D土地模型</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css?v=20261112064255">
+<link rel="stylesheet" href="css/style.css?v=20261113084728">
 </head>
 <body>
 <div id="viewport"></div>
@@ -87,6 +87,7 @@
       </div>
       <label><input type="checkbox" id="chkLift"> 柱を地上に引き出す</label>
       <label><input type="checkbox" id="chkRiver"> 川を強調する</label>
+      <label><input type="checkbox" id="chkRail"> 線路を強調する</label>
       <label><input type="checkbox" id="chkYato"> 谷戸（やと）を表示</label>
       <label><input type="checkbox" id="chkBasin"> 流域・分水界（雨水の行き先）</label>
       <label><input type="checkbox" id="chkLabels" checked> 名前・目印（外すと、学校名・まわりの目印を全部かくす）</label>
@@ -197,9 +198,15 @@
   <button id="qLift" class="quick" type="button">⬆️ 柱を地上に</button>
   <button id="qNames" class="quick on" type="button" title="ボーリングの柱の名前（🔍の名札）を出したり、かくしたりします">🏷 柱：名前あり</button>
   <button id="qRiver" class="quick" type="button">🌊 川を強調</button>
+  <button id="qRail" class="quick" type="button" title="地図によくある表し方で線路をかきます（JR線は白黒、JR以外は はしごの線）">🚃 線路を強調</button>
   <button id="qYato" class="quick hidden" type="button">〰 谷戸</button>
 </nav>
 <div id="hint" class="hidden"></div>
+<div id="railLegend" class="hidden"><b>🚃 線路</b>
+  <span><svg width="44" height="10"><rect x="0" y="1" width="44" height="8" fill="#111"/><rect x="2" y="3" width="10" height="4" fill="#fff"/><rect x="22" y="3" width="10" height="4" fill="#fff"/></svg>JR線</span>
+  <span><svg width="44" height="12"><line x1="0" y1="6" x2="44" y2="6" stroke="#111" stroke-width="2"/><g stroke="#111" stroke-width="1.5"><line x1="6" y1="1" x2="6" y2="11"/><line x1="17" y1="1" x2="17" y2="11"/><line x1="28" y1="1" x2="28" y2="11"/><line x1="39" y1="1" x2="39" y2="11"/></g></svg>JR以外の鉄道（私鉄など）</span>
+  <span><svg width="44" height="10"><line x1="0" y1="5" x2="44" y2="5" stroke="#333" stroke-width="2" stroke-dasharray="6 4"/></svg>トンネル</span>
+</div>
 <div id="floatStack"></div>
 <div id="cutGuideBar" class="floatbar hidden">
   <span>🔪 赤い線で切ります</span>
@@ -622,21 +629,21 @@
 
 <footer id="attribution">出典：<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">国土地理院（地理院タイル・標高タイル）</a> ／ 目印：<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap</a> ／ 地下の地層はボーリング資料からの推定です（<a href="#" id="attrMore">くわしく</a>）</footer>
 
-<script src="lib/three.min.js?v=20261112064255"></script>
-<script src="lib/OrbitControls.js?v=20261112064255"></script>
-<script src="lib/qrcode.js?v=20261112064255"></script>
+<script src="lib/three.min.js?v=20261113084728"></script>
+<script src="lib/OrbitControls.js?v=20261113084728"></script>
+<script src="lib/qrcode.js?v=20261113084728"></script>
 <script>window.CHISOU = { sites: {}, registerSite: function (s) { this.sites[s.id] = s; } };</script>
-<script src="js/geo.js?v=20261112064255"></script>
-<script src="js/geology.js?v=20261112064255"></script>
-<script src="js/pattern.js?v=20261112064255"></script>
-<script src="sites/sites.js?v=20261112064255"></script>
-<script src="js/section.js?v=20261112064255"></script>
-<script src="js/boringxml.js?v=20261112064255"></script>
-<script src="js/mvt.js?v=20261112064255"></script>
-<script src="js/yato_yokohama.js?v=20261112064255"></script>
-<script src="js/ngic_bookmarklet.js?v=20261112064255"></script>
-<script src="js/help.js?v=20261112064255"></script>
-<script src="js/app.js?v=20261112064255"></script>
-<script src="js/version.js?v=20261112064255"></script>
+<script src="js/geo.js?v=20261113084728"></script>
+<script src="js/geology.js?v=20261113084728"></script>
+<script src="js/pattern.js?v=20261113084728"></script>
+<script src="sites/sites.js?v=20261113084728"></script>
+<script src="js/section.js?v=20261113084728"></script>
+<script src="js/boringxml.js?v=20261113084728"></script>
+<script src="js/mvt.js?v=20261113084728"></script>
+<script src="js/yato_yokohama.js?v=20261113084728"></script>
+<script src="js/ngic_bookmarklet.js?v=20261113084728"></script>
+<script src="js/help.js?v=20261113084728"></script>
+<script src="js/app.js?v=20261113084728"></script>
+<script src="js/version.js?v=20261113084728"></script>
 </body>
 </html>

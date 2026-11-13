@@ -49,7 +49,7 @@
       setTimeout(run, 0); // 1ファイル版：設定がすでに入っている（準備が終わってから始める）
     } else {
       const sc = document.createElement("script");
-      sc.src = entry.file + "?v=20261112064255";
+      sc.src = entry.file + "?v=20261113084728";
       // 先生が配った写真メモ（sites/notes/<id>.js）：あればいっしょに読む。なくてもそのまま始める
       sc.onload = custom ? run : () => {
         const ns = document.createElement("script");
@@ -1188,6 +1188,19 @@
     for (let k = 0; k < N; k++) if (acc[k] >= T && down[k] >= 0) lines.push({ name: "", major: acc[k] >= Tmajor, pts: [xz(k), xz(down[k])] });
     return lines;
   }
+  // ---------- 線路（地図によくある表し方：JRは白黒の線、JR以外は はしごの線） ----------
+  async function buildRails() {
+    if (S.showRails && !S.rails) {
+      flashHint("🚃 線路のデータを読み込み中…");
+      try {
+        const list = await C.MVT.gsiRails(S.frame, S.site.half);
+        S.rails = list.map((l) => ({ jr: l.jr, tunnel: l.tunnel, pts: l.pts.map((p) => S.frame.toLocal(p.lat, p.lon)) })).filter((l) => l.pts.length > 1);
+      } catch (e) { S.rails = []; }
+      if (!S.rails.length) flashHint("🚃 線路のデータを読み込めませんでした（インターネットにつながっているか確かめてください）");
+    }
+    $("railLegend").classList.toggle("hidden", !(S.showRails && S.rails && S.rails.length));
+    applyTexture();
+  }
   async function buildRivers() {
     disposeGroup(groups.rivers);
     if (!S.showRivers) { if (S.texRiv) { S.texRiv = false; applyTexture(); } return; }
@@ -1713,7 +1726,7 @@
     let base = S.mapCanvas[S.mapType];
     let canvas = base;
     const hz = S.hazard && S.hazard !== "none" && S.hazardCanvas && S.hazardCanvas[S.hazard];
-    const lines = S.showRivers && S.rivers || S.showYato && yatoList().length;
+    const lines = S.showRivers && S.rivers || S.showYato && yatoList().length || S.showRails && S.rails && S.rails.length;
     const under = mt.under && S.mapCanvas[mt.under];
     const cmp = S.compare > 0 && mt.group === "昔の写真" && S.mapCanvas.photo;
     if (["color", "contour", "terrace"].includes(S.relief) || hz || lines || under || cmp || S.showBasin) {
@@ -2392,6 +2405,41 @@
     };
     if (S.showYato) strokeAll([].concat(...yatoList().map((y) => y.lines.map((pts) => ({ pts })))), wY, "#14b8a6");
     if (S.showRivers && S.rivers) strokeAll(S.rivers, wR, "#1565ff");
+    if (S.showRails && S.rails) drawRails(ctx, path, px, Math.max(9, half * 0.0095), sx, sy, half);
+  }
+  /** 線路をかく：JR線＝黒いふちの中に白と黒が交互、JR以外＝黒い線に はしごの横線、トンネル＝点線 */
+  function drawRails(ctx, path, px, w, sx, sy, half) {
+    const list = S.rails;
+    ctx.save();
+    ctx.lineCap = "butt"; ctx.lineJoin = "round";
+    // 下じき（白いふち）で、航空写真の上でも見えるように
+    ctx.strokeStyle = "rgba(255,255,255,0.9)"; ctx.setLineDash([]);
+    for (const l of list) if (!l.tunnel) { ctx.lineWidth = px(l.jr ? w * 1.6 : w * 1.2); path(l.pts); ctx.stroke(); }
+    for (const l of list) {
+      if (l.tunnel) { ctx.strokeStyle = "rgba(40,40,40,0.85)"; ctx.lineWidth = px(w * 0.35); ctx.setLineDash([px(w * 1.2), px(w * 0.9)]); path(l.pts); ctx.stroke(); ctx.setLineDash([]); continue; }
+      if (l.jr) {
+        ctx.strokeStyle = "#111"; ctx.lineWidth = px(w); path(l.pts); ctx.stroke();
+        ctx.strokeStyle = "#fff"; ctx.lineWidth = px(w * 0.55); ctx.setLineDash([px(w * 2.4), px(w * 2.4)]); path(l.pts); ctx.stroke(); ctx.setLineDash([]);
+      } else {
+        ctx.strokeStyle = "#111"; ctx.lineWidth = px(w * 0.35); path(l.pts); ctx.stroke();
+        // はしごの横線：線にそって一定の間かくで、直角に短い線
+        const gap = w * 2.2, tick = w * 0.75; let carry = 0;
+        ctx.lineWidth = px(w * 0.22); ctx.beginPath();
+        for (let i = 0; i < l.pts.length - 1; i++) {
+          const a = l.pts[i], b = l.pts[i + 1], len = Math.hypot(b.x - a.x, b.z - a.z); if (!len) continue;
+          const ux = (b.x - a.x) / len, uz = (b.z - a.z) / len;
+          let d = gap - carry;
+          for (; d <= len; d += gap) {
+            const cx = a.x + ux * d, cz = a.z + uz * d;
+            ctx.moveTo((cx - uz * tick + half) * sx, (cz + ux * tick + half) * sy);
+            ctx.lineTo((cx + uz * tick + half) * sx, (cz - ux * tick + half) * sy);
+          }
+          carry = (carry + len) % gap;
+        }
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
   }
   function setRelief(mode) {
     S.relief = mode;
@@ -4074,6 +4122,9 @@
     $("qLift").onclick = () => setLift(!S.lift);
     const setRiver = (v) => { S.showRivers = v; $("chkRiver").checked = v; $("qRiver").classList.toggle("on", v); buildRivers(); if (S.section) openSectionSheet(); };
     chk("chkRiver", setRiver);
+    const setRail = (v) => { S.showRails = v; $("chkRail").checked = v; $("qRail").classList.toggle("on", v); buildRails(); };
+    chk("chkRail", setRail);
+    $("qRail").onclick = () => setRail(!S.showRails);
     // 流域・分水界
     const setBasin = (v) => { S.showBasin = v; $("chkBasin").checked = v; if (v) S.cardClosed.basinCard = false; applyTexture(); basinCard(v); };
     chk("chkBasin", setBasin);
@@ -4753,6 +4804,7 @@
     if (Object.keys(S.boreMarks).length) st.marks = S.boreMarks;
     if (S.peel) { st.peel = [...S.peeled]; st.pm = S.peelMode; }
     if (S.showRivers) st.riv = 1;
+    if (S.showRails) st.rail = 1;
     if (S.wallBlank) st.wb = 1; // まわりの側面の地層をかくす
     if (S.showYato) st.yato = 1;
     if (S.lift) st.lift = 1;
@@ -4813,6 +4865,7 @@
     if (st.map && st.map !== S.mapType) await setMap(st.map);
     if (st.relief && st.relief !== S.relief) setRelief(st.relief);
     setChk("chkRiver", st.riv);
+    setChk("chkRail", st.rail);
     setChk("chkWallBlank", st.wb);
     if (!$("chkYato").parentElement.classList.contains("hidden")) setChk("chkYato", st.yato);
     setChk("chkLift", st.lift);
