@@ -662,3 +662,5 @@ a.btnlink.primary { background: var(--accent); color: #fff; border-color: var(--
 @media (max-width: 700px) { #railLegend { right: 8px; bottom: auto; top: 70px; } }
 #controls .lblsize { display: flex; align-items: center; gap: 8px; font-size: 14px; margin: 2px 0 4px; } #controls .lblsize select { width: auto; padding: 2px 6px; }
 #detail .borephotobox { background: #f6faf6; border: 1px solid #cfe3cf; border-radius: 10px; padding: 8px 10px; margin: 8px 0; } #detail .borephotobox > b { display: block; margin-bottom: 4px; }
+/* 柱状図の説明を開いているときは、線路の説明を説明のらんの左へ（重ならないように） */
+@media (min-width: 761px) { body:has(#detail:not(.hidden)) #railLegend { right: 386px; } }

@@ -49,7 +49,7 @@
       setTimeout(run, 0); // 1ファイル版：設定がすでに入っている（準備が終わってから始める）
     } else {
       const sc = document.createElement("script");
-      sc.src = entry.file + "?v=20261113090214";
+      sc.src = entry.file + "?v=20261113090510";
       // 先生が配った写真メモ（sites/notes/<id>.js）：あればいっしょに読む。なくてもそのまま始める
       sc.onload = custom ? run : () => {
         const ns = document.createElement("script");
@@ -3284,7 +3284,7 @@
     layers.forEach((l) => (byId[l.id] = l));
     const SW = S.straw ? 54 : 0, W = 320 + SW, colX = 70, colW = 56, nameX = colX + colW + 8 + SW; // ストローの長さは、柱のすぐ右の列に
     const depth = Math.max(b.depth, 1);
-    const pxm = Math.min(22, Math.max(6, 380 / depth));
+    const pxm = Math.min(22, Math.max(6, 330 / depth));
     const H = depth * pxm + 40;
     let svg = '<svg viewBox="0 0 ' + W + " " + H + '" width="100%" style="max-width:' + W + 'px" font-family="inherit">';
     svg += '<text x="4" y="12" font-size="11" fill="#5a6873">深さ(m)</text><text x="' + nameX + '" y="12" font-size="11" fill="#5a6873">土の名前・N値</text>';
@@ -3333,9 +3333,12 @@
       (Object.keys(S.boreMarks).length ? '<button type="button" id="dMarkClear" class="link">全部もどす</button>' : "") + "</div>";
     let html = "<h3>" + esc(b.name) + "</h3>";
     const bph = borePhotoOf(id);
-    html += '<div class="jumprow"><button type="button" id="dJumpStraw">✂️ ストローで作る長さ</button><button type="button" id="dJumpCol">📏 柱状図と層の厚さ</button><button type="button" id="dJumpPhoto">📷 この場所の写真</button></div>';
-    html += markHtml;
+    // 名前のすぐ下に柱状図（子どもが名前と柱状図を1つの画面で見て、根拠にできるように）
     if (b.sample) html += '<div class="warnbox">⚠ ' + esc(S.site.sample.note || "仮のデータです") + "</div>";
+    html += '<div id="dColAnchor"></div>' + svg + thickRow + strawTable();
+    if (b.segs.some((s) => s.relabeled)) html += '<p class="hint">＊古い地層より下にあるので、ローム層・沖積層ではなく、まわりの地層（大昔の火山灰などがまじった うすい層）として色をつけています。</p>';
+    html += '<div class="jumprow"><button type="button" id="dJumpPhoto">📷 この場所の写真</button></div>';
+    html += markHtml;
     html += '<div class="meta">地面の標高：<b>' + elevTxt + "</b> " + (typeof b.elevation === "number" ? demTxt : "") +
       "<br>掘った深さ：" + b.depth.toFixed(1) + "m（いちばん下の標高 " + (b.elev - b.depth).toFixed(1) + "m）" +
       (typeof b.elevation === "number" && !isNaN(b.demElev) && Math.abs(b.elev - b.demElev) >= 0.5
@@ -3343,8 +3346,6 @@
           (S.alignBores ? "（今は地面にそろえてかいています）" : "") : "") +
       (b.source ? "<br>出典：" + esc(b.source) : "") +
       (b.url ? '<br><a href="' + esc(b.url) + '" target="_blank" rel="noopener">元の資料を開く ↗</a>' : "") + "</div>";
-    html += '<div id="dColAnchor"></div>' + thickRow + strawTable() + svg;
-    if (b.segs.some((s) => s.relabeled)) html += '<p class="hint">＊古い地層より下にあるので、ローム層・沖積層ではなく、まわりの地層（大昔の火山灰などがまじった うすい層）として色をつけています。</p>';
     if (b.image) html += '<a href="' + esc(b.image) + '" target="_blank" rel="noopener"><img class="log-image" src="' + esc(b.image) + '" alt="柱状図の画像"></a>';
     if (!b.sample && b.source) {
       // なぜ調べたの？（ボーリング調査をする理由）
@@ -3397,8 +3398,6 @@
     if ($("dPhotoDel")) $("dPhotoDel").onclick = () => { if (!confirm("この柱の写真を消しますか？")) return; const all = store.get(key("borePhotos"), {}); delete all[id]; store.set(key("borePhotos"), all); showBore(id); };
     if ($("dThick")) $("dThick").onchange = () => { S.showThick = $("dThick").checked; store.set("chisou3d:showThick", S.showThick); showBore(id); };
     const jump = (anchor) => { const a = $(anchor); if (a) a.scrollIntoView({ behavior: "smooth", block: "start" }); };
-    $("dJumpStraw").onclick = () => { if (!S.straw) { S.straw = true; store.set("chisou3d:straw", true); showBore(id); setTimeout(() => jump("dColAnchor"), 50); } else jump("dColAnchor"); };
-    $("dJumpCol").onclick = () => jump("dColAnchor");
     $("dJumpPhoto").onclick = () => jump("dPhotoAnchor");
     if ($("dStraw")) $("dStraw").onchange = () => { S.straw = $("dStraw").checked; store.set("chisou3d:straw", S.straw); showBore(id); };
     if ($("dStrawScale")) $("dStrawScale").onchange = () => { S.strawScale = +$("dStrawScale").value; store.set("chisou3d:strawScale", S.strawScale); showBore(id); };
