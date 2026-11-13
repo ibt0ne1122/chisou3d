@@ -49,7 +49,7 @@
       setTimeout(run, 0); // 1ファイル版：設定がすでに入っている（準備が終わってから始める）
     } else {
       const sc = document.createElement("script");
-      sc.src = entry.file + "?v=20261113233752";
+      sc.src = entry.file + "?v=20261113234525";
       // 先生が配った写真メモ（sites/notes/<id>.js）：あればいっしょに読む。なくてもそのまま始める
       sc.onload = custom ? run : () => {
         const ns = document.createElement("script");
@@ -445,7 +445,7 @@
       t.x += cx; t.z += cz; camera.position.x += cx; camera.position.z += cz;
     }
     const az = controls.getAzimuthalAngle();
-    $("compass").querySelector(".needle").style.transform = "rotate(" + (az * 180) / Math.PI + "deg)";
+    $("compass").style.setProperty("--az", (az * 180) / Math.PI + "deg"); // 針と「北」「南」の字が、いっしょに回る（字は立ったまま）
     declutterTick();
     renderer.render(scene, camera);
   }
@@ -3869,6 +3869,8 @@
   }
 
   function buildLegend() {
+    // かんたんな表示：色と、やさしい名前だけ
+    $("legendSimple").innerHTML = S.site.layers.map((l, i) => S.visLayers.includes(i) ? '<li><span class="sw" style="background:' + l.color + '"></span>' + esc(l.name.replace(/（[^）]*）/g, "").replace(/の層$/, "")) + "</li>" : "").join("");
     const ul = $("legend");
     ul.innerHTML = "";
     S.site.layers.forEach((l, i) => {
@@ -4359,10 +4361,17 @@
       if (!confirm("前回の続きの見え方をやめて、はじめの画面で開きなおしますか？\n（メモ・目印・えらんだ柱・写真などは消えません）")) return;
       S.noResumeSave = true; store.del ? store.del(S.resumeKey) : store.set(S.resumeKey, null); location.reload();
     };
-    // 地層の色（凡例）：右下。ボタンで出す・しまう
-    const setLL = (open) => { $("layerLegendBox").classList.toggle("closed", !open); $("llToggle").textContent = open ? "✕ 閉じる" : "🪨 地層の色 ▸"; store.set("chisou3d:llOpen", open); };
-    setLL(store.get("chisou3d:llOpen", false));
-    $("llToggle").onclick = () => setLL($("layerLegendBox").classList.contains("closed"));
+    // 地層の色（凡例）：右上の丸いボタンで、下に縦長に出す。⛶ でくわしい説明
+    const setLL = (open, more) => {
+      $("layerLegendBox").classList.toggle("hidden", !open); $("btnLegend").classList.toggle("on", open);
+      $("layerLegendBox").classList.toggle("more", !!more); $("legendFull").classList.toggle("hidden", !more); $("legendSimple").classList.toggle("hidden", !!more);
+      $("llMore").textContent = more ? "⤡" : "⛶"; $("llMore").title = more ? "かんたんな表示にもどす" : "くわしい説明を出す";
+      store.set("chisou3d:llOpen", open); store.set("chisou3d:llMore", !!more);
+    };
+    setLL(store.get("chisou3d:llOpen", false), store.get("chisou3d:llMore", false));
+    $("btnLegend").onclick = () => setLL($("layerLegendBox").classList.contains("hidden"), $("layerLegendBox").classList.contains("more"));
+    $("llClose").onclick = () => setLL(false, $("layerLegendBox").classList.contains("more"));
+    $("llMore").onclick = () => setLL(true, !$("layerLegendBox").classList.contains("more"));
     // 画面の下のボタン・左のパネル・説明のバー・「動かす」が重ならないように、実際の位置を測ってすきまを空ける
     let layoutRaf = 0;
     const layoutUI = () => {
@@ -5154,7 +5163,7 @@
     add("右上・右下", "sources", "📚 根拠", [$("btnSources")]);
     add("下のボタン", "mb:note", "📝 メモ・目印（メニューの くわしい設定）", [$("menuNote")]);
     add("右上・右下", "navpad", "🖱 パソコン用の操作（動かすボタン）", [$("navpad"), $("qPad")]);
-    add("右上・右下", "ps:地層の色（凡例）", "🪨 地層の色（凡例）", [$("layerLegendBox")]);
+    add("右上・右下", "ps:地層の色（凡例）", "🪨 地層の色（凡例）", [$("btnLegend"), $("layerLegendBox")]);
     add("断面図の中", "sh:secStage", "🎬 大地のでき方", [$("secStage").parentElement]);
     add("断面図の中", "sh:secMemoBtn", "📝 考えメモ", [$("secMemoBtn")]);
     add("断面図の中", "sh:secSave", "📷 保存", [$("secSave")]);

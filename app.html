@@ -6,7 +6,7 @@
 <title>大地のつくり 3D土地模型</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css?v=20261113233752">
+<link rel="stylesheet" href="css/style.css?v=20261113234525">
 </head>
 <body>
 <div id="viewport"></div>
@@ -243,9 +243,23 @@
 </div>
 
 <div id="topright">
-  <div id="compass"><div class="needle">▲</div><div class="n">北</div></div>
+  <div id="compass" title="押すと、北が上になる向きにもどします">
+    <div class="needle">
+      <svg viewBox="0 0 64 64" width="64" height="64" aria-hidden="true"><polygon points="32,16 38.5,32 25.5,32" fill="#d32f2f"/><polygon points="32,48 38.5,32 25.5,32" fill="#eef1f3" stroke="#9aa4ab" stroke-width="1"/><circle cx="32" cy="32" r="2.4" fill="#37474f"/></svg>
+      <span class="dir n"><b>北</b></span><span class="dir s"><b>南</b></span>
+    </div>
+  </div>
   <button id="btnHelp" class="round-btn">？<small>使い方</small></button>
   <button id="btnSources" class="round-btn">📚<small>根拠</small></button>
+  <button id="btnLegend" class="round-btn" title="地層の色が、どの地層かを表す見本（凡例）">🪨<small>地層の色</small></button>
+  <div id="layerLegendBox" class="hidden">
+    <div class="ll-head"><b>地層の色</b><button type="button" id="llMore" title="くわしい説明を出す">⛶</button><button type="button" id="llClose" aria-label="閉じる">✕</button></div>
+    <ul id="legendSimple"></ul>
+    <div id="legendFull" class="hidden">
+      <ul id="legend"></ul>
+      <ul id="patLegend" class="hidden"></ul>
+    </div>
+  </div>
 </div>
 
 <!-- 右：詳しい情報（ボーリング資料など） -->
@@ -330,12 +344,6 @@
 </section>
 
 <div id="legendDock">
-  <div id="layerLegendBox" class="closed">
-    <button type="button" class="rl-toggle" id="llToggle">🪨 地層の色 ▸</button>
-    <div class="rl-title">地層の色（凡例）</div>
-    <ul id="legend"></ul>
-    <ul id="patLegend" class="hidden"></ul>
-  </div>
   <div id="reliefLegend" class="hidden"></div>
 </div>
 <div id="navpad">
@@ -638,21 +646,21 @@
 
 <footer id="attribution">出典：<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">国土地理院（地理院タイル・標高タイル）</a> ／ 目印：<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap</a> ／ 地下の地層はボーリング資料からの推定です（<a href="#" id="attrMore">くわしく</a>）</footer>
 
-<script src="lib/three.min.js?v=20261113233752"></script>
-<script src="lib/OrbitControls.js?v=20261113233752"></script>
-<script src="lib/qrcode.js?v=20261113233752"></script>
+<script src="lib/three.min.js?v=20261113234525"></script>
+<script src="lib/OrbitControls.js?v=20261113234525"></script>
+<script src="lib/qrcode.js?v=20261113234525"></script>
 <script>window.CHISOU = { sites: {}, registerSite: function (s) { this.sites[s.id] = s; } };</script>
-<script src="js/geo.js?v=20261113233752"></script>
-<script src="js/geology.js?v=20261113233752"></script>
-<script src="js/pattern.js?v=20261113233752"></script>
-<script src="sites/sites.js?v=20261113233752"></script>
-<script src="js/section.js?v=20261113233752"></script>
-<script src="js/boringxml.js?v=20261113233752"></script>
-<script src="js/mvt.js?v=20261113233752"></script>
-<script src="js/yato_yokohama.js?v=20261113233752"></script>
-<script src="js/ngic_bookmarklet.js?v=20261113233752"></script>
-<script src="js/help.js?v=20261113233752"></script>
-<script src="js/app.js?v=20261113233752"></script>
-<script src="js/version.js?v=20261113233752"></script>
+<script src="js/geo.js?v=20261113234525"></script>
+<script src="js/geology.js?v=20261113234525"></script>
+<script src="js/pattern.js?v=20261113234525"></script>
+<script src="sites/sites.js?v=20261113234525"></script>
+<script src="js/section.js?v=20261113234525"></script>
+<script src="js/boringxml.js?v=20261113234525"></script>
+<script src="js/mvt.js?v=20261113234525"></script>
+<script src="js/yato_yokohama.js?v=20261113234525"></script>
+<script src="js/ngic_bookmarklet.js?v=20261113234525"></script>
+<script src="js/help.js?v=20261113234525"></script>
+<script src="js/app.js?v=20261113234525"></script>
+<script src="js/version.js?v=20261113234525"></script>
 </body>
 </html>

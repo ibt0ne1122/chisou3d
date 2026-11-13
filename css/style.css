@@ -116,8 +116,6 @@ dialog.wide { width: min(720px, calc(100vw - 24px)); }
 table.howto { border-collapse: collapse; margin: 6px 0; }
 table.howto th, table.howto td { border: 1px solid var(--line); padding: 5px 10px; font-size: 14px; text-align: left; }
 table.howto th { background: #f0f4f6; }
-#compass .needle { font-size: 26px; color: #c0392b; line-height: 1; transition: transform 0.05s linear; }
-#compass .n { position: absolute; bottom: 3px; font-size: 11px; font-weight: 700; }
 
 #detail { top: 86px; right: 12px; width: 360px; max-height: calc(100vh - 140px); overflow-y: auto; padding: 16px; }
 .close { position: absolute; top: 8px; right: 8px; min-width: 40px; border: 0; background: transparent; font-size: 18px; }
@@ -684,12 +682,7 @@ body.np-folded #navpad { display: none !important; }
 #legendDock #reliefLegend { position: static; right: auto !important; bottom: auto; }
 body:not(.np-folded) #legendDock { right: 176px; }
 body.sheet-open #legendDock { display: none; }
-#layerLegendBox { background: var(--panel); border-radius: var(--radius); box-shadow: var(--shadow); padding: 8px 12px; font-size: 13px; width: 300px; max-height: calc(100vh - var(--mbTop, 94px) - 120px); overflow-y: auto; }
-#layerLegendBox.closed { width: auto; padding: 4px; }
-#layerLegendBox.closed > :not(.rl-toggle) { display: none; }
-#layerLegendBox.closed .rl-toggle { float: none; margin: 0; }
-#layerLegendBox ul { list-style: none; margin: 0; padding: 0; }
-@media (max-width: 760px) { body:not(.np-folded) #legendDock { right: 136px; } #layerLegendBox { width: min(300px, 70vw); } }
+@media (max-width: 760px) { body:not(.np-folded) #legendDock { right: 136px; } }
 @media (min-width: 761px) { body:has(#detail:not(.hidden)) #legendDock { right: 386px; } }
 #usageBox table td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
 /* 「前回の続きで開きました」：画面の上・まん中。✕ですぐ消せる */
@@ -697,3 +690,22 @@ body.sheet-open #legendDock { display: none; }
   background: rgba(31,42,51,0.92); color: #fff; border-radius: 14px; padding: 8px 8px 8px 16px; font-size: 15px; box-shadow: var(--shadow); }
 #resumeNote small { display: block; font-size: 12px; opacity: .85; }
 #resumeNote button { flex: 0 0 auto; width: 40px; height: 40px; min-height: 40px; padding: 0; border-radius: 50%; border: 0; background: rgba(255,255,255,0.18); color: #fff; font-size: 18px; }
+
+/* 方位磁針：ひし形の針（赤が北）と「北」「南」の字が、いっしょに回る。字は立ったまま */
+#compass { width: 64px; height: 64px; --az: 0deg; }
+#compass .needle { position: absolute; inset: 0; transform: rotate(var(--az)); }
+#compass .needle svg { position: absolute; inset: 0; }
+#compass .dir { position: absolute; left: 50%; width: 18px; height: 16px; margin-left: -9px; display: grid; place-items: center; }
+#compass .dir.n { top: -2px; } #compass .dir.s { bottom: -2px; }
+#compass .dir b { display: block; transform: rotate(calc(-1 * var(--az))); font-size: 12px; line-height: 1; }
+#compass .dir.n b { color: #d32f2f; } #compass .dir.s b { color: #546e7a; font-weight: 700; }
+/* 地層の色：右上の丸いボタンの下に、縦長で */
+#btnLegend.on { outline: 3px solid var(--accent); }
+#layerLegendBox { align-self: flex-end; width: 168px; max-height: calc(100vh - 330px - var(--mbTop, 94px)); overflow-y: auto; background: var(--panel); border-radius: var(--radius); box-shadow: var(--shadow); padding: 6px 10px 8px; font-size: 14px; }
+#layerLegendBox.more { width: min(320px, calc(100vw - 32px)); font-size: 13px; }
+#layerLegendBox .ll-head { display: flex; align-items: center; gap: 4px; position: sticky; top: -6px; background: var(--panel); padding: 2px 0 4px; }
+#layerLegendBox .ll-head b { flex: 1; font-size: 14px; }
+#layerLegendBox .ll-head button { min-height: 32px; width: 34px; padding: 0; font-size: 15px; }
+#layerLegendBox ul { list-style: none; margin: 0; padding: 0; }
+#legendSimple li { display: flex; align-items: center; gap: 8px; padding: 4px 0; line-height: 1.3; }
+#legendSimple .sw { flex: 0 0 22px; height: 18px; border-radius: 4px; border: 1px solid rgba(0,0,0,.25); }
