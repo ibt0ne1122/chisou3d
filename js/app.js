@@ -49,7 +49,7 @@
       setTimeout(run, 0); // 1ファイル版：設定がすでに入っている（準備が終わってから始める）
     } else {
       const sc = document.createElement("script");
-      sc.src = entry.file + "?v=20261113234525";
+      sc.src = entry.file + "?v=20261113235900";
       // 先生が配った写真メモ（sites/notes/<id>.js）：あればいっしょに読む。なくてもそのまま始める
       sc.onload = custom ? run : () => {
         const ns = document.createElement("script");
@@ -3869,8 +3869,23 @@
   }
 
   function buildLegend() {
-    // かんたんな表示：色と、やさしい名前だけ
-    $("legendSimple").innerHTML = S.site.layers.map((l, i) => S.visLayers.includes(i) ? '<li><span class="sw" style="background:' + l.color + '"></span>' + esc(l.name.replace(/（[^）]*）/g, "").replace(/の層$/, "")) + "</li>" : "").join("");
+    // 地層の色（凡例）は、「ボーリングの柱の色分け」に合わせて中身を変える
+    //   かんたんな表示：色と、やさしい名前だけ　／　くわしく：説明・柄・（柱を地層の種類以外で分けているときは）模型の地層の色
+    const sw = (c) => '<span class="sw" style="background:' + c + '"></span>';
+    let simple, full = "";
+    if (S.colorBy === "grain") {
+      const gs = ["gravel", "sand", "mud", "ash", "fill"].map((g) => C.GRAINS[g]);
+      simple = gs.map((g) => "<li>" + sw(g.color) + esc(g.name) + "</li>");
+      full = gs.map((g) => "<li>" + sw(g.color) + "<div>" + esc(g.name) + "<small>" + esc(g.desc || "") + "</small></div></li>").join("");
+    } else if (S.colorBy === "custom") {
+      const gs = groupsCfg().g;
+      simple = gs.map((g) => "<li>" + sw(g.c) + esc(g.n) + "</li>");
+      full = gs.map((g) => "<li>" + sw(g.c) + "<div>" + esc(g.n) + "<small>" + esc(g.d || "") + "</small></div></li>").join("");
+    } else simple = S.site.layers.map((l, i) => S.visLayers.includes(i) ? "<li>" + sw(l.color) + esc(l.name.replace(/（[^）]*）/g, "").replace(/の層$/, "")) + "</li>" : "");
+    $("legendSimple").innerHTML = simple.join("");
+    $("legendCol").innerHTML = full;
+    $("legendModelHead").classList.toggle("hidden", S.colorBy === "layer");
+    $("legendWhat").textContent = { layer: "柱も模型も、地層の種類で色分けしています", grain: "柱を、つぶの大きさで色分けしています", custom: "柱を、先生の仲間分けで色分けしています" }[S.colorBy] || "";
     const ul = $("legend");
     ul.innerHTML = "";
     S.site.layers.forEach((l, i) => {
@@ -3895,7 +3910,7 @@
     gl.innerHTML = S.colorBy === "custom"
       ? groupsCfg().g.map((g) => '<li><span class="sw" style="background:' + g.c + '"></span><div>' + esc(g.n) + "<small>" + esc(g.d || "") + "</small></div></li>").join("")
       : ["gravel", "sand", "mud", "ash", "fill"].map((g) => '<li><span class="sw" style="background:' + C.GRAINS[g].color + '"></span><div>' + C.GRAINS[g].name + "<small>" + esc(C.GRAINS[g].desc) + "</small></div></li>").join("");
-    gl.classList.toggle("hidden", S.colorBy === "layer");
+    gl.classList.add("hidden"); // 柱の色の見本は「地層の色（凡例）」にまとめた
     $("peelRange").max = Math.max(0, S.visLayers.length - 1);
     $("peelRange").value = S.peel;
     updatePeelLabel();
@@ -4361,17 +4376,12 @@
       if (!confirm("前回の続きの見え方をやめて、はじめの画面で開きなおしますか？\n（メモ・目印・えらんだ柱・写真などは消えません）")) return;
       S.noResumeSave = true; store.del ? store.del(S.resumeKey) : store.set(S.resumeKey, null); location.reload();
     };
-    // 地層の色（凡例）：右上の丸いボタンで、下に縦長に出す。⛶ でくわしい説明
-    const setLL = (open, more) => {
-      $("layerLegendBox").classList.toggle("hidden", !open); $("btnLegend").classList.toggle("on", open);
-      $("layerLegendBox").classList.toggle("more", !!more); $("legendFull").classList.toggle("hidden", !more); $("legendSimple").classList.toggle("hidden", !!more);
-      $("llMore").textContent = more ? "⤡" : "⛶"; $("llMore").title = more ? "かんたんな表示にもどす" : "くわしい説明を出す";
-      store.set("chisou3d:llOpen", open); store.set("chisou3d:llMore", !!more);
-    };
-    setLL(store.get("chisou3d:llOpen", false), store.get("chisou3d:llMore", false));
-    $("btnLegend").onclick = () => setLL($("layerLegendBox").classList.contains("hidden"), $("layerLegendBox").classList.contains("more"));
-    $("llClose").onclick = () => setLL(false, $("layerLegendBox").classList.contains("more"));
-    $("llMore").onclick = () => setLL(true, !$("layerLegendBox").classList.contains("more"));
+    // 地層の色（凡例）：はじめはかんたんな表示。「くわしく」で説明・柄も
+    const setLL = (more) => { $("legendFull").classList.toggle("hidden", !more); $("legendSimple").classList.toggle("hidden", more); $("llMore").textContent = more ? "かんたんに ▴" : "くわしく ▸"; store.set("chisou3d:llMore", more); };
+    setLL(!!store.get("chisou3d:llMore", false));
+    $("llMore").onclick = () => setLL($("legendFull").classList.contains("hidden"));
+    // 地層をはがす：チェックは「えらぶ」を押したときだけ出す
+    $("peelOpen").onclick = () => { const open = $("peelChecks").classList.toggle("hidden") === false; $("peelOpen").textContent = open ? "とじる ▴" : "えらぶ ▸"; };
     // 画面の下のボタン・左のパネル・説明のバー・「動かす」が重ならないように、実際の位置を測ってすきまを空ける
     let layoutRaf = 0;
     const layoutUI = () => {
@@ -5111,7 +5121,7 @@
   /** 子どもの画面で「出す・出さない」をえらべるもの（キー → 画面の部品） */
   // 子どもの画面には いつも出さないもの（先生が配る前に決めることなので）
   const KID_NEVER = ["学習の道具", "その他"], KID_LEGEND_ONLY = "ボーリングの柱の色分け";
-  const secTitle = (sec) => { const h = sec.querySelector("h2"); return h ? (h.dataset.t || (h.dataset.t = h.textContent.replace(/×[\d.]+/, "").trim())) : ""; };
+  const secTitle = (sec) => { const h = sec.querySelector("h2"); return h ? (h.dataset.t || (h.dataset.t = [...h.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join("").trim())) : ""; };
   const PANEL_NO = { "地図": "① 地図の種類", "範囲（中心からの半径）": "② 範囲（半径）", "防災の情報を重ねる": "③ 防災の情報を重ねる", "高さを強調": "④ 高さを強調", "地面をすきとおらせる": "⑤ 地面をすきとおらせる", "地層をはがす": "⑤ 地層をはがす" };
   // ---------- よく使ったボタン：この端末の中だけで、ボタンの名前と回数だけを数える（どこにも送らない） ----------
   function usageName(el) {
@@ -5163,7 +5173,6 @@
     add("右上・右下", "sources", "📚 根拠", [$("btnSources")]);
     add("下のボタン", "mb:note", "📝 メモ・目印（メニューの くわしい設定）", [$("menuNote")]);
     add("右上・右下", "navpad", "🖱 パソコン用の操作（動かすボタン）", [$("navpad"), $("qPad")]);
-    add("右上・右下", "ps:地層の色（凡例）", "🪨 地層の色（凡例）", [$("btnLegend"), $("layerLegendBox")]);
     add("断面図の中", "sh:secStage", "🎬 大地のでき方", [$("secStage").parentElement]);
     add("断面図の中", "sh:secMemoBtn", "📝 考えメモ", [$("secMemoBtn")]);
     add("断面図の中", "sh:secSave", "📷 保存", [$("secSave")]);
@@ -5175,8 +5184,7 @@
       const t = secTitle(sec);
       if (KID_NEVER.includes(t)) sec.classList.add("kid-hide");
       if (t === KID_LEGEND_ONLY) {
-        if (S.colorBy === "layer") sec.classList.add("kid-hide");
-        else { sec.classList.remove("kid-hide"); sec.classList.add("kid-legend-only"); sec.querySelector("h2").textContent = "柱の色（凡例）"; }
+        sec.classList.add("kid-hide"); // 柱の色の見本は「地層の色（凡例）」にある
       }
     });
     // お試し（先生が「子どもの画面をためす」で開いたとき）だけ、先生の画面にもどるボタンを出す

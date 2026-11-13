@@ -6,7 +6,7 @@
 <title>大地のつくり 3D土地模型</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css?v=20261113234525">
+<link rel="stylesheet" href="css/style.css?v=20261113235900">
 </head>
 <body>
 <div id="viewport"></div>
@@ -37,6 +37,21 @@
       <select id="reliefSelect"></select>
       <p class="hint">高さを強調しすぎずに、色や等高線でデコボコをつかめます。</p>
     </section>
+    <section id="legendSec">
+      <h2>地層の色（凡例） <button type="button" id="llMore" class="mini">くわしく ▸</button></h2>
+      <p id="legendWhat" class="hint"></p>
+      <ul id="legendSimple"></ul>
+      <div id="legendFull" class="hidden">
+        <ul id="legendCol"></ul>
+        <p id="legendModelHead" class="hint strong hidden">模型（地面の下）の地層の色</p>
+        <ul id="legend"></ul>
+        <ul id="patLegend" class="hidden"></ul>
+      </div>
+    </section>
+    <section>
+      <h2>地面をすきとおらせる</h2>
+      <input type="range" id="opacityRange" min="0.1" max="1" step="0.05" value="1">
+    </section>
     <section>
       <h2>防災の情報を重ねる</h2>
       <div id="hazardChecks" class="hzchecks"></div>
@@ -49,13 +64,9 @@
       <p class="hint">本当の高さは ×1。デコボコを見やすくするために高さだけ大きくしています。</p>
     </section>
     <section>
-      <h2>地面をすきとおらせる</h2>
-      <input type="range" id="opacityRange" min="0.1" max="1" step="0.05" value="1">
-    </section>
-    <section>
-      <h2>地層をはがす</h2>
+      <h2>地層をはがす <button type="button" id="peelOpen" class="mini">えらぶ ▸</button></h2>
       <input type="range" id="peelRange" class="hidden" min="0" max="0" step="1" value="0">
-      <div id="peelChecks"></div>
+      <div id="peelChecks" class="hidden"></div>
       <p id="peelLabel" class="hint strong">地面（地図）</p>
     </section>
     <section class="checks">
@@ -251,15 +262,6 @@
   </div>
   <button id="btnHelp" class="round-btn">？<small>使い方</small></button>
   <button id="btnSources" class="round-btn">📚<small>根拠</small></button>
-  <button id="btnLegend" class="round-btn" title="地層の色が、どの地層かを表す見本（凡例）">🪨<small>地層の色</small></button>
-  <div id="layerLegendBox" class="hidden">
-    <div class="ll-head"><b>地層の色</b><button type="button" id="llMore" title="くわしい説明を出す">⛶</button><button type="button" id="llClose" aria-label="閉じる">✕</button></div>
-    <ul id="legendSimple"></ul>
-    <div id="legendFull" class="hidden">
-      <ul id="legend"></ul>
-      <ul id="patLegend" class="hidden"></ul>
-    </div>
-  </div>
 </div>
 
 <!-- 右：詳しい情報（ボーリング資料など） -->
@@ -646,21 +648,21 @@
 
 <footer id="attribution">出典：<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">国土地理院（地理院タイル・標高タイル）</a> ／ 目印：<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap</a> ／ 地下の地層はボーリング資料からの推定です（<a href="#" id="attrMore">くわしく</a>）</footer>
 
-<script src="lib/three.min.js?v=20261113234525"></script>
-<script src="lib/OrbitControls.js?v=20261113234525"></script>
-<script src="lib/qrcode.js?v=20261113234525"></script>
+<script src="lib/three.min.js?v=20261113235900"></script>
+<script src="lib/OrbitControls.js?v=20261113235900"></script>
+<script src="lib/qrcode.js?v=20261113235900"></script>
 <script>window.CHISOU = { sites: {}, registerSite: function (s) { this.sites[s.id] = s; } };</script>
-<script src="js/geo.js?v=20261113234525"></script>
-<script src="js/geology.js?v=20261113234525"></script>
-<script src="js/pattern.js?v=20261113234525"></script>
-<script src="sites/sites.js?v=20261113234525"></script>
-<script src="js/section.js?v=20261113234525"></script>
-<script src="js/boringxml.js?v=20261113234525"></script>
-<script src="js/mvt.js?v=20261113234525"></script>
-<script src="js/yato_yokohama.js?v=20261113234525"></script>
-<script src="js/ngic_bookmarklet.js?v=20261113234525"></script>
-<script src="js/help.js?v=20261113234525"></script>
-<script src="js/app.js?v=20261113234525"></script>
-<script src="js/version.js?v=20261113234525"></script>
+<script src="js/geo.js?v=20261113235900"></script>
+<script src="js/geology.js?v=20261113235900"></script>
+<script src="js/pattern.js?v=20261113235900"></script>
+<script src="sites/sites.js?v=20261113235900"></script>
+<script src="js/section.js?v=20261113235900"></script>
+<script src="js/boringxml.js?v=20261113235900"></script>
+<script src="js/mvt.js?v=20261113235900"></script>
+<script src="js/yato_yokohama.js?v=20261113235900"></script>
+<script src="js/ngic_bookmarklet.js?v=20261113235900"></script>
+<script src="js/help.js?v=20261113235900"></script>
+<script src="js/app.js?v=20261113235900"></script>
+<script src="js/version.js?v=20261113235900"></script>
 </body>
 </html>
