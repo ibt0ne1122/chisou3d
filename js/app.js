@@ -49,7 +49,7 @@
       setTimeout(run, 0); // 1ファイル版：設定がすでに入っている（準備が終わってから始める）
     } else {
       const sc = document.createElement("script");
-      sc.src = entry.file + "?v=20261113085648";
+      sc.src = entry.file + "?v=20261113090214";
       // 先生が配った写真メモ（sites/notes/<id>.js）：あればいっしょに読む。なくてもそのまま始める
       sc.onload = custom ? run : () => {
         const ns = document.createElement("script");
@@ -3333,10 +3333,7 @@
       (Object.keys(S.boreMarks).length ? '<button type="button" id="dMarkClear" class="link">全部もどす</button>' : "") + "</div>";
     let html = "<h3>" + esc(b.name) + "</h3>";
     const bph = borePhotoOf(id);
-    if (bph) html += '<figure class="borephoto"><img class="log-image" src="' + (bph.local ? bph.photo : esc(bph.photo)) + '" alt="この場所の写真"><figcaption>📷 ' + esc(bph.cap || "この柱状図の場所") + "</figcaption></figure>";
-    if (S.teacher && !S.kid) html += '<div class="actions photoact"><button type="button" id="dPhoto">📷 ' + (bph ? "写真をかえる" : "この場所の写真をつける") + "</button>" + (bph && bph.local ? '<button type="button" id="dPhotoDel">写真を消す</button>' : "") + "</div>" +
-      (bph && bph.local ? '<div class="photocap"><input id="dPhotoCap" type="text" maxlength="60" placeholder="写真の説明（例：校庭のはしっこ）" value="' + esc(bph.cap || "") + '"><button type="button" id="dPhotoCapSave">説明を保存</button></div>' : "");
-    html += '<div class="jumprow"><button type="button" id="dJumpStraw">✂️ ストローで作る長さ</button><button type="button" id="dJumpCol">📏 柱状図と層の厚さ</button></div>';
+    html += '<div class="jumprow"><button type="button" id="dJumpStraw">✂️ ストローで作る長さ</button><button type="button" id="dJumpCol">📏 柱状図と層の厚さ</button><button type="button" id="dJumpPhoto">📷 この場所の写真</button></div>';
     html += markHtml;
     if (b.sample) html += '<div class="warnbox">⚠ ' + esc(S.site.sample.note || "仮のデータです") + "</div>";
     html += '<div class="meta">地面の標高：<b>' + elevTxt + "</b> " + (typeof b.elevation === "number" ? demTxt : "") +
@@ -3357,6 +3354,13 @@
         "建物や道路などを安全につくれるように、地面の下のようすを調べた記録です。</div>";
     }
     if (b.note && !b.sample) html += '<p class="meta">' + esc(b.note) + "</p>";
+    // この場所の写真（説明のところ）：だれでもつけられる。この端末に残る。公開版に入れた写真は、だれの画面にも出る
+    const canEdit = true;
+    html += '<div class="borephotobox" id="dPhotoAnchor"><b>📷 この場所の写真</b>' +
+      (bph ? '<figure class="borephoto"><img class="log-image" src="' + (bph.local ? bph.photo : esc(bph.photo)) + '" alt="この場所の写真"><figcaption>' + esc(bph.cap || "この柱状図の場所") + "</figcaption></figure>" : '<p class="hint">まだ写真はありません。どんな場所かが分かる写真をつけましょう。</p>') +
+      (canEdit ? '<div class="actions photoact"><button type="button" id="dPhoto">📷 ' + (bph ? "写真をかえる" : "この場所の写真をつける") + "</button>" + (bph && bph.local ? '<button type="button" id="dPhotoDel">写真を消す</button>' : "") + "</div>" +
+        (bph && bph.local ? '<div class="photocap"><input id="dPhotoCap" type="text" maxlength="60" placeholder="写真の説明（例：校庭のはしっこ）" value="' + esc(bph.cap || "") + '"><button type="button" id="dPhotoCapSave">説明を保存</button></div>' : "") +
+        (S.kid ? '<p class="hint">つけた写真は、この端末の中だけに残ります。</p>' : "") : "") + "</div>";
 
     const inSel = (S.boreSel || S.onlySel || new Set()).has(id), nSel = (S.boreSel || S.onlySel || new Set()).size;
     html = html.replace("</h3>", "</h3>" + '<div class="selrow"><button id="dSel" type="button" class="' + (inSel ? "on" : "") + '">' + (inSel ? "✅ えらんだ柱に入っています（押すと外す）" : "📍 えらんだ柱に入れる") + '</button><small>えらんだ柱：' + nSel + "本</small></div>");
@@ -3395,6 +3399,7 @@
     const jump = (anchor) => { const a = $(anchor); if (a) a.scrollIntoView({ behavior: "smooth", block: "start" }); };
     $("dJumpStraw").onclick = () => { if (!S.straw) { S.straw = true; store.set("chisou3d:straw", true); showBore(id); setTimeout(() => jump("dColAnchor"), 50); } else jump("dColAnchor"); };
     $("dJumpCol").onclick = () => jump("dColAnchor");
+    $("dJumpPhoto").onclick = () => jump("dPhotoAnchor");
     if ($("dStraw")) $("dStraw").onchange = () => { S.straw = $("dStraw").checked; store.set("chisou3d:straw", S.straw); showBore(id); };
     if ($("dStrawScale")) $("dStrawScale").onchange = () => { S.strawScale = +$("dStrawScale").value; store.set("chisou3d:strawScale", S.strawScale); showBore(id); };
   }
