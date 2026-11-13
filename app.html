@@ -6,7 +6,7 @@
 <title>大地のつくり 3D土地模型</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css?v=20261113233420">
+<link rel="stylesheet" href="css/style.css?v=20261113233752">
 </head>
 <body>
 <div id="viewport"></div>
@@ -106,7 +106,6 @@
     <section>
       <h2>学習の道具</h2>
       <div class="btnrow tools">
-        <button id="btnDig" type="button">⛏ どこでもボーリング</button>
         <button id="btnSheet" type="button">🖨 断面図ワークシート</button>
         <button id="btnSTL" type="button">🧊 3Dプリンター用</button>
       </div>
@@ -181,6 +180,7 @@
           <button type="button" data-jump="btnGroups">✏️ 柱状図の仲間分け</button>
           <button type="button" data-jump="btnNotesList">📷 写真メモ（メモ一覧）</button>
           <button type="button" data-jump="btnSTL">🧊 3Dプリンター用データ</button>
+          <button id="btnDig" type="button" title="推定なので、本当の柱状図とはちがうことがあります">⛏ どこでもボーリング（推定）</button>
           <button type="button" id="btnUsage">📊 よく使ったボタン</button>
           <button type="button" data-help="先生向け">？ 先生向けの使い方</button>
         </div>
@@ -638,21 +638,21 @@
 
 <footer id="attribution">出典：<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">国土地理院（地理院タイル・標高タイル）</a> ／ 目印：<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap</a> ／ 地下の地層はボーリング資料からの推定です（<a href="#" id="attrMore">くわしく</a>）</footer>
 
-<script src="lib/three.min.js?v=20261113233420"></script>
-<script src="lib/OrbitControls.js?v=20261113233420"></script>
-<script src="lib/qrcode.js?v=20261113233420"></script>
+<script src="lib/three.min.js?v=20261113233752"></script>
+<script src="lib/OrbitControls.js?v=20261113233752"></script>
+<script src="lib/qrcode.js?v=20261113233752"></script>
 <script>window.CHISOU = { sites: {}, registerSite: function (s) { this.sites[s.id] = s; } };</script>
-<script src="js/geo.js?v=20261113233420"></script>
-<script src="js/geology.js?v=20261113233420"></script>
-<script src="js/pattern.js?v=20261113233420"></script>
-<script src="sites/sites.js?v=20261113233420"></script>
-<script src="js/section.js?v=20261113233420"></script>
-<script src="js/boringxml.js?v=20261113233420"></script>
-<script src="js/mvt.js?v=20261113233420"></script>
-<script src="js/yato_yokohama.js?v=20261113233420"></script>
-<script src="js/ngic_bookmarklet.js?v=20261113233420"></script>
-<script src="js/help.js?v=20261113233420"></script>
-<script src="js/app.js?v=20261113233420"></script>
-<script src="js/version.js?v=20261113233420"></script>
+<script src="js/geo.js?v=20261113233752"></script>
+<script src="js/geology.js?v=20261113233752"></script>
+<script src="js/pattern.js?v=20261113233752"></script>
+<script src="sites/sites.js?v=20261113233752"></script>
+<script src="js/section.js?v=20261113233752"></script>
+<script src="js/boringxml.js?v=20261113233752"></script>
+<script src="js/mvt.js?v=20261113233752"></script>
+<script src="js/yato_yokohama.js?v=20261113233752"></script>
+<script src="js/ngic_bookmarklet.js?v=20261113233752"></script>
+<script src="js/help.js?v=20261113233752"></script>
+<script src="js/app.js?v=20261113233752"></script>
+<script src="js/version.js?v=20261113233752"></script>
 </body>
 </html>

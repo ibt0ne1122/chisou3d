@@ -49,7 +49,7 @@
       setTimeout(run, 0); // 1ファイル版：設定がすでに入っている（準備が終わってから始める）
     } else {
       const sc = document.createElement("script");
-      sc.src = entry.file + "?v=20261113233420";
+      sc.src = entry.file + "?v=20261113233752";
       // 先生が配った写真メモ（sites/notes/<id>.js）：あればいっしょに読む。なくてもそのまま始める
       sc.onload = custom ? run : () => {
         const ns = document.createElement("script");
@@ -191,7 +191,6 @@
     try {
       const st = captureState({});
       for (const k of ["mk", "cs", "bd", "tonly", "ton"]) delete st[k]; // 目印・柱のデータは、それぞれの保存場所に残っている
-      if (S.hideStrata) st.hst = 1; // 地下の地層をかくす（予想するとき用）
       store.set(S.resumeKey, st);
     } catch (e) { /* 保存できなくても、使うのには困らない */ }
   }
@@ -4349,6 +4348,9 @@
       buildAll();
       if (S.section) openSectionSheet();
     });
+    // はじめは地下の地層をかくしておく（予想してから見るため）。前回の続き・配ったリンクに入っていれば、そちらにする
+    S.hideStrata = true; $("chkHide").checked = true;
+    $("peelRange").classList.add("locked"); $("secShowModel").checked = false; $("secShowModel").disabled = true;
 
     document.querySelectorAll("[data-view]").forEach((b) => (b.onclick = () => setView(b.dataset.view)));
     document.querySelectorAll("#modebar button[data-mode]").forEach((b) => (b.onclick = () => setMode(b.dataset.mode)));
@@ -4901,6 +4903,7 @@
     if (S.labelK !== 0.8) st.lk = S.labelK;
     if (!S.declutter) st.nodc = 1;
     if (S.wallBlank) st.wb = 1; // まわりの側面の地層をかくす
+    st.hst = S.hideStrata ? 1 : 0; // 地下の地層をかくす（はじめはかくす）
     if (S.showYato) st.yato = 1;
     if (S.lift) st.lift = 1;
     if (S.alignBores) st.al = 1;
@@ -4967,7 +4970,7 @@
     setChk("chkWallBlank", st.wb);
     if (!$("chkYato").parentElement.classList.contains("hidden")) setChk("chkYato", st.yato);
     setChk("chkLift", st.lift);
-    if (st.hst) setChk("chkHide", 1);
+    if (st.hst != null) setChk("chkHide", st.hst);
     if (!!st.al !== S.alignBores) S.setAlign(!!st.al);
     if (!st.nopat !== S.pattern) S.setPattern(!st.nopat);
     if (st.mk && st.mk.length) {
