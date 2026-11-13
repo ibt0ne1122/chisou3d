@@ -49,7 +49,7 @@
       setTimeout(run, 0); // 1ファイル版：設定がすでに入っている（準備が終わってから始める）
     } else {
       const sc = document.createElement("script");
-      sc.src = entry.file + "?v=20261113090510";
+      sc.src = entry.file + "?v=20261113090643";
       // 先生が配った写真メモ（sites/notes/<id>.js）：あればいっしょに読む。なくてもそのまま始める
       sc.onload = custom ? run : () => {
         const ns = document.createElement("script");
@@ -1727,15 +1727,18 @@
     S.overlays[mode] = cv;
     return cv;
   }
-  /** 防災の情報（ハザードマップ）を読み込む */
-  async function setHazard(type) {
-    S.hazard = type;
-    $("hazardSelect").value = type;
+  /** 防災の情報（ハザードマップ）を読み込む。いくつでも同時に重ねられる（S.hazards＝重ねている種類の一覧） */
+  const HZ_ORDER = ["swale", "flood", "dosha", "lore"]; // 下から順にかく（土砂災害がいちばん上）
+  function hazardOn(k) { return (S.hazards || []).includes(k); }
+  async function setHazards(list) {
+    S.hazards = HZ_ORDER.filter((k) => list.includes(k)).concat(list.filter((k) => C.HAZARDS[k] && !HZ_ORDER.includes(k)));
+    document.querySelectorAll("#hazardChecks input[data-hz]").forEach((c) => (c.checked = hazardOn(c.dataset.hz)));
     S.hazardCanvas = S.hazardCanvas || {};
-    if (type === "lore") await loadLore();
+    if (hazardOn("lore")) await loadLore();
     buildLore();
-    if (type !== "none" && !C.HAZARDS[type].lore && !S.hazardCanvas[type]) {
+    for (const type of S.hazards) {
       const hz = C.HAZARDS[type];
+      if (hz.lore || S.hazardCanvas[type]) continue;
       flashHint("防災の情報を読み込み中…");
       let zoom = hz.zoom;
       const mpp = (zz) => (156543.03392804097 * Math.cos((S.site.center.lat * Math.PI) / 180)) / Math.pow(2, zz);
@@ -1746,28 +1749,27 @@
         ok += r.ok;
         if (!merged) merged = r.canvas; else merged.getContext("2d").drawImage(r.canvas, 0, 0);
       }
-      if (!ok) {
-        // 範囲に情報がない（警戒区域がない）ことも、つながらないこともある
-        flashHint("この範囲には「" + hz.name + "」の情報がないか、読み込めませんでした");
-      }
+      // 範囲に情報がない（警戒区域がない）ことも、つながらないこともある
+      if (!ok) flashHint("この範囲には「" + hz.name + "」の情報がないか、読み込めませんでした");
       S.hazardCanvas[type] = merged;
     }
     applyTexture();
     const box = $("hazardNote");
-    if (type === "none") box.classList.add("hidden");
+    if (!S.hazards.length) box.classList.add("hidden");
     else {
-      box.innerHTML = "<b>" + esc(C.HAZARDS[type].name) + "</b><br>" + esc(C.HAZARDS[type].legend) +
-        (type === "lore" ? "<br>" + loreSummary() : "") +
+      box.innerHTML = S.hazards.map((k) => "<b>" + esc(C.HAZARDS[k].name) + "</b><br>" + esc(C.HAZARDS[k].legend) + (k === "lore" ? "<br>" + loreSummary() : "")).join("<br><br>") +
+        (S.hazards.length > 1 ? "<br><br>重なっている所は、いくつもの危険がある所です。" : "") +
         '<br>谷の底（沖積層）や急な坂と、くらべてみよう。<br><a href="https://disaportal.gsi.go.jp/" target="_blank" rel="noopener">ハザードマップポータルサイト ↗</a>';
       box.classList.remove("hidden");
     }
   }
+  function toggleHazard(k, on) { setHazards(on ? (S.hazards || []).concat(k) : (S.hazards || []).filter((x) => x !== k)); }
   function applyTexture() {
     if (!S.mapCanvas || !S.mapCanvas[S.mapType]) return;
     const mt = C.MAP_TYPES[S.mapType] || {};
     let base = S.mapCanvas[S.mapType];
     let canvas = base;
-    const hz = S.hazard && S.hazard !== "none" && S.hazardCanvas && S.hazardCanvas[S.hazard];
+    const hzs = (S.hazards || []).map((k) => S.hazardCanvas && S.hazardCanvas[k]).filter(Boolean), hz = hzs.length > 0;
     const lines = S.showRivers && S.rivers || S.showYato && yatoList().length || S.showRails && S.rails && S.rails.length;
     const under = mt.under && S.mapCanvas[mt.under];
     const cmp = S.compare > 0 && mt.group === "昔の写真" && S.mapCanvas.photo;
@@ -1785,7 +1787,7 @@
       if (cmp) { ctx.globalAlpha = S.compare; ctx.drawImage(S.mapCanvas.photo, 0, 0, canvas.width, canvas.height); ctx.globalAlpha = 1; }
       if (S.showBasin) drawBasinOnMap(ctx, canvas.width, canvas.height);
       if (["color", "contour", "terrace"].includes(S.relief)) ctx.drawImage(reliefOverlay(S.relief), 0, 0, canvas.width, canvas.height);
-      if (hz) { ctx.globalAlpha = 0.75; ctx.drawImage(hz, 0, 0, canvas.width, canvas.height); ctx.globalAlpha = 1; }
+      if (hz) { ctx.globalAlpha = hzs.length > 1 ? 0.7 : 0.75; for (const c of hzs) ctx.drawImage(c, 0, 0, canvas.width, canvas.height); ctx.globalAlpha = 1; }
       if (lines) drawLinesOnMap(ctx, canvas.width, canvas.height);
     }
     if (S.curTex && S.curTex.image === canvas) { S.curTex.needsUpdate = true; return; }
@@ -1892,7 +1894,7 @@
   function buildLore() {
     if (!groups.lore) return;
     disposeGroup(groups.lore);
-    if (S.hazard !== "lore") return;
+    if (!hazardOn("lore")) return;
     for (const a of loreInside()) {
       const y = groundAt(a.x, a.z) * S.ve, top = y + 55, grp = new THREE.Group();
       grp.add(pinLine(a.x, a.z, y, top, 0x6a1b9a));
@@ -4076,10 +4078,13 @@
       if ($("detail").dataset.bore) showBore($("detail").dataset.bore);
       if (S.kid) applyKidFixed();
     };
-    const hs = $("hazardSelect");
-    hs.add(new Option("重ねない", "none"));
-    for (const k in C.HAZARDS) hs.add(new Option(C.HAZARDS[k].name, k));
-    hs.onchange = () => setHazard(hs.value);
+    const hs = $("hazardChecks");
+    for (const k in C.HAZARDS) {
+      const lab = document.createElement("label"); lab.className = "toggle";
+      lab.innerHTML = '<input type="checkbox" data-hz="' + k + '"> ' + esc(C.HAZARDS[k].name);
+      lab.firstChild.onchange = (e) => toggleHazard(k, e.target.checked);
+      hs.appendChild(lab);
+    }
     const rs = $("reliefSelect");
     for (const k in RELIEF) rs.add(new Option(RELIEF[k], k));
     rs.onchange = () => setRelief(rs.value);
@@ -4878,7 +4883,7 @@
     if (S.gapHide) { st.gh = S.gapHide; if (S.gapModel) st.gm = 1; }
     if (S.ve !== (S.site.defaultExaggeration || 3)) st.vz = S.ve;
     if (S.opacity < 1) st.op = S.opacity;
-    if (S.hazard && S.hazard !== "none") st.hz = S.hazard;
+    if (S.hazards && S.hazards.length) st.hz = S.hazards.join(",");
     if (S.showBasin) st.basin = 1;
     if (S.boreNames && S.boreNames !== "name") st.bn = S.boreNames;
     if (o.only && o.only.length) st.only = o.only;
@@ -4914,7 +4919,7 @@
     }
     if (st.vz) { $("veRange").value = st.vz; $("veRange").dispatchEvent(new Event("input")); }
     if (st.op) { $("opacityRange").value = st.op; $("opacityRange").dispatchEvent(new Event("input")); }
-    if (st.hz) await setHazard(st.hz);
+    if (st.hz) await setHazards(String(st.hz).split(",").filter((k) => C.HAZARDS[k]));
     if (st.basin) setChk("chkBasin", 1);
     if ((st.bn || st.nobn) && S.setBoreNames) S.setBoreNames(st.bn || "dot");
     if (st.map && st.map !== S.mapType) await setMap(st.map);
