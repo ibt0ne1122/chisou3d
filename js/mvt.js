@@ -177,6 +177,8 @@
         jobs.push(fetchTile("https://cyberjapandata.gsi.go.jp/xyz/experimental_bvmap/" + z + "/" + tx + "/" + ty + ".pbf").catch(() => null).then((buf) => {
           if (!buf) return;
           for (const f of decodeLines(buf, "railway")) {
+            // 車両基地などの側線（snglDbl＝3、路線コードなし）はかかない。本線（単線・複線・駅の部分）だけ
+            if (!f.props.rtCode || f.props.snglDbl === 3) continue;
             const rt = String(f.props.rtCode || "");
             // 路線コードの5けた目：1＝JR、2＝JR以外（私鉄など）
             const jr = rt.length > 4 ? rt.charAt(4) === "1" : false;
