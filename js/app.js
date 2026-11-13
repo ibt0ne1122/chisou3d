@@ -49,7 +49,7 @@
       setTimeout(run, 0); // 1ファイル版：設定がすでに入っている（準備が終わってから始める）
     } else {
       const sc = document.createElement("script");
-      sc.src = entry.file + "?v=20261113230520";
+      sc.src = entry.file + "?v=20261113233420";
       // 先生が配った写真メモ（sites/notes/<id>.js）：あればいっしょに読む。なくてもそのまま始める
       sc.onload = custom ? run : () => {
         const ns = document.createElement("script");
@@ -163,11 +163,21 @@
     animate();
     const first = S.resume ? resumeState(S.resume, S.shared) : S.shared;
     if (first) await applyShared(first).catch((e) => console.warn(e));
-    if (S.resume) setTimeout(() => flashHint("↩️ 前回の続きの画面で開きました（はじめの画面にするときは ☰ → ⚙️ くわしい設定）"), 1500);
+    if (S.resume) showResumeNote();
     S.resumeReady = true;
     setInterval(saveResume, 5000);
     document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") saveResume(); });
     window.addEventListener("pagehide", saveResume);
+  }
+  /** 「前回の続きで開きました」：画面の上に出す。✕ですぐ消せる（10秒たつと自然に消える） */
+  function showResumeNote() {
+    const el = document.createElement("div");
+    el.id = "resumeNote";
+    el.innerHTML = '<span>↩️ 前回の続きの画面で開きました<small>（はじめの画面にするときは ☰ → ⚙️ くわしい設定）</small></span><button type="button" aria-label="閉じる" title="閉じる">✕</button>';
+    document.body.appendChild(el);
+    const close = () => el.remove();
+    el.querySelector("button").onclick = close;
+    setTimeout(close, 10000);
   }
   function hashStr(t) { let h = 5381; for (let i = 0; i < t.length; i++) h = ((h * 33) ^ t.charCodeAt(i)) >>> 0; return h.toString(36); }
   /** 前回の続き：見え方は前回のまま。配布リンクの「中身」（子どもの画面・えらんだ柱・送られた柱など）は、リンクのものを使う */

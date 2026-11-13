@@ -692,3 +692,8 @@ body.sheet-open #legendDock { display: none; }
 @media (max-width: 760px) { body:not(.np-folded) #legendDock { right: 136px; } #layerLegendBox { width: min(300px, 70vw); } }
 @media (min-width: 761px) { body:has(#detail:not(.hidden)) #legendDock { right: 386px; } }
 #usageBox table td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+/* 「前回の続きで開きました」：画面の上・まん中。✕ですぐ消せる */
+#resumeNote { position: fixed; top: 84px; left: 50%; transform: translateX(-50%); z-index: 40; display: flex; align-items: center; gap: 10px; max-width: calc(100vw - 32px);
+  background: rgba(31,42,51,0.92); color: #fff; border-radius: 14px; padding: 8px 8px 8px 16px; font-size: 15px; box-shadow: var(--shadow); }
+#resumeNote small { display: block; font-size: 12px; opacity: .85; }
+#resumeNote button { flex: 0 0 auto; width: 40px; height: 40px; min-height: 40px; padding: 0; border-radius: 50%; border: 0; background: rgba(255,255,255,0.18); color: #fff; font-size: 18px; }
