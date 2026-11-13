@@ -665,3 +665,7 @@ a.btnlink.primary { background: var(--accent); color: #fff; border-color: var(--
 /* 柱状図の説明を開いているときは、線路の説明を説明のらんの左へ（重ならないように） */
 @media (min-width: 761px) { body:has(#detail:not(.hidden)) #railLegend { right: 386px; } }
 #hazardChecks { display: flex; flex-direction: column; gap: 4px; } #hazardChecks label { font-size: 14px; }
+/* 柱状図の説明：標高をいちばん上に。お気に入りは見出しの下に、なし・色を1列に */
+#detail .elevtop { font-size: 15px; margin: 2px 0 6px; color: #1f2a33; }
+#detail .markrow .mrlabel { flex: 0 0 100%; }
+#detail .strawrow { margin-top: 12px; }

@@ -49,7 +49,7 @@
       setTimeout(run, 0); // 1ファイル版：設定がすでに入っている（準備が終わってから始める）
     } else {
       const sc = document.createElement("script");
-      sc.src = entry.file + "?v=20261113090755";
+      sc.src = entry.file + "?v=20261113105010";
       // 先生が配った写真メモ（sites/notes/<id>.js）：あればいっしょに読む。なくてもそのまま始める
       sc.onload = custom ? run : () => {
         const ns = document.createElement("script");
@@ -3325,24 +3325,23 @@
     }
     svg += "</svg>";
     const elevTxt = isNaN(b.elev) ? "不明" : b.elev.toFixed(1) + "m";
-    const thickRow = '<label class="toggle thickrow"><input type="checkbox" id="dThick"' + (S.showThick ? " checked" : "") + "> 📏 層の厚さ（m）を柱の中に出す</label>";
     const demTxt = isNaN(b.demElev) ? "" : "（地図の標高 " + b.demElev.toFixed(1) + "m）";
     let markHtml;
     const cur = S.boreMarks[id] || "";
-    markHtml = '<div class="markrow"><span>⭐ お気に入り（色で目立たせる）：</span>' +
+    markHtml = '<div class="markrow"><span class="mrlabel">⭐ お気に入り（色で目立たせる）</span>' +
       '<button type="button" data-mc=""' + (cur ? "" : ' class="on"') + '>なし</button>' +
       MARK_COLORS.map((m) => '<button type="button" class="sw' + (cur === m.c ? " on" : "") + '" data-mc="' + m.c + '" title="' + m.n + '" style="background:' + m.c + '"></button>').join("") +
       (Object.keys(S.boreMarks).length ? '<button type="button" id="dMarkClear" class="link">全部もどす</button>' : "") + "</div>";
     let html = "<h3>" + esc(b.name) + "</h3>";
     const bph = borePhotoOf(id);
     // 名前のすぐ下に柱状図（子どもが名前と柱状図を1つの画面で見て、根拠にできるように）
+    html += '<div class="elevtop">地面の標高：<b>' + elevTxt + "</b> " + (typeof b.elevation === "number" ? demTxt : "") + "</div>";
     if (b.sample) html += '<div class="warnbox">⚠ ' + esc(S.site.sample.note || "仮のデータです") + "</div>";
-    html += '<div id="dColAnchor"></div>' + svg + thickRow + strawTable();
+    html += '<div id="dColAnchor"></div>' + svg;
     if (b.segs.some((s) => s.relabeled)) html += '<p class="hint">＊古い地層より下にあるので、ローム層・沖積層ではなく、まわりの地層（大昔の火山灰などがまじった うすい層）として色をつけています。</p>';
     html += '<div class="jumprow"><button type="button" id="dJumpPhoto">📷 この場所の写真</button></div>';
     html += markHtml;
-    html += '<div class="meta">地面の標高：<b>' + elevTxt + "</b> " + (typeof b.elevation === "number" ? demTxt : "") +
-      "<br>掘った深さ：" + b.depth.toFixed(1) + "m（いちばん下の標高 " + (b.elev - b.depth).toFixed(1) + "m）" +
+    html += '<div class="meta">掘った深さ：' + b.depth.toFixed(1) + "m（いちばん下の標高 " + (b.elev - b.depth).toFixed(1) + "m）" +
       (typeof b.elevation === "number" && !isNaN(b.demElev) && Math.abs(b.elev - b.demElev) >= 0.5
         ? "<br>資料と今の地図の差：" + "資料の方が " + Math.abs(b.elev - b.demElev).toFixed(1) + "m " + (b.elev > b.demElev ? "高い" : "低い") +
           (S.alignBores ? "（今は地面にそろえてかいています）" : "") : "") +
@@ -3368,7 +3367,7 @@
     const inSel = (S.boreSel || S.onlySel || new Set()).has(id), nSel = (S.boreSel || S.onlySel || new Set()).size;
     html = html.replace("</h3>", "</h3>" + '<div class="selrow"><button id="dSel" type="button" class="' + (inSel ? "on" : "") + '">' + (inSel ? "✅ えらんだ柱に入っています（押すと外す）" : "📍 えらんだ柱に入れる") + '</button><small>えらんだ柱：' + nSel + "本</small></div>");
     html += '<div class="actions"><button id="dCard">📝 記録カードをつくる</button><button id="dFocus">🎯 近づいて見る</button><button id="dSec">✂️ ここを通る断面</button>' +
-      (S.teacher && !b.sample ? '<button id="dEdit">✏️ 編集</button>' : "") + "</div>";
+      (S.teacher && !b.sample ? '<button id="dEdit">✏️ 編集</button>' : "") + "</div>" + strawTable();
     openDetail(html);
     $("detail").dataset.bore = id;
     $("dCard").onclick = () => makeRecordCard(b);
@@ -3398,7 +3397,6 @@
       all[id].cap = $("dPhotoCap").value.trim().slice(0, 60); store.set(key("borePhotos"), all); showBore(id); flashHint("📷 写真の説明を保存しました");
     };
     if ($("dPhotoDel")) $("dPhotoDel").onclick = () => { if (!confirm("この柱の写真を消しますか？")) return; const all = store.get(key("borePhotos"), {}); delete all[id]; store.set(key("borePhotos"), all); showBore(id); };
-    if ($("dThick")) $("dThick").onchange = () => { S.showThick = $("dThick").checked; store.set("chisou3d:showThick", S.showThick); showBore(id); };
     const jump = (anchor) => { const a = $(anchor); if (a) a.scrollIntoView({ behavior: "smooth", block: "start" }); };
     $("dJumpPhoto").onclick = () => jump("dPhotoAnchor");
     if ($("dStraw")) $("dStraw").onchange = () => { S.straw = $("dStraw").checked; store.set("chisou3d:straw", S.straw); showBore(id); };
@@ -4065,7 +4063,7 @@
     $("tshareAll").onchange = openTeacherShare;
     $("tshareCopy").onclick = async () => { try { await navigator.clipboard.writeText($("tshareOut").value); } catch (e) { $("tshareOut").select(); document.execCommand("copy"); } flashHint("📋 先生用のリンクをコピーしました"); };
     $("tshareQrSave").onclick = () => download("QRコード-先生用-" + S.site.title + ".png", $("tshareQr").toDataURL("image/png"));
-    S.showThick = store.get("chisou3d:showThick", true);
+    S.showThick = true; // 層の厚さ（m）は、いつも柱の中に出す（切りかえボタンはなくした）
     S.straw = store.get("chisou3d:straw", true);
     S.strawScale = store.get("chisou3d:strawScale", 5);
     S.colorBy = store.get("chisou3d:colorBy", "layer");
