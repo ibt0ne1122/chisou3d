@@ -49,7 +49,7 @@
       setTimeout(run, 0); // 1ファイル版：設定がすでに入っている（準備が終わってから始める）
     } else {
       const sc = document.createElement("script");
-      sc.src = entry.file + "?v=20261113084919";
+      sc.src = entry.file + "?v=20261113085648";
       // 先生が配った写真メモ（sites/notes/<id>.js）：あればいっしょに読む。なくてもそのまま始める
       sc.onload = custom ? run : () => {
         const ns = document.createElement("script");
@@ -129,6 +129,7 @@
     const prefs = store.get(key("prefs"), {});
     S.sampleOn = prefs.sampleOn != null ? prefs.sampleOn : !!(site.sample && site.sample.enabled);
     S.notes = store.get(key("notes"), []);
+    S.labelK = +store.get("chisou3d:labelK", 0.8); S.declutter = store.get("chisou3d:declutter", true); // 名前の大きさ・重なりをへらす（模型をつくる前に）
     S.boreMarks = store.get(key("boreMarks"), {});
     S.cutNoData = store.get("chisou3d:cutNoData", true);
     S.peelMode = store.get("chisou3d:peelMode", "one");
@@ -409,7 +410,44 @@
     }
     const az = controls.getAzimuthalAngle();
     $("compass").querySelector(".needle").style.transform = "rotate(" + (az * 180) / Math.PI + "deg)";
+    declutterTick();
     renderer.render(scene, camera);
+  }
+
+  // ---------- 名前の重なりをへらす（地図アプリのように、重なったら だいじな方だけ出す） ----------
+  //  名前の札（Sprite）に userData.dc＝だいじさ（小さいほどだいじ）をつけておき、画面の上で重なる札は、だいじでない方をかくす
+  let dcKey = "", dcTime = 0;
+  function declutterTick() {
+    const now = performance.now();
+    const key = camera.position.toArray().map((v) => v.toFixed(1)).join(",") + "|" + controls.target.toArray().map((v) => v.toFixed(1)).join(",") + "|" + renderer.domElement.width + "|" + (S.dcDirty ? Math.random() : "");
+    // カメラが動いたとき（と、名前が作り直されたときのために1秒ごと）に、やり直す
+    if ((key === dcKey && now - dcTime < 1000) || now - dcTime < 120) return;
+    dcKey = key; dcTime = now; S.dcDirty = false;
+    declutter();
+  }
+  function declutter() {
+    scene.updateMatrixWorld(); // 作ったばかりの名前の位置も、正しく使う
+    const list = [];
+    scene.traverse((o) => { if (o.isSprite && o.userData.dc != null) list.push(o); });
+    if (!S.declutter) { for (const sp of list) sp.material.visible = true; return; }
+    const W = renderer.domElement.clientWidth, H = renderer.domElement.clientHeight, P = camera.projectionMatrix.elements;
+    const v = new THREE.Vector3(), cand = [];
+    for (const sp of list) {
+      let on = true; for (let o = sp; o; o = o.parent) if (!o.visible) { on = false; break; }
+      if (!on) continue;
+      v.setFromMatrixPosition(sp.matrixWorld).project(camera);
+      if (v.z > 1 || v.z < -1) { sp.material.visible = false; continue; }
+      const w = sp.scale.x * P[0] * W / 2, h = sp.scale.y * P[5] * H / 2;
+      const cx = (v.x + 1) / 2 * W, by = (1 - v.y) / 2 * H;
+      cand.push({ sp, x0: cx - w / 2, x1: cx + w / 2, y0: by - h, y1: by, pri: sp.userData.dc, d: v.z });
+    }
+    cand.sort((a, b) => a.pri - b.pri || a.d - b.d);
+    const placed = [], m = 2;
+    for (const c of cand) {
+      const hit = placed.some((p) => c.x0 < p.x1 + m && c.x1 > p.x0 - m && c.y0 < p.y1 + m && c.y1 > p.y0 - m);
+      c.sp.material.visible = !hit;
+      if (!hit) placed.push(c);
+    }
   }
 
   // ---------- いま見えている面 ----------
@@ -624,7 +662,7 @@
     tex.minFilter = THREE.LinearFilter;
     const mat = clipMat(new THREE.SpriteMaterial({ map: tex, sizeAttenuation: false, depthTest: false }));
     const sp = new THREE.Sprite(mat);
-    const k = 0.00052 * (o.scale || 1);
+    const k = 0.00052 * (o.scale || 1) * (S.labelK || 1); // S.labelK：名前の大きさ（小・中・大）
     sp.scale.set(cv.width * k, cv.height * k, 1);
     sp.center.set(0.5, 0);
     sp.renderOrder = 10;
@@ -721,6 +759,7 @@
       if (mk) lab.renderOrder = 12;
       lab.userData.pick = { type: "bore", id: b.id };
       lab.userData.isLabel = true;
+      if (mk) lab.userData.dc = 1.5; else if (named.has(b.id)) lab.userData.dc = hidden ? 1.5 : 9; // 名前のない●は、かくさない
       groups.bores.add(lab);
     }
     unit.dispose();
@@ -951,6 +990,7 @@
       const grp = new THREE.Group();
       grp.add(pinLine(p.x, p.z, y, top, 0x1f2a33));
       const lab = makeLabel((lm.icon || "📍") + " " + lm.name, { size: lm.main ? 18 : 15, bold: !!lm.main, bg: lm.main ? "#ffffff" : "rgba(255,255,255,0.9)" });
+      lab.userData.dc = lm.main ? 0 : 2;
       lab.position.set(p.x, top, p.z);
       grp.add(lab);
       groups.labels.add(grp);
@@ -960,6 +1000,7 @@
       const grp = new THREE.Group();
       grp.add(pinLine(m.x, m.z, y, top, 0x5a6873));
       const lab = makeLabel(m.icon + " " + m.name, { size: 12, bg: "rgba(255,255,255,0.88)", border: "rgba(0,0,0,0.18)" });
+      lab.userData.dc = 3 + (m.pri || 3) * 0.5; // 駅・学校ほど だいじ
       lab.position.set(m.x, top, m.z);
       grp.add(lab);
       groups.labels.add(grp);
@@ -1477,6 +1518,7 @@
       const lab = makeLabel(txt, home ? { bg: "#e6f0ff", color: "#1f4f99", border: "#1f4f99", size: 14 } : mark ? { bg: "#ffffff", color: "#b3261e", border: "#b3261e", size: 14 } : { bg: nt.color || "#ffd54f", border: nt.pub ? "#1f7a8c" : "rgba(0,0,0,0.3)", size: 13 });
       lab.position.set(nt.x, top, nt.z);
       lab.userData.pick = { type: "note", id: nt.id };
+      lab.userData.dc = mark ? 1 : 2.5; // 先生・子どもがつけた目印は だいじ
       lab.userData.isLabel = true;
       grp.add(lab);
       groups.notes.add(grp);
@@ -4233,7 +4275,14 @@
       u.searchParams.delete("r");
       location.href = u.href;
     };
-    chk("chkLabels", (v) => { S.labels = v; applyVisibility(); });
+    chk("chkLabels", (v) => { S.labels = v; applyVisibility(); S.dcDirty = true; });
+    // 名前の大きさ・重なる名前をかくす
+    S.labelK = +store.get("chisou3d:labelK", 0.8);
+    $("labelSize").value = String(S.labelK);
+    $("labelSize").onchange = () => { S.labelK = +$("labelSize").value; if (!S.kid) store.set("chisou3d:labelK", S.labelK); buildLabels(); buildBores(); buildNotes(); S.dcDirty = true; };
+    S.declutter = store.get("chisou3d:declutter", true);
+    $("chkDeclutter").checked = S.declutter;
+    chk("chkDeclutter", (v) => { S.declutter = v; if (!S.kid) store.set("chisou3d:declutter", v); S.dcDirty = true; });
     S.wallBlank = store.get("chisou3d:wallBlank", false);
     $("chkWallBlank").checked = S.wallBlank;
     chk("chkWallBlank", (v) => { S.wallBlank = v; if (!S.kid) store.set("chisou3d:wallBlank", v); buildWalls(); });
@@ -4805,6 +4854,8 @@
     if (S.peel) { st.peel = [...S.peeled]; st.pm = S.peelMode; }
     if (S.showRivers) st.riv = 1;
     if (S.showRails) st.rail = 1;
+    if (S.labelK !== 0.8) st.lk = S.labelK;
+    if (!S.declutter) st.nodc = 1;
     if (S.wallBlank) st.wb = 1; // まわりの側面の地層をかくす
     if (S.showYato) st.yato = 1;
     if (S.lift) st.lift = 1;
@@ -4866,6 +4917,8 @@
     if (st.relief && st.relief !== S.relief) setRelief(st.relief);
     setChk("chkRiver", st.riv);
     setChk("chkRail", st.rail);
+    setChk("chkDeclutter", !st.nodc);
+    if ((st.lk || 0.8) !== S.labelK) { $("labelSize").value = String(st.lk || 0.8); $("labelSize").dispatchEvent(new Event("change")); }
     setChk("chkWallBlank", st.wb);
     if (!$("chkYato").parentElement.classList.contains("hidden")) setChk("chkYato", st.yato);
     setChk("chkLift", st.lift);
@@ -5307,5 +5360,5 @@
     volEl.classList.remove("hidden");
   }
 
-  window.__chisou = { S, setMode, makeSection, showBore, showYato, get secView() { return secView; }, get camera() { return camera; }, get controls() { return controls; } };
+  window.__chisou = { S, setMode, makeSection, showBore, showYato, get secView() { return secView; }, get camera() { return camera; }, get scene() { return scene; }, get controls() { return controls; } };
 })();
