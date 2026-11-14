@@ -49,7 +49,7 @@
       setTimeout(run, 0); // 1ファイル版：設定がすでに入っている（準備が終わってから始める）
     } else {
       const sc = document.createElement("script");
-      sc.src = entry.file + "?v=20261113235900";
+      sc.src = entry.file + "?v=20261114003403";
       // 先生が配った写真メモ（sites/notes/<id>.js）：あればいっしょに読む。なくてもそのまま始める
       sc.onload = custom ? run : () => {
         const ns = document.createElement("script");
@@ -4429,6 +4429,15 @@
       document.body.classList.toggle(cls, on);
       $(id).textContent = on ? labelOn : "✕";
       store.set("chisou3d:" + cls, on);
+      if (id === "mbFold") {
+        // iPad（Safari）では、横にスライドする列の中のボタンを かくしても描き直されず、重なって残ることがある。
+        //   1つずつ はっきりかくし、スライドの位置を左にもどして、列をかき直させる
+        const mb = $("modebar");
+        [...mb.children].forEach((c) => { if (c.id !== "mbFold") c.style.display = on ? "none" : ""; });
+        mb.scrollLeft = 0;
+        mb.style.display = "none"; void mb.offsetHeight; mb.style.display = "";
+        if (S.relayout) { S.relayout(); setTimeout(S.relayout, 120); }
+      }
     };
     const small = window.innerWidth < 600;
     setFold("mbFold", "mb-folded", store.get("chisou3d:mb-folded", small), "☰ ボタンを出す");

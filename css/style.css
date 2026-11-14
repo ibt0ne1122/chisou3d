@@ -421,7 +421,7 @@ body:has(#sectionSheet.stage-mode) #volcanoBox .vb-head small { display: none; }
 
 /* ボタンをたたむ（スマホで模型を広く見る） */
 #modebar button.fold, #navpad button.fold { font-size: 13px; min-height: 32px; border: 1px dashed var(--line); background: #f4f7f9; color: var(--sub); }
-body.mb-folded #modebar > :not(#mbFold):not(.active) { display: none !important; }
+body.mb-folded #modebar > :not(#mbFold) { display: none !important; }
 body.mb-folded #modebar { width: max-content; flex-wrap: nowrap; }
 body.mb-folded #mbFold { color: #fff; background: #1f5f99; border-style: solid; }
 body.np-folded #navpad > :not(#npFold) { display: none !important; }

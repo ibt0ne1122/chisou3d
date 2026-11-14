@@ -4,7 +4,7 @@
  *   <span data-chisou-ver></span> に版を書き、画面の上に新しい版のお知らせを出す。
  */
 (function () {
-  var MY = "2026.11.14-0859"; // 公開のときに、版の名前（例：2026.11.12-1530）に置きかわる
+  var MY = "2026.11.14-0934"; // 公開のときに、版の名前（例：2026.11.12-1530）に置きかわる
   var dev = MY.indexOf("__") === 0;
   function label(v) { return dev ? "開発中" : v; }
   function show() {
