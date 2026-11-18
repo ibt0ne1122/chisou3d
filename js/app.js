@@ -49,7 +49,7 @@
       setTimeout(run, 0); // 1ファイル版：設定がすでに入っている（準備が終わってから始める）
     } else {
       const sc = document.createElement("script");
-      sc.src = entry.file + "?v=20261114003403";
+      sc.src = entry.file + "?v=20261118095553";
       // 先生が配った写真メモ（sites/notes/<id>.js）：あればいっしょに読む。なくてもそのまま始める
       sc.onload = custom ? run : () => {
         const ns = document.createElement("script");
@@ -285,6 +285,7 @@
       S.onlySel = so && so.length ? new Set(so) : null;
       S.onlyOn = !!S.onlySel && store.get(key("showOnlyOn"), true);
       S.showOnly = S.onlyOn ? S.onlySel : null;
+      if (so && so.length) pushSelHist(so); // 今までの分も、記録に入れておく
     }
     applyShowOnlyList();
     const m = S.model;
@@ -915,6 +916,44 @@
     store.set(key("gapHide"), v); store.set(key("gapModel"), S.gapModel);
     rebuildGeology(true);
   }
+  // ---------- えらんだ柱を なくさないために ----------
+  //  ・えらぶたびに「前にえらんだ柱」として10回分を残す（まちがって消しても もどせる）
+  //  ・ほかのタブで変えたら、こちらも合わせる（古いタブが上書きして消すのをふせぐ）
+  //  ・ブラウザに「この端末の保存を消さないで」とたのむ
+  function saveSel() {
+    if (S.kidOnly) return;
+    store.set(key("showOnly"), S.onlySel ? [...S.onlySel] : null); store.set(key("showOnlyOn"), !!S.onlyOn);
+    if (S.onlySel && S.onlySel.size) pushSelHist([...S.onlySel]);
+    updateOnlyBoresUI && $("onlyBoresUndo") && updateSelHistBtn();
+  }
+  function pushSelHist(ids) {
+    const h = store.get(key("showOnlyHist"), []), sig = ids.slice().sort().join("|");
+    if (h[0] && h[0].ids.slice().sort().join("|") === sig) return;
+    h.unshift({ t: Date.now(), ids }); store.set(key("showOnlyHist"), h.slice(0, 10));
+  }
+  function selHistOthers() {
+    const cur = S.onlySel ? [...S.onlySel].sort().join("|") : "";
+    return store.get(key("showOnlyHist"), []).filter((e) => e.ids.slice().sort().join("|") !== cur);
+  }
+  function updateSelHistBtn() { $("onlyBoresUndo").classList.toggle("hidden", S.kidOnly || !selHistOthers().length); }
+  function showSelHist() {
+    const list = selHistOthers(), known = new Set((S.allBores || S.bores).map((b) => b.id));
+    if (!list.length) { flashHint("前にえらんだ柱の記録はありません"); return; }
+    const d2 = (n) => String(n).padStart(2, "0"), when = (t) => { const d = new Date(t); return (d.getMonth() + 1) + "/" + d.getDate() + " " + d2(d.getHours()) + ":" + d2(d.getMinutes()); };
+    openDetail("<h3>↩️ 前にえらんだ柱</h3><p class=\"hint\">この端末で、前にえらんでいた柱の組み合わせです（新しい順・10回分）。「もどす」で、その柱をえらんだ状態にもどします。</p>" +
+      '<table class="sellist"><tr><th>いつ</th><th>本数</th><th>柱（はじめの2本）</th><th></th></tr>' +
+      list.map((e, i) => { const names = e.ids.map((id) => (S.allBores || S.bores).find((b) => b.id === id)).filter(Boolean).slice(0, 2).map((b) => esc(b.name.length > 12 ? b.name.slice(0, 12) + "…" : b.name)).join("、");
+        return "<tr><td>" + when(e.t) + "</td><td>" + e.ids.filter((id) => known.has(id)).length + "本</td><td>" + names + "…</td><td><button type=\"button\" data-rs=\"" + i + "\" class=\"nowrap\">もどす</button></td></tr>"; }).join("") + "</table>");
+    $("detailBody").querySelectorAll("[data-rs]").forEach((b) => (b.onclick = () => {
+      const e = list[+b.dataset.rs]; if (!e) return;
+      if (S.onlySel && S.onlySel.size) pushSelHist([...S.onlySel]); // 今の分も残しておく
+      S.onlySel = new Set(e.ids); S.onlyOn = true; S.showOnly = S.onlySel;
+      saveSel(); applyShowOnlyList(); buildBores(); applyVisibility(); updateOnlyBoresUI();
+      if (S.section) openSectionSheet();
+      $("detail").classList.add("hidden");
+      flashHint("↩️ 前にえらんだ柱（" + S.onlySel.size + "本）にもどしました");
+    }));
+  }
   function applyShowOnlyList() {
     const all = S.allBores || S.bores;
     S.bores = S.boreSel || !S.showOnly ? all : all.filter((b) => S.showOnly.has(b.id));
@@ -970,7 +1009,7 @@
       S.onlySel = S.boreSel.size ? new Set(S.boreSel) : null;
       S.onlyOn = !!S.onlySel;
       S.showOnly = S.onlyOn ? S.onlySel : null;
-      if (!S.kidOnly) { store.set(key("showOnly"), S.onlySel ? [...S.onlySel] : null); store.set(key("showOnlyOn"), S.onlyOn); }
+      saveSel();
     }
     S.boreSel = null;
     $("selBar").classList.add("hidden");
@@ -983,11 +1022,12 @@
     if (S.boreSel) { S.boreSel.has(id) ? S.boreSel.delete(id) : S.boreSel.add(id); buildBores(); updateSelBar(); return; }
     const sel = S.onlySel ? new Set(S.onlySel) : new Set();
     const adding = !sel.has(id);
+    if (!adding && !confirm("この柱を、えらんだ柱から外しますか？")) return;
     adding ? sel.add(id) : sel.delete(id);
     S.onlySel = sel.size ? sel : null;
     if (!S.onlySel) S.onlyOn = false; // 全部外したら、全部の柱の表示にもどす
     S.showOnly = S.onlyOn ? S.onlySel : null;
-    if (!S.kidOnly) { store.set(key("showOnly"), S.onlySel ? [...S.onlySel] : null); store.set(key("showOnlyOn"), !!S.onlyOn); }
+    saveSel();
     applyShowOnlyList(); buildBores(); updateOnlyBoresUI();
     flashHint(adding ? "📍 えらんだ柱に入れました（" + sel.size + "本）" + (S.onlyOn ? "" : "。☰パネルの「えらんだ柱だけ」で、えらんだ柱だけを表示できます") : "えらんだ柱から外しました（" + sel.size + "本）");
   }
@@ -1000,7 +1040,7 @@
     if (S.section) openSectionSheet();
   }
   function clearShowOnly() {
-    S.showOnly = null; S.onlySel = null; S.onlyOn = false; store.set(key("showOnly"), null);
+    S.showOnly = null; S.onlySel = null; S.onlyOn = false; saveSel();
     applyShowOnlyList(); buildBores(); updateOnlyBoresUI();
     if (S.section) openSectionSheet();
   }
@@ -4226,6 +4266,19 @@
     // 表示する柱をえらぶ
     $("onlyBoresPick").onclick = startBoreSelect;
     $("onlyBoresList").onclick = showSelectedList;
+    $("onlyBoresUndo").onclick = showSelHist;
+    updateSelHistBtn();
+    // ほかのタブ（同じ端末）でえらんだ柱を変えたら、こちらも合わせる
+    window.addEventListener("storage", (e) => {
+      if (S.kidOnly || S.boreSel || (e.key !== key("showOnly") && e.key !== key("showOnlyOn"))) return;
+      const so = store.get(key("showOnly"), null);
+      S.onlySel = so && so.length ? new Set(so) : null;
+      S.onlyOn = !!S.onlySel && store.get(key("showOnlyOn"), true);
+      S.showOnly = S.onlyOn ? S.onlySel : null;
+      applyShowOnlyList(); buildBores(); applyVisibility(); updateOnlyBoresUI(); updateSelHistBtn();
+    });
+    // この端末の保存（えらんだ柱・メモなど）を、ブラウザが勝手に消さないようにたのむ
+    try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {}); } catch (e) { /* なくても使える */ }
     $("btnUsage").onclick = showUsage;
     $("btnSelList").onclick = () => { if (!selectedBoreList().length) { flashHint("📍 先に ☰パネルの「📍 表示する柱をえらぶ」で柱をえらんでください"); startBoreSelect(); return; } showSelectedList(); };
     $("onlyBoresReset").onclick = () => { if (confirm("えらんだ柱を消して、全部の柱を表示にもどしますか？")) clearShowOnly(); };
@@ -5017,7 +5070,7 @@
       S.onlySel = sel.size ? sel : null;
       S.onlyOn = !!S.onlySel && (!!st.ton || S.onlyOn);
       S.showOnly = S.onlyOn ? S.onlySel : null;
-      store.set(key("showOnly"), S.onlySel ? [...S.onlySel] : null); store.set(key("showOnlyOn"), !!S.onlyOn);
+      saveSel();
       applyShowOnlyList(); updateOnlyBoresUI();
       setTimeout(() => flashHint("👥 共有された柱 " + st.tonly.length + " 本を足しました（えらんだ柱：" + before + "本 → " + (S.onlySel ? S.onlySel.size : 0) + "本）"), 1200);
     }
