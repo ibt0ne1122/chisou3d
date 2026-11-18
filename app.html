@@ -6,7 +6,7 @@
 <title>大地のつくり 3D土地模型</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css?v=20261118095553">
+<link rel="stylesheet" href="css/style.css?v=20261118100410">
 </head>
 <body>
 <div id="viewport"></div>
@@ -171,6 +171,7 @@
         <div class="tgroup"><div class="tghead">📤 配る・共有する</div>
           <button id="btnShare" type="button" class="primary">🔗 子どもに配る</button>
           <button id="btnTShare" type="button">👥 先生に共有する</button>
+          <button id="btnLib" type="button">🗂 保存した画面（呼び出す）</button>
           <button id="btnSelList" type="button">📋 えらんだ柱の一覧</button>
           <button id="btnQr" type="button">📱 場所のQRコード</button>
         </div>
@@ -459,6 +460,8 @@
     <p class="hint">えらんだ柱・地図・カメラの向き・断面の線・はがした層・柱の色分けを、リンクにします。受け取った先生の画面は<b>ふつうの先生の画面</b>のままで、えらんだ柱は、その先生がもともとえらんでいた柱に<b>足し合わされます</b>。</p>
     <label id="tshareAllRow" class="toggle"><input type="checkbox" id="tshareAll"> この端末で読み込んだ柱状図を<b>全部</b>送る <b id="tshareAllN"></b>（外すと、えらんだ柱だけ）</label>
     <p id="tshareInfo" class="hint"></p>
+    <div class="row"><input id="tshareName" type="text" maxlength="40" placeholder="名前（例：2組で使った柱・川ぞいの断面）"><button type="button" id="tshareKeep">💾 保存しておく</button></div>
+    <p class="hint">コピー・QR保存をしたときも、自動で「🗂 保存した画面」に入ります。あとで先生モードから呼び出せます。</p>
     <div class="btnrow"><button type="button" id="tshareCopy" class="primary">📋 リンクをコピー</button><button type="button" id="tshareQrSave">🖼 QRコードを保存</button></div>
     <div class="qrwrap"><canvas id="tshareQr"></canvas><textarea id="tshareOut" rows="4" readonly spellcheck="false" style="flex:1"></textarea></div>
     <div class="btnrow end"><button value="cancel">閉じる</button></div>
@@ -648,21 +651,21 @@
 
 <footer id="attribution">出典：<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">国土地理院（地理院タイル・標高タイル）</a> ／ 目印：<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap</a> ／ 地下の地層はボーリング資料からの推定です（<a href="#" id="attrMore">くわしく</a>）</footer>
 
-<script src="lib/three.min.js?v=20261118095553"></script>
-<script src="lib/OrbitControls.js?v=20261118095553"></script>
-<script src="lib/qrcode.js?v=20261118095553"></script>
+<script src="lib/three.min.js?v=20261118100410"></script>
+<script src="lib/OrbitControls.js?v=20261118100410"></script>
+<script src="lib/qrcode.js?v=20261118100410"></script>
 <script>window.CHISOU = { sites: {}, registerSite: function (s) { this.sites[s.id] = s; } };</script>
-<script src="js/geo.js?v=20261118095553"></script>
-<script src="js/geology.js?v=20261118095553"></script>
-<script src="js/pattern.js?v=20261118095553"></script>
-<script src="sites/sites.js?v=20261118095553"></script>
-<script src="js/section.js?v=20261118095553"></script>
-<script src="js/boringxml.js?v=20261118095553"></script>
-<script src="js/mvt.js?v=20261118095553"></script>
-<script src="js/yato_yokohama.js?v=20261118095553"></script>
-<script src="js/ngic_bookmarklet.js?v=20261118095553"></script>
-<script src="js/help.js?v=20261118095553"></script>
-<script src="js/app.js?v=20261118095553"></script>
-<script src="js/version.js?v=20261118095553"></script>
+<script src="js/geo.js?v=20261118100410"></script>
+<script src="js/geology.js?v=20261118100410"></script>
+<script src="js/pattern.js?v=20261118100410"></script>
+<script src="sites/sites.js?v=20261118100410"></script>
+<script src="js/section.js?v=20261118100410"></script>
+<script src="js/boringxml.js?v=20261118100410"></script>
+<script src="js/mvt.js?v=20261118100410"></script>
+<script src="js/yato_yokohama.js?v=20261118100410"></script>
+<script src="js/ngic_bookmarklet.js?v=20261118100410"></script>
+<script src="js/help.js?v=20261118100410"></script>
+<script src="js/app.js?v=20261118100410"></script>
+<script src="js/version.js?v=20261118100410"></script>
 </body>
 </html>

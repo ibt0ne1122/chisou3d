@@ -49,7 +49,7 @@
       setTimeout(run, 0); // 1ファイル版：設定がすでに入っている（準備が終わってから始める）
     } else {
       const sc = document.createElement("script");
-      sc.src = entry.file + "?v=20261118095553";
+      sc.src = entry.file + "?v=20261118100410";
       // 先生が配った写真メモ（sites/notes/<id>.js）：あればいっしょに読む。なくてもそのまま始める
       sc.onload = custom ? run : () => {
         const ns = document.createElement("script");
@@ -112,7 +112,9 @@
     // 前回の続き：閉じる・スリープする直前の画面（地図・凹凸・すきとおり・高さ・見る角度など）を、この端末に残しておいて次に開いたときにもどす
     //   ふつうに開いたとき／同じ配布リンクで開いたとき、で別々に残す
     S.resumeKey = key("resume:" + (location.hash ? hashStr(location.hash) : "plain"));
-    S.resume = params.get("fresh") ? null : store.get(S.resumeKey, null);
+    S.recall = /[#&]rep=1/.test(location.hash); // 「🗂 保存した画面」から呼び出した
+    if (S.recall) { history.replaceState(null, "", location.href.replace(/&rep=1/, "")); S.resumeKey = key("resume:" + hashStr(location.hash)); }
+    S.resume = params.get("fresh") || S.recall ? null : store.get(S.resumeKey, null);
     if (S.resume && S.resume.v !== 1) S.resume = null;
     if (S.shared && Array.isArray(S.shared.bd) && S.shared.bd.length) {
       // リンクの中の柱状図データ：子どもはこの画面の間だけ、先生どうしは この端末の資料に足し合わせて残す
@@ -4146,6 +4148,12 @@
     });
     $("btnTShare").onclick = openTeacherShare;
     $("tshareAll").onchange = openTeacherShare;
+    const keepT = (quiet) => { const ok = libAdd({ kind: "teacher", title: $("tshareName").value.trim() || S.site.title + "（えらんだ柱 " + (S.onlySel ? S.onlySel.size : 0) + "本）", link: $("tshareOut").value, n: S.onlySel ? S.onlySel.size : 0 }); if (!quiet && ok) flashHint("💾 「🗂 保存した画面」に保存しました"); };
+    $("tshareKeep").onclick = () => keepT(false);
+    $("tshareName").onchange = () => { const all = libList(), e = all.find((x) => x.link === $("tshareOut").value); if (e) { e.title = $("tshareName").value.trim() || e.title; libSave(all); } };
+    $("btnLib").onclick = showLib;
+    $("tshareCopy").addEventListener("click", () => keepT(true));
+    $("tshareQrSave").addEventListener("click", () => keepT(true));
     $("tshareCopy").onclick = async () => { try { await navigator.clipboard.writeText($("tshareOut").value); } catch (e) { $("tshareOut").select(); document.execCommand("copy"); } flashHint("📋 先生用のリンクをコピーしました"); };
     $("tshareQrSave").onclick = () => download("QRコード-先生用-" + S.site.title + ".png", $("tshareQr").toDataURL("image/png"));
     S.showThick = true; // 層の厚さ（m）は、いつも柱の中に出す（切りかえボタンはなくした）
@@ -5066,13 +5074,15 @@
     if (st.tonly) {
       // 先生どうしの共有：えらんだ柱を、もともとえらんでいた柱に足し合わせる
       const known = new Set((S.allBores || S.bores).map((b) => b.id)), before = S.onlySel ? S.onlySel.size : 0;
-      const sel = new Set([...(S.onlySel || []), ...st.tonly.filter((id) => known.has(id))]);
+      if (S.recall && S.onlySel && S.onlySel.size) pushSelHist([...S.onlySel]); // 今の分は「前にえらんだ柱」に残す
+      const sel = new Set([...(S.recall ? [] : S.onlySel || []), ...st.tonly.filter((id) => known.has(id))]);
       S.onlySel = sel.size ? sel : null;
       S.onlyOn = !!S.onlySel && (!!st.ton || S.onlyOn);
       S.showOnly = S.onlyOn ? S.onlySel : null;
       saveSel();
       applyShowOnlyList(); updateOnlyBoresUI();
-      setTimeout(() => flashHint("👥 共有された柱 " + st.tonly.length + " 本を足しました（えらんだ柱：" + before + "本 → " + (S.onlySel ? S.onlySel.size : 0) + "本）"), 1200);
+      setTimeout(() => flashHint(S.recall ? "🗂 保存した画面を呼び出しました（えらんだ柱：" + (S.onlySel ? S.onlySel.size : 0) + "本。前の柱は「↩️ 前にえらんだ柱」から もどせます）"
+        : "👥 共有された柱 " + st.tonly.length + " 本を足しました（えらんだ柱：" + before + "本 → " + (S.onlySel ? S.onlySel.size : 0) + "本）"), 1200);
     }
     if ((st.cb || "layer") !== S.colorBy || st.grp) { $("colorBySelect").value = st.cb || "layer"; $("colorBySelect").dispatchEvent(new Event("change")); }
     if ((st.gh || 0) !== S.gapHide || !!st.gm !== S.gapModel) S.setGap(st.gh || 0, !!st.gm);
@@ -5158,6 +5168,53 @@
     await makeKidLink();
   }
   /** 前に配った画面（この端末に残す）：同じリンクは1つにまとめ、新しい順に20個まで */
+  // ---------- 🗂 保存した画面：先生に共有した・子どもに配ったリンクを、名前つきで残して いつでも呼び出す ----------
+  //  この端末に残す（ファイルに書き出して、ほかの端末や消えたときの控えにもできる）
+  const libList = () => store.get("chisou3d:linkLib", []);
+  const libSave = (l) => store.set("chisou3d:linkLib", l.slice(0, 100));
+  function libAdd(e) {
+    if (!e.link) return false;
+    const all = libList(), old = all.find((x) => x.link === e.link);
+    if (old) { if (e.title) old.title = e.title; old.t = Date.now(); libSave([old].concat(all.filter((x) => x !== old))); return true; }
+    all.unshift(Object.assign({ id: "L" + Date.now().toString(36), t: Date.now(), site: S.site.title }, e)); libSave(all); return true;
+  }
+  function showLib() {
+    const all = libList(), d2 = (n) => String(n).padStart(2, "0");
+    const when = (t) => { const d = new Date(t); return d.getFullYear() + "/" + (d.getMonth() + 1) + "/" + d.getDate() + " " + d2(d.getHours()) + ":" + d2(d.getMinutes()); };
+    openDetail('<div id="libBox"><h3>🗂 保存した画面</h3><p class="hint">先生に共有した画面・子どもに配った画面です（新しい順）。<b>「呼び出す」</b>で、そのときの柱・地図・向き・断面にもどります。今えらんでいる柱は「↩️ 前にえらんだ柱」に残ります。</p>' +
+      (all.length ? all.map((e, i) => '<div class="libitem"><div><b>' + esc(e.title || "名前なし") + "</b><small>" + (e.kind === "kid" ? "🔗 子どもに配った" : "👥 先生に共有") + "・" + when(e.t) + (e.n ? "・柱 " + e.n + "本" : "") + (e.site && e.site !== S.site.title ? "・" + esc(e.site) : "") + "</small></div>" +
+        '<div class="libbtns"><button type="button" class="primary" data-l="open" data-i="' + i + '">' + (e.kind === "kid" ? "子どもの画面で見る" : "呼び出す") + '</button><button type="button" data-l="copy" data-i="' + i + '">📋 コピー</button><button type="button" data-l="qr" data-i="' + i + '">🖨 QR</button><button type="button" data-l="name" data-i="' + i + '">✏️ 名前</button><button type="button" data-l="del" data-i="' + i + '" title="一覧から消す">✕</button></div></div>').join("")
+        : "<p>まだありません。先生モードの「👥 先生に共有する」で「💾 保存しておく」を押すと、ここに入ります。</p>") +
+      '<div class="actions"><button type="button" id="libExport">💾 ファイルに書き出す（控え）</button><button type="button" id="libImport">📂 ファイルから読み込む</button></div></div>');
+    $("libBox").onclick = async (ev) => {
+      const b = ev.target.closest("button[data-l]"); if (!b) return;
+      const list = libList(), e = list[+b.dataset.i]; if (!e) return;
+      if (b.dataset.l === "open") {
+        if (e.kind === "kid") { window.open(e.link + "&try=1", "_blank"); return; }
+        if (!confirm("「" + (e.title || "保存した画面") + "」を呼び出しますか？\n今えらんでいる柱は「↩️ 前にえらんだ柱」に残るので、あとでもどせます。")) return;
+        saveResume && saveResume();
+        location.href = e.link + "&rep=1"; setTimeout(() => location.reload(), 60);
+      }
+      if (b.dataset.l === "copy") { try { await navigator.clipboard.writeText(e.link); } catch (er) { prompt("このリンクをコピーしてください", e.link); } flashHint("📋 「" + e.title + "」のリンクをコピーしました"); }
+      if (b.dataset.l === "qr") { if (e.link.length > QR_MAX) { alert("データが多いので、QRコードにはできません。リンクをコピーして送ってください。"); return; } const w = window.open("", "_blank"); if (w) { w.document.write(qrSheetHtml(e.link, e.title)); w.document.close(); } }
+      if (b.dataset.l === "name") { const nm = prompt("名前", e.title || ""); if (nm != null) { e.title = nm.trim().slice(0, 40) || e.title; libSave(list); showLib(); } }
+      if (b.dataset.l === "del") { if (confirm("「" + e.title + "」を一覧から消しますか？")) { list.splice(+b.dataset.i, 1); libSave(list); showLib(); } }
+    };
+    $("libExport").onclick = () => download("保存した画面-" + stamp() + ".json", JSON.stringify({ type: "chisou3d-links", v: 1, items: libList() }, null, 1), "application/json");
+    $("libImport").onclick = () => {
+      const inp = document.createElement("input"); inp.type = "file"; inp.accept = ".json,application/json"; inp.style.display = "none"; document.body.appendChild(inp);
+      inp.onchange = async () => {
+        const f = inp.files[0]; inp.remove(); if (!f) return;
+        try {
+          const d = JSON.parse(await f.text()); if (!d || d.type !== "chisou3d-links" || !Array.isArray(d.items)) throw new Error();
+          const all = libList(), have = new Set(all.map((x) => x.link)); let n = 0;
+          for (const it of d.items) if (it && typeof it.link === "string" && /^https?:\/\//.test(it.link) && !have.has(it.link)) { all.push({ id: String(it.id || "L" + n), t: +it.t || Date.now(), kind: it.kind === "kid" ? "kid" : "teacher", title: String(it.title || "").slice(0, 40), link: it.link, n: +it.n || 0, site: String(it.site || "").slice(0, 60) }); n++; }
+          all.sort((a, b) => b.t - a.t); libSave(all); showLib(); flashHint("📂 " + n + "件を読み込みました");
+        } catch (er) { alert("「保存した画面」のファイルではないようです。"); }
+      };
+      inp.click();
+    };
+  }
   function rememberShare(how) {
     const link = $("shareOut").value; if (!link) return;
     const title = $("shareTitle").value.trim() || S.site.title;
@@ -5166,6 +5223,7 @@
     list.unshift({ title, link, how, date: (d.getMonth() + 1) + "/" + d.getDate() + " " + d.getHours() + ":" + String(d.getMinutes()).padStart(2, "0") });
     store.set("chisou3d:shareHist", list.slice(0, 20));
     renderShareHist();
+    libAdd({ kind: "kid", title, link, n: S.onlySel ? S.onlySel.size : 0 });
   }
   function renderShareHist() {
     const list = store.get("chisou3d:shareHist", []), box = $("shareHist");
