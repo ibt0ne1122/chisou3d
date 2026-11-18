@@ -49,7 +49,7 @@
       setTimeout(run, 0); // 1ファイル版：設定がすでに入っている（準備が終わってから始める）
     } else {
       const sc = document.createElement("script");
-      sc.src = entry.file + "?v=20261118100410";
+      sc.src = entry.file + "?v=20261118105937";
       // 先生が配った写真メモ（sites/notes/<id>.js）：あればいっしょに読む。なくてもそのまま始める
       sc.onload = custom ? run : () => {
         const ns = document.createElement("script");
@@ -111,6 +111,7 @@
     S.shared = await readShared(); // 先生が配ったリンク（#k=…）の中身
     // 前回の続き：閉じる・スリープする直前の画面（地図・凹凸・すきとおり・高さ・見る角度など）を、この端末に残しておいて次に開いたときにもどす
     //   ふつうに開いたとき／同じ配布リンクで開いたとき、で別々に残す
+    S.nicks = store.get(key("boreNick"), {});
     S.resumeKey = key("resume:" + (location.hash ? hashStr(location.hash) : "plain"));
     S.recall = /[#&]rep=1/.test(location.hash); // 「🗂 保存した画面」から呼び出した
     if (S.recall) { history.replaceState(null, "", location.href.replace(/&rep=1/, "")); S.resumeKey = key("resume:" + hashStr(location.hash)); }
@@ -185,14 +186,14 @@
   /** 前回の続き：見え方は前回のまま。配布リンクの「中身」（子どもの画面・えらんだ柱・送られた柱など）は、リンクのものを使う */
   function resumeState(rs, sh) {
     const st = Object.assign({}, rs);
-    if (sh) for (const k of ["kid", "ui", "only", "form", "bd", "tonly", "ton", "mk", "cs"]) if (sh[k] != null) st[k] = sh[k];
+    if (sh) for (const k of ["kid", "ui", "only", "form", "bd", "tonly", "ton", "mk", "cs", "nk"]) if (sh[k] != null) st[k] = sh[k];
     return st;
   }
   function saveResume() {
     if (!S.resumeReady || S.noResumeSave) return;
     try {
       const st = captureState({});
-      for (const k of ["mk", "cs", "bd", "tonly", "ton"]) delete st[k]; // 目印・柱のデータは、それぞれの保存場所に残っている
+      for (const k of ["mk", "cs", "bd", "tonly", "ton", "nk"]) delete st[k]; // 目印・柱のデータ・つけた名前は、それぞれの保存場所に残っている
       store.set(S.resumeKey, st);
     } catch (e) { /* 保存できなくても、使うのには困らない */ }
   }
@@ -734,6 +735,7 @@
     const minD = Math.max(150, S.site.half * 0.22);
     const named = new Set(), placed = [];
     for (const b of S.bores) if (markOf(b.id)) { named.add(b.id); placed.push(b); }
+    for (const b of S.bores) if (nickOf(b.id) && S.boreNames !== "none" && !named.has(b.id)) { named.add(b.id); placed.push(b); } // 名前をつけた柱は、いつも名前を出す
     const order = S.bores.filter((b) => !isNaN(b.elev)).sort((a, b) =>
       (S.hiddenBores.has(b.id) - S.hiddenBores.has(a.id)) || (b.depth - a.depth));
     for (const b of order) {
@@ -785,9 +787,9 @@
       }
       let lab;
       if (mk) {
-        lab = makeLabel((mk === SEL_MARK ? "✅ " : "★ ") + fullName(b.name), { bg: mk.c, color: mk.fg, border: "#ffffff", size: 16, bold: true });
+        lab = makeLabel((mk === SEL_MARK ? "✅ " : "★ ") + (nickOf(b.id) ? nickOf(b.id) + "\n" : "") + fullName(b.name), { bg: mk.c, color: mk.fg, border: "#ffffff", size: 16, bold: true });
       } else if (named.has(b.id)) {
-        lab = makeLabel(hidden ? "？" + fullName(b.name) + "（予想中）" : (b.sample ? "" : "🔍") + fullName(b.name), { bg: b.sample ? "#fff1dc" : "#e3f0fb", color: b.sample ? "#8a4500" : "#12497a", size: 13, bold: true });
+        lab = makeLabel((nickOf(b.id) ? "🏷 " + nickOf(b.id) + "\n" : "") + (hidden ? "？" + fullName(b.name) + "（予想中）" : (b.sample ? "" : "🔍") + fullName(b.name)), { bg: b.sample ? "#fff1dc" : "#e3f0fb", color: b.sample ? "#8a4500" : "#12497a", size: 13, bold: true });
       } else {
         lab = new THREE.Sprite(matCache.__dot); // 名前なしの点は、同じ絵を使い回す
         lab.scale.copy(matCache.__dotScale);
@@ -979,16 +981,16 @@
   function showSelectedList() {
     const list = selectedBoreList();
     if (!list.length) { flashHint("📍 まだ柱をえらんでいません"); return; }
-    const row = (b, i) => [i + 1, b.name, isNaN(b.elev) ? "" : b.elev.toFixed(1), b.depth.toFixed(1), (+b.lat).toFixed(6), (+b.lon).toFixed(6), b.source || ""];
+    const row = (b, i) => [i + 1, withNick(b), isNaN(b.elev) ? "" : b.elev.toFixed(1), b.depth.toFixed(1), (+b.lat).toFixed(6), (+b.lon).toFixed(6), b.source || ""];
     let html = "<h3>📋 えらんだ柱の一覧（" + list.length + "本）</h3>" +
       '<p class="hint">名前を押すと、その柱状図が開きます。' + (S.onlyOn ? "番号は、3Dプリンター用データの「地点1・2…」と同じです。" : "☰パネルで「えらんだ柱だけ」にすると、番号が3Dプリンター用データの「地点1・2…」と同じになります。") + "</p>" +
       '<table class="sellist"><tr><th>番号</th><th>柱状図の名前</th><th>地面の標高</th><th>深さ</th></tr>' +
-      list.map((b, i) => "<tr><td>" + (i + 1) + '</td><td><a href="#" data-go="' + esc(b.id) + '">' + esc(b.name) + "</a></td><td>" + (isNaN(b.elev) ? "−" : b.elev.toFixed(1) + "m") + "</td><td>" + b.depth.toFixed(1) + "m</td></tr>").join("") + "</table>" +
+      list.map((b, i) => "<tr><td>" + (i + 1) + '</td><td><a href="#" data-go="' + esc(b.id) + '">' + (nickOf(b.id) ? "<b>🏷 " + esc(nickOf(b.id)) + "</b><br>" : "") + esc(b.name) + "</a></td><td>" + (isNaN(b.elev) ? "−" : b.elev.toFixed(1) + "m") + "</td><td>" + b.depth.toFixed(1) + "m</td></tr>").join("") + "</table>" +
       '<div class="actions"><button type="button" id="slCopy">📋 名前をコピー</button><button type="button" id="slCsv">💾 表をファイルに保存（Excelで開ける）</button></div>';
     openDetail(html);
     $("detailBody").querySelectorAll("[data-go]").forEach((a) => (a.onclick = (e) => { e.preventDefault(); const b = list.find((x) => x.id === a.dataset.go); if (b) { focusOn(b.x, b.z, groundAt(b.x, b.z)); showBore(b.id); } }));
     $("slCopy").onclick = async () => {
-      const txt = list.map((b, i) => (i + 1) + "　" + b.name).join("\n");
+      const txt = list.map((b, i) => (i + 1) + "　" + withNick(b)).join("\n");
       try { await navigator.clipboard.writeText(txt); flashHint("📋 " + list.length + "本の名前をコピーしました"); } catch (e) { prompt("これをコピーしてください", txt); }
     };
     $("slCsv").onclick = () => {
@@ -1056,6 +1058,19 @@
   function shortName(n) { return n.length > 12 ? n.slice(0, 11) + "…" : n; }
   /** 模型の旗の名前：切らずに、12文字ごとに折り返して全部出す */
   function fullName(n) { return wrapText(String(n).trim(), 12); }
+  // ---------- 柱状図につける名前（先生が自由につける。元の名前の上に出す） ----------
+  //  この端末に残す。配るリンク・先生に共有するリンクにも入る（子どもはその画面の間だけ）
+  function nickOf(id) { const n = (S.nicksShared && S.nicksShared[id]) || (S.nicks || {})[id]; return n ? String(n) : ""; }
+  const withNick = (b) => { const n = nickOf(b.id); return n ? n + "（" + b.name + "）" : b.name; };
+  function setNick(id, name) {
+    S.nicks = store.get(key("boreNick"), {});
+    name = String(name || "").trim().slice(0, 30);
+    if (name) S.nicks[id] = name; else delete S.nicks[id];
+    if (S.nicksShared) delete S.nicksShared[id];
+    store.set(key("boreNick"), S.nicks);
+    buildBores(); applyVisibility(); S.dcDirty = true;
+    if (S.section) openSectionSheet();
+  }
 
   // ---------- 目印（学校・駅など） ----------
   function buildLabels() {
@@ -2071,7 +2086,7 @@
         (S.peel ? "<br>はがした地層は、はがしたままの形で作ります" : "") + (S.section ? "<br>※ 切った模型は、切る前の四角い形で作ります" : "");
       $("prInfo").innerHTML += "<br>裏の穴：" + (o.holeD ? "<b>" + o.holeBores.length + "か所・直径" + o.holeD + "mm</b>（底から、地面の" + HOLE_SKIN + "mm下まで。穴が入るように土台は" + o.baseMM + "mm）" : "あけない");
       const pl = o.bores.length ? o.bores : o.holeBores;
-      if (pl.length) $("prInfo").innerHTML += '<details class="hint"><summary>地点の番号と柱状図（' + pl.length + "か所）</summary><ol>" + pl.map((b) => "<li>" + esc(b.name) + "</li>").join("") + "</ol>Bambu Studio の部品の一覧にも「地点1：…」の名前で出ます。</details>";
+      if (pl.length) $("prInfo").innerHTML += '<details class="hint"><summary>地点の番号と柱状図（' + pl.length + "か所）</summary><ol>" + pl.map((b) => "<li>" + esc(withNick(b)) + "</li>").join("") + "</ol>Bambu Studio の部品の一覧にも「地点1：…」の名前で出ます。</details>";
       $("prInfo").innerHTML += "<br>柱状図の地点の印：" + (o.bores.length ? "<b>" + o.bores.length + "か所</b>（いま画面に出している柱。☰パネルの「📍 表示する柱をえらぶ」で しぼれます）。印は別の部品（赤）になるので、Bambu Studio で色をつけられます" : "付けない");
       $("prFmt").querySelector('[value="stl"]').disabled = o.color;
       if (o.color && $("prFmt").value === "stl") $("prFmt").value = "3mf";
@@ -2157,7 +2172,7 @@
     // 印は1か所ずつ別の部品にして、部品の名前を「地点①：柱状図の名前」にする（Bambu Studio の一覧で、どの印がどの柱状図か分かる）
     const g = S.grid, k = o.k, r = Math.max(1.5, Math.min(2.5, o.sizeMM / 100)), out = [];
     o.bores.forEach((b, n) => {
-      const cx = (b.x + g.half) * k, cy = (g.half - b.z) * k, part = { name: "地点" + (n + 1) + "：" + b.name, color: "#d0342c", V: [], T: [] };
+      const cx = (b.x + g.half) * k, cy = (g.half - b.z) * k, part = { name: "地点" + (n + 1) + "：" + withNick(b), color: "#d0342c", V: [], T: [] };
       // まわりの地面がでこぼこでも、印が地面からうかないように、いちばん低い所からうめる
       let zLow = Infinity, zHigh = -Infinity;
       for (const [dx, dz] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) {
@@ -3081,7 +3096,7 @@
     for (const b of S.bores) {
       const p = project(b.x, b.z);
       if (p.off > near || isNaN(b.elev)) continue;
-      bores.push({ id: b.id, d: p.d, off: p.off, elev: boreTop(b), depth: b.depth, name: b.name, sample: b.sample, hidden: S.hiddenBores.has(b.id), mark: S.boreMarks[b.id] || null,
+      bores.push({ id: b.id, d: p.d, off: p.off, elev: boreTop(b), depth: b.depth, name: nickOf(b.id) || b.name, sample: b.sample, hidden: S.hiddenBores.has(b.id), mark: S.boreMarks[b.id] || null,
         // ボーリングは「わかっている事実」なので、地層をかくしている時も本当の色で
         segs: b.segs.map((s) => ({ from: s.from, to: s.to, color: segColor(s), name: segName(s), pat: patOf(s) })) });
     }
@@ -3402,7 +3417,8 @@
       '<button type="button" data-mc=""' + (cur ? "" : ' class="on"') + '>なし</button>' +
       MARK_COLORS.map((m) => '<button type="button" class="sw' + (cur === m.c ? " on" : "") + '" data-mc="' + m.c + '" title="' + m.n + '" style="background:' + m.c + '"></button>').join("") +
       (Object.keys(S.boreMarks).length ? '<button type="button" id="dMarkClear" class="link">全部もどす</button>' : "") + "</div>";
-    let html = "<h3>" + esc(b.name) + "</h3>";
+    const nk = nickOf(id);
+    let html = (nk ? '<div class="nick">🏷 ' + esc(nk) + "</div>" : "") + "<h3" + (nk ? ' class="sub"' : "") + ">" + esc(b.name) + "</h3>";
     const bph = borePhotoOf(id);
     // 名前のすぐ下に柱状図（子どもが名前と柱状図を1つの画面で見て、根拠にできるように）
     html += '<div class="elevtop">地面の標高：<b>' + elevTxt + "</b> " + (typeof b.elevation === "number" ? demTxt : "") + "</div>";
@@ -3435,13 +3451,18 @@
         (S.kid ? '<p class="hint">つけた写真は、この端末の中だけに残ります。</p>' : "") : "") + "</div>";
 
     const inSel = (S.boreSel || S.onlySel || new Set()).has(id), nSel = (S.boreSel || S.onlySel || new Set()).size;
-    html = html.replace("</h3>", "</h3>" + '<div class="selrow"><button id="dSel" type="button" class="' + (inSel ? "on" : "") + '">' + (inSel ? "✅ えらんだ柱に入っています（押すと外す）" : "📍 えらんだ柱に入れる") + '</button><small>えらんだ柱：' + nSel + "本</small></div>");
+    html = html.replace("</h3>", "</h3>" + (S.teacher && !S.kid ? '<div class="nickrow"><button type="button" id="dNick" class="mini">🏷 ' + (nk ? "名前を変える" : "名前をつける") + "</button></div>" : "") + '<div class="selrow"><button id="dSel" type="button" class="' + (inSel ? "on" : "") + '">' + (inSel ? "✅ えらんだ柱に入っています（押すと外す）" : "📍 えらんだ柱に入れる") + '</button><small>えらんだ柱：' + nSel + "本</small></div>");
     html += '<div class="actions"><button id="dCard">📝 記録カードをつくる</button><button id="dFocus">🎯 近づいて見る</button><button id="dSec">✂️ ここを通る断面</button>' +
       (S.teacher && !b.sample ? '<button id="dEdit">✏️ 編集</button>' : "") + "</div>" + strawTable();
     openDetail(html);
     $("detail").dataset.bore = id;
     $("dCard").onclick = () => makeRecordCard(b);
     $("dSel").onclick = () => { toggleOnlySel(id); showBore(id); };
+    if ($("dNick")) $("dNick").onclick = () => {
+      const v = prompt("この柱状図につける名前（元の名前の上に出ます。空にすると消えます）\n例：学校の校庭・川のそば・A地点", nickOf(id));
+      if (v == null) return;
+      setNick(id, v); showBore(id); flashHint(v.trim() ? "🏷 名前をつけました" : "🏷 つけた名前を消しました");
+    };
     document.querySelectorAll("#detailBody .markrow [data-mc]").forEach((btn) => (btn.onclick = () => { setBoreMark(id, btn.dataset.mc); showBore(id); }));
     if ($("dMarkClear")) $("dMarkClear").onclick = () => {
       if (!confirm("目立たせた柱を、全部もとの色にもどしますか？")) return;
@@ -3487,7 +3508,7 @@
     g.strokeStyle = "#1f7a8c"; g.lineWidth = 6; g.strokeRect(12, 12, W - 24, H - 24);
     g.fillStyle = "#1f2a33"; g.font = "bold 40px " + font; g.fillText("地面の下のようす（柱状図）", 40, 80);
     g.font = "24px " + font;
-    g.fillText("場所：" + b.name, 40, 125);
+    g.fillText("場所：" + withNick(b), 40, 125);
     g.fillText("地面の標高：約" + Math.round(b.elev) + "m　　掘った深さ：" + b.depth.toFixed(1) + "m", 40, 160);
     g.fillText("月　　日（　　）　名前・班：", 40, 200);
     g.strokeStyle = "#999"; g.lineWidth = 1; g.beginPath(); g.moveTo(420, 205); g.lineTo(W - 40, 205); g.stroke();
@@ -4992,6 +5013,7 @@
     if (S.labelK !== 0.8) st.lk = S.labelK;
     if (!S.declutter) st.nodc = 1;
     if (S.wallBlank) st.wb = 1; // まわりの側面の地層をかくす
+    const nk = Object.assign({}, S.nicks || {}, S.nicksShared || {}); if (Object.keys(nk).length) st.nk = nk; // 柱状図につけた名前
     st.hst = S.hideStrata ? 1 : 0; // 地下の地層をかくす（はじめはかくす）
     if (S.showYato) st.yato = 1;
     if (S.lift) st.lift = 1;
@@ -5026,6 +5048,11 @@
   /** リンクの中身を、画面にあてはめる */
   async function applyShared(st) {
     if (st.form) S.formCfg = st.form; // 子どもの画面にも送り先を
+    if (st.nk && typeof st.nk === "object") {
+      // 柱状図につけた名前：子どもはこの画面の間だけ。先生は、この端末の名前に足す（同じ柱は送られた名前にする）
+      const clean = {}; for (const [k, v] of Object.entries(st.nk)) if (typeof v === "string" && v.trim()) clean[k] = v.trim().slice(0, 30);
+      if (st.kid) S.nicksShared = clean; else { S.nicks = Object.assign(store.get(key("boreNick"), {}), clean); store.set(key("boreNick"), S.nicks); }
+    }
     if (st.kid) {
       S.kid = st.kid;
       document.querySelectorAll(".teacher-switch, #teacherTools").forEach((e) => e.classList.add("hidden"));
